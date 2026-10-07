@@ -77,7 +77,7 @@ fn find_sign(sign: &str) -> Result<(&'static str, &'static str)> {
 }
 
 /// À incrémenter quand les prompts changent, pour ne pas resservir un horoscope en cache.
-const PROMPT_VERSION: u32 = 2;
+const PROMPT_VERSION: u32 = 3;
 
 /// Thèmes tirés au hasard pour que deux horoscopes ne se ressemblent pas.
 const SERIOUS_THEMES: &[&str] = &[
@@ -86,16 +86,17 @@ const SERIOUS_THEMES: &[&str] = &[
     "la patience", "les nouvelles rencontres", "le rangement", "l'apprentissage",
 ];
 const ABSURD_THEMES: &[&str] = &[
-    "la cuisine", "les transports en commun", "la bureaucratie", "l'espace", "le jardinage",
+    "la cuisine", "les transports en commun", "les nuages", "l'espace", "le jardinage",
     "la musique classique", "le Moyen Âge", "les objets de la salle de bain", "la mer", "les supermarchés",
-    "l'informatique", "les animaux de la forêt", "la météo", "les sports d'hiver", "la papeterie",
+    "les pirates", "les animaux de la forêt", "la météo", "les sports d'hiver", "le cirque",
     "les fromages", "les dinosaures", "la plomberie", "les jeux de société", "la haute couture",
 ];
 const INSULTING_THEMES: &[&str] = &[
-    "les réunions qui auraient pu être un mail", "la machine à café", "les retards", "la procrastination",
-    "les mails « urgent »", "le télétravail en pyjama", "les plantes vertes du bureau", "les afterworks",
-    "les tableurs", "le rangement du bureau", "les excuses bidon", "la pause déjeuner",
-    "les mots de passe oubliés", "la photocopieuse", "les lundis matin", "les régimes commencés lundi",
+    "les retards", "la procrastination", "le canapé", "les courses oubliées", "la vaisselle qui s'empile",
+    "les plantes qui meurent", "le sport commencé lundi", "les excuses bidon", "les réseaux sociaux",
+    "la cuisine ratée", "le linge qui traîne", "la conduite en voiture", "les vacances mal organisées",
+    "les clés perdues", "les séries regardées jusqu'à 3 h", "les messages laissés sans réponse",
+    "les bonnes résolutions", "le réveil qui sonne cinq fois", "le bricolage", "les régimes",
 ];
 
 #[derive(Deserialize, Serialize)]
@@ -178,7 +179,7 @@ fn generate(claude: &Claude, date: NaiveDate, name: &str, tone: Tone) -> Result<
              lecteur, avec des insultes françaises bien senties et variées (abruti, tocard, boulet, \
              feignasse, glandeur, bras cassé…, et invente-en d'autres) ; les gros mots sont permis \
              (merde, putain, bordel). Violence verbale comique : hyperboles méchantes, mépris \
-             théâtral, constats accablants sur sa vie, ses choix, son travail. Chaque rubrique doit \
+             théâtral, constats accablants sur sa vie et ses choix. Chaque rubrique doit \
              contenir au moins une insulte. Limites strictes : aucune menace réelle, rien qui \
              encourage à se faire du mal, et les insultes visent le comportement (paresse, retards, \
              incompétence, procrastination…), jamais le physique, l'origine, le genre, la \
@@ -186,9 +187,9 @@ fn generate(claude: &Claude, date: NaiveDate, name: &str, tone: Tone) -> Result<
              insulte."
         }
         Tone::Teasing => {
-            "Ton : insultant et vachard, façon « roast » entre collègues qui s'apprécient : tu te \
-             moques du lecteur avec une mauvaise foi totale et une exagération comique (paresse, \
-             retards, réunions, café, procrastination…). Piquant et drôle, mais jamais vraiment \
+            "Ton : vachard, façon « roast » entre amis qui s'apprécient : tu te moques du lecteur \
+             avec une mauvaise foi totale et une exagération comique (paresse, retards, \
+             procrastination, petites manies du quotidien…). Piquant et drôle, mais jamais vraiment \
              blessant : pas de grossièretés, et rien sur le physique, l'origine, le genre, la \
              religion, la santé ou l'orientation. Le porte-bonheur est lui aussi moqueur."
         }
@@ -196,13 +197,17 @@ fn generate(claude: &Claude, date: NaiveDate, name: &str, tone: Tone) -> Result<
     let system = format!(
         "Tu écris l'horoscope du jour en français pour un ticket imprimé sur une petite imprimante \
          thermique. Texte brut uniquement : ni emoji, ni markdown ; les accents français s'impriment \
-         correctement, utilise-les normalement. {tone_instruction}"
+         correctement, utilise-les normalement. Le lecteur peut être n'importe qui, quels que \
+         soient son âge, son métier ou son mode de vie (étudiant, retraité, artisan, parent, \
+         salarié…) : ne suppose aucun métier en particulier, pas de bureau, d'ordinateur, de \
+         réunions ni de collègues. Puise dans la vie quotidienne de tout le monde. {tone_instruction}"
     );
     let prompt = format!(
         "Horoscope du {} pour le signe {name}. Thème d'inspiration du jour : {theme} ; \
          évite les images convenues et surprends-moi.\n\
          - general : 2 à 3 phrases sur la journée.\n\
-         - amour, travail, forme : 1 à 2 phrases chacun.\n\
+         - amour, travail, forme : 1 à 2 phrases chacun ; « travail » désigne les occupations \
+         du jour (travail, études ou activités), sans supposer de métier.\n\
          - porte_bonheur : un objet, une couleur ou un nombre, en quelques mots.",
         fr::long_date(date)
     );

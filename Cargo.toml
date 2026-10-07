@@ -11,6 +11,7 @@ chrono = { version = "0.4.45", features = ["serde"] }
 clap = { version = "4.6.7", features = ["derive", "env"] }
 escpos = { version = "0.20.0", features = ["graphics"] }
 image = "0.25"
+qrcode = { version = "0.14.1", default-features = false }
 rand = "0.10.3"
 rss = "2.1.2"
 serde = { version = "1.0.229", features = ["derive"] }

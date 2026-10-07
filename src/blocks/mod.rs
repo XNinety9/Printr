@@ -7,6 +7,7 @@ mod holidays;
 mod horoscope;
 mod maze;
 mod moon;
+mod news;
 mod on_this_day;
 mod quote;
 mod saint;
@@ -45,6 +46,9 @@ fn default_coins() -> Vec<String> {
 }
 fn default_currency() -> String {
     "eur".to_owned()
+}
+fn default_country() -> String {
+    "France".to_owned()
 }
 
 #[derive(Deserialize)]
@@ -171,6 +175,23 @@ pub enum Block {
         #[serde(default)]
         show_answer: bool,
     },
+    /// Actualités d'un pays, rédigées par Claude après recherche web.
+    News {
+        #[serde(default = "default_country")]
+        country: String,
+        #[serde(default = "three")]
+        count: u8,
+        /// Nombre de QR codes vers les articles les plus intéressants (0 à 2).
+        #[serde(default = "two")]
+        qr: u8,
+    },
+    /// Actualités internationales.
+    WorldNews {
+        #[serde(default = "three")]
+        count: u8,
+        #[serde(default = "two")]
+        qr: u8,
+    },
 }
 
 /// Ressources partagées par les blocs.
@@ -230,6 +251,8 @@ impl Block {
             Block::Crypto { .. } => "crypto",
             Block::Sun { .. } => "lever/coucher du soleil",
             Block::Challenge { .. } => "défi du jour",
+            Block::News { .. } => "actualités",
+            Block::WorldNews { .. } => "actualités internationales",
         }
     }
 
@@ -245,6 +268,7 @@ impl Block {
             Block::Countdown { label, .. } => Some(label.clone()),
             Block::Crypto { coins, .. } => Some(coins.join(", ")),
             Block::Sun { location } => Some(location.clone()),
+            Block::News { country, .. } => Some(country.clone()),
             Block::Image { path, url, .. } => path.as_ref().or(url.as_ref()).map(|p| {
                 p.rsplit('/').next().unwrap_or(p).to_owned()
             }),
@@ -333,6 +357,8 @@ impl Block {
             Block::Crypto { coins, currency } => doc = crypto::build(&ctx.http, coins, currency)?,
             Block::Sun { location } => doc = sun::build(ctx, location)?,
             Block::Challenge { show_answer } => doc = challenge::build(ctx.today, *show_answer),
+            Block::News { country, count, qr } => doc = news::build(ctx, news::Scope::Country(country), *count, *qr)?,
+            Block::WorldNews { count, qr } => doc = news::build(ctx, news::Scope::World, *count, *qr)?,
         }
         Ok(doc)
     }
