@@ -1,0 +1,11 @@
+# Émulateur de la TM-T88V : `uvx emupos run` depuis ce dossier,
+# puis `printr --tcp 127.0.0.1:9100 test`. Les tickets arrivent dans ./receipts.
+schema: 1
+
+devices:
+  - id: tm88
+    type: printer
+    profile: ./epson-tm-t88v.yaml
+    connections:
+      - tcp: { port: 9100 }
+    receipts_dir: ./receipts

@@ -1,0 +1,31 @@
+{
+  "cut": true,
+  "spacing": 1,
+  "blocks": [
+    { "type": "title", "text": "Bonjour !" },
+    { "type": "date" },
+    { "type": "saint" },
+    { "type": "holidays" },
+    { "type": "countdown", "label": "Noël", "date": "2026-12-25" },
+    { "type": "separator", "style": "═" },
+    { "type": "weather", "location": "Mérignac", "days": 3 },
+    { "type": "sun", "location": "Mérignac" },
+    { "type": "air_quality", "location": "Mérignac" },
+    { "type": "moon" },
+    { "type": "horoscope", "sign": "scorpion", "tone": "serieux" },
+    { "type": "horoscope", "sign": "gémeaux", "tone": "farfelu" },
+    { "type": "horoscope", "sign": "lion", "tone": "vachard" },
+    { "type": "horoscope", "sign": "vierge", "tone": "insultant" },
+    { "type": "word_of_the_day" },
+    { "type": "quote" },
+    { "type": "on_this_day", "count": 3 },
+    { "type": "challenge" },
+    { "type": "crypto", "coins": ["bitcoin", "ethereum"] },
+    { "type": "todo", "items": ["Acheter du papier thermique", "Appeler maman", "Brancher la TM-T88V sur le Raspberry Pi"] },
+    { "type": "sudoku", "difficulty": "moyen" },
+    { "type": "maze", "width": 10, "height": 12 },
+    { "type": "separator", "style": "─" },
+    { "type": "text", "text": "Imprimé par printr", "small": true, "align": "center" },
+    { "type": "qr", "data": "https://open-meteo.com", "size": 4, "caption": "Météo : Open-Meteo" }
+  ]
+}

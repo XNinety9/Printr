@@ -1,0 +1,29 @@
+# Epson TM-T88V, 80 mm thermal receipt printer — profil emupos.
+# Géométrie : 512 points à 180 dpi sur papier 80 mm ; Font A 12x24, Font B 9x17.
+# Numéros de pages de code : référence Epson ESC/POS, "ESC t".
+type: printer
+name: Epson TM-T88V
+dpi: 180
+width_dots: 512
+font_a: { width: 12, height: 24 }
+font_b: { width: 9, height: 17 }
+code_pages:
+  0: PC437
+  2: PC850
+  3: PC860
+  4: PC863
+  5: PC865
+  16: WPC1252
+  17: PC866
+  18: PC852
+  19: PC858
+default_code_page: 0
+drawer_sensor_open_level: high
+# Réponse à GS I : valeurs approximatives (non vérifiées sur la vraie imprimante).
+printer_id:
+  model: 0x20
+  autocutter: true
+  maker: EPSON
+  name: TM-T88V
+  column_emulation_mode: false
+serial: { baud: 38400, data_bits: 8, parity: none, stop_bits: 1 }

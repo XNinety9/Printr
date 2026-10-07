@@ -1,0 +1,7 @@
+# Epson TM-T88V (USB, VID 04b8) :
+# - accès en écriture pour le groupe lp (service sur le Raspberry Pi) ;
+# - accès direct pour l'utilisateur connecté au poste (uaccess, sans changer de groupe) ;
+# - lien stable /dev/tm88 vers /dev/usb/lpX.
+# Le numéro 70 est nécessaire : uaccess doit être posé avant 73-seat-late.rules.
+# Installation : sudo cp 70-tm-t88v.rules /etc/udev/rules.d/ && sudo udevadm control --reload && sudo udevadm trigger
+SUBSYSTEM=="usbmisc", KERNEL=="lp[0-9]*", ATTRS{idVendor}=="04b8", MODE="0660", GROUP="lp", TAG+="uaccess", SYMLINK+="tm88"
