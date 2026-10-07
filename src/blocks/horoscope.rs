@@ -126,6 +126,7 @@ pub fn build(ctx: &Ctx, sign: &str, tone: Tone) -> Result<Doc> {
     let from_cache = cached.is_some();
     let h = match cached {
         Some(h) => h,
+        None if ctx.preview => return Ok(super::ai_placeholder(&format!("Horoscope · {name}"), "L'horoscope")),
         None => {
             let claude = ctx.claude.as_ref().context("ANTHROPIC_API_KEY manquante")?;
             // Une réponse incomplète est rare : on retente une fois avant d'abandonner.

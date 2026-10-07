@@ -4,6 +4,8 @@
 #   sudo cp printr.env.example /etc/printr.env && sudo chmod 600 /etc/printr.env  (puis l'éditer)
 #   sudo cp printr.service /etc/systemd/system/
 #   sudo systemctl daemon-reload && sudo systemctl enable --now printr
+#   sudo PRINTR_DATA_DIR=/var/lib/printr printr user add Prénom   # un compte par personne
+#   sudo systemctl restart printr   # systemd redonne les fichiers au service
 #   journalctl -u printr -f    # pour suivre les requêtes
 [Unit]
 Description=printr, serveur d'impression de tickets
@@ -24,6 +26,8 @@ ProtectHome=yes
 PrivateTmp=yes
 # Cache des contenus du jour (horoscopes, mots du jour) : /var/cache/printr.
 CacheDirectory=printr
+# Comptes, presets, planifications, historique et photos : /var/lib/printr.
+StateDirectory=printr
 
 [Install]
 WantedBy=multi-user.target

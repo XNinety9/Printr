@@ -102,10 +102,36 @@ mêmes résultats, sans nouvel appel. `--refresh` force une nouvelle génératio
 `~/.cache/printr` (ou `$PRINTR_CACHE_DIR`, ou `/var/cache/printr` avec le service systemd).
 `PRINTR_DEBUG=1` affiche les réponses brutes de l'API.
 
+## Interface web
+
+`printr serve` sert une interface web pensée pour le téléphone comme pour l'ordinateur :
+
+- **Composer** : ajouter, régler et réordonner des blocs, avec l'aperçu du ticket en direct.
+  Les blocs Claude (horoscope, mot du jour) n'appellent pas l'API en aperçu : ils ne coûtent
+  qu'à l'impression.
+- **Mes tickets** : les tickets enregistrés (presets), à imprimer en un geste, à partager avec
+  la famille et à **planifier** (jours et heure). Une échéance manquée de plus de 15 minutes
+  n'est pas rattrapée.
+- **Petit mot** : une photo prise avec le téléphone, un dessin (cœur, étoile…), quelques mots.
+- **Historique** : qui a imprimé quoi, et les éventuelles erreurs.
+
+Chaque membre de la famille a son compte :
+
+```sh
+printr user add Camille       # demande le mot de passe (ou le lit sur l'entrée standard)
+printr user passwd Camille
+printr user remove Camille
+printr user list
+```
+
+Les données (comptes, presets, historique, photos) vivent dans `$PRINTR_DATA_DIR`, sinon
+`~/.local/share/printr`, ou `/var/lib/printr` avec le service systemd. Pour travailler sur
+l'interface sans recompiler : `PRINTR_WEB_DIR=web printr serve`.
+
 ## Serveur HTTP
 
 ```sh
-PRINTR_TOKEN=$(openssl rand -hex 24) printr serve --listen 0.0.0.0:8080
+printr serve --listen 0.0.0.0:8080 --token $(openssl rand -hex 24)   # jeton : optionnel
 ```
 
 | Route | Corps | Effet |
@@ -114,7 +140,7 @@ PRINTR_TOKEN=$(openssl rand -hex 24) printr serve --listen 0.0.0.0:8080
 | `POST /print` | Un ticket JSON | Imprime le ticket |
 | `POST /todo` | `{"title"?, "items"?: [...], "text"?: "une\nligne\npar\nélément"}` | Imprime la date et une liste à cocher |
 
-Les `POST` exigent l'en-tête `Authorization: Bearer <jeton>`. Ajouter `?preview` renvoie
+Pour les scripts, les `POST` exigent l'en-tête `Authorization: Bearer <jeton>` (défini avec `--token`). Ajouter `?preview` renvoie
 l'aperçu texte sans imprimer. La réponse est `{"ok": true, "errors": [...]}`, où `errors` liste
 les blocs en échec. Les requêtes sont traitées une par une : deux impressions ne se mélangent jamais.
 

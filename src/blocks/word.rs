@@ -41,6 +41,7 @@ pub fn build(ctx: &Ctx) -> Result<Doc> {
     let from_cache = cached.is_some();
     let w = match cached {
         Some(w) => w,
+        None if ctx.preview => return Ok(super::ai_placeholder("Mot du jour", "Le mot du jour")),
         None => {
             let claude = ctx.claude.as_ref().context("ANTHROPIC_API_KEY manquante")?;
             let past = cache.map(|c| c.history("mots-du-jour.txt", HISTORY)).unwrap_or_default();

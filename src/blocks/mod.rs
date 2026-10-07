@@ -8,6 +8,7 @@ mod maze;
 mod moon;
 mod news;
 mod on_this_day;
+mod picto;
 mod quote;
 mod riddle;
 mod saint;
@@ -101,6 +102,9 @@ pub enum Block {
         path: Option<String>,
         #[serde(default)]
         url: Option<String>,
+        /// Photo envoyée depuis l'interface web (identifiant).
+        #[serde(default)]
+        upload: Option<String>,
         #[serde(default = "yes")]
         dither: bool,
     },
@@ -172,6 +176,14 @@ pub enum Block {
     Sun {
         location: String,
     },
+    /// Pictogramme dessiné : cœur, étoile, soleil, fleur, sourire.
+    Picto {
+        shape: picto::Shape,
+        #[serde(default)]
+        size: picto::Size,
+        #[serde(default = "one")]
+        count: u8,
+    },
     /// Défi sportif du jour, sans équipement.
     #[serde(alias = "defi_sportif")]
     Workout {
@@ -223,6 +235,8 @@ pub struct Ctx {
     pub cache: Option<Cache>,
     /// Ignore le contenu du cache (mais le met à jour).
     pub refresh: bool,
+    /// Aperçu : aucun appel payant (Claude) ; les blocs concernés affichent un texte d'attente.
+    pub preview: bool,
 }
 
 impl Ctx {
@@ -234,8 +248,23 @@ impl Ctx {
             claude: Claude::from_env(),
             cache: Cache::open(),
             refresh,
+            preview: false,
         }
     }
+
+    pub fn for_preview(mut self) -> Self {
+        self.preview = true;
+        self
+    }
+}
+
+/// Texte d'attente d'un bloc généré par Claude, en aperçu (le vrai texte coûte un appel).
+pub fn ai_placeholder(title: &str, what: &str) -> Doc {
+    let mut doc = Doc::new();
+    doc.header(title);
+    doc.feed(1);
+    doc.text(&format!("{what} sera rédigé par Claude au moment de l'impression."), Style::default().center());
+    doc
 }
 
 /// Bilan de la construction d'un bloc, pour la console et les réponses HTTP.
@@ -273,6 +302,7 @@ impl Block {
             Block::Sun { .. } => "lever/coucher du soleil",
             Block::Riddle { .. } => "énigme",
             Block::Workout { .. } => "défi sportif",
+            Block::Picto { .. } => "pictogramme",
             Block::News { .. } => "actualités",
         }
     }
@@ -291,7 +321,8 @@ impl Block {
             Block::Sun { location } => Some(location.clone()),
             Block::News { title, .. } => Some(title.clone()),
             Block::Workout { level, .. } => Some(level.label().to_owned()),
-            Block::Image { path, url, .. } => path.as_ref().or(url.as_ref()).map(|p| {
+            Block::Picto { shape, .. } => Some(shape.label().to_owned()),
+            Block::Image { path, url, upload, .. } => path.as_ref().or(url.as_ref()).or(upload.as_ref()).map(|p| {
                 p.rsplit('/').next().unwrap_or(p).to_owned()
             }),
             _ => None,
@@ -321,10 +352,15 @@ impl Block {
             Block::Feed { lines } => {
                 doc.feed(*lines);
             }
-            Block::Image { path, url, dither } => {
-                let img = match (path, url) {
-                    (Some(path), None) => raster::load(path.as_ref(), *dither)?,
-                    (None, Some(url)) => {
+            Block::Image { path, url, upload, dither } => {
+                let img = match (path, url, upload) {
+                    (None, None, Some(id)) => {
+                        anyhow::ensure!(id.chars().all(|c| c.is_ascii_hexdigit()), "photo invalide");
+                        let dir = crate::store::uploads_dir().context("répertoire de données introuvable")?;
+                        raster::load(&dir.join(format!("{id}.png")), *dither)?
+                    }
+                    (Some(path), None, None) => raster::load(path.as_ref(), *dither)?,
+                    (None, Some(url), None) => {
                         let bytes = ctx
                             .http
                             .get(url)
@@ -336,7 +372,7 @@ impl Block {
                             .read_to_vec()?;
                         raster::prepare(&image::load_from_memory(&bytes)?, *dither)
                     }
-                    _ => anyhow::bail!("indiquer soit `path`, soit `url`"),
+                    _ => anyhow::bail!("indiquer `path`, `url` ou `upload` (un seul)"),
                 };
                 doc.image(img);
             }
@@ -380,6 +416,7 @@ impl Block {
             Block::Sun { location } => doc = sun::build(ctx, location)?,
             Block::Riddle { kind, number, answer } => doc = riddle::build(ctx.today, *kind, *number, *answer)?,
             Block::Workout { level, number } => doc = workout::build(ctx.today, *level, *number)?,
+            Block::Picto { shape, size, count } => doc = picto::build(*shape, *size, *count),
             Block::News { title, feeds, count, qr, themes, exclude, max_age_hours } => {
                 let options = news::Options {
                     count: (*count).clamp(1, 5) as usize,
@@ -514,7 +551,7 @@ mod tests {
             r#"{"blocks": [{"type": "text", "text": "avant"}, {"type": "image", "path": "/nope.png"}, {"type": "text", "text": "après"}]}"#,
         )
         .unwrap();
-        let ctx = Ctx { today: NaiveDate::from_ymd_opt(2026, 10, 7).unwrap(), http: ureq::agent(), claude: None, cache: None, refresh: false };
+        let ctx = Ctx { today: NaiveDate::from_ymd_opt(2026, 10, 7).unwrap(), http: ureq::agent(), claude: None, cache: None, refresh: false, preview: false };
         let (doc, reports) = t.build(&ctx, &mut Silent);
         let preview = doc.preview(true);
         assert_eq!(reports.iter().filter(|r| r.error.is_some()).count(), 1);
@@ -538,6 +575,7 @@ mod tests {
             claude: None,
             cache: None,
             refresh: false,
+            preview: false,
         };
         /// Note l'ordre dans lequel les blocs se terminent.
         struct Recorder(Vec<String>);

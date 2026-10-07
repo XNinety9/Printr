@@ -179,10 +179,11 @@ pub fn error(e: &anyhow::Error) {
 }
 
 /// Bannière de démarrage du serveur.
-pub fn banner(listen: &str, destination: &str, claude: Option<&str>, cache: Option<&str>) {
+pub fn banner(listen: &str, destination: &str, claude: Option<&str>, cache: Option<&str>, data: &str, users: usize) {
     let row = |key: &str, value: String| eprintln!("  {DIM}{key:<11}{DIM:#} {value}");
     eprintln!("{BOLD}printr {}{BOLD:#} {DIM}·{DIM:#} serveur prêt", env!("CARGO_PKG_VERSION"));
-    row("écoute", format!("{ACCENT}http://{listen}{ACCENT:#}"));
+    let shown = listen.replace("0.0.0.0", "localhost");
+    row("interface", format!("{ACCENT}http://{shown}{ACCENT:#}"));
     row("imprimante", destination.to_owned());
     row(
         "claude",
@@ -192,6 +193,15 @@ pub fn banner(listen: &str, destination: &str, claude: Option<&str>, cache: Opti
         },
     );
     row("cache", cache.map_or_else(|| format!("{WARN}désactivé{WARN:#}"), str::to_owned));
+    row("données", data.to_owned());
+    row(
+        "comptes",
+        if users == 0 {
+            format!("{WARN}aucun{WARN:#} : crée-en un avec « printr user add <prénom> »")
+        } else {
+            plural(users, "utilisateur")
+        },
+    );
     eprintln!();
 }
 
@@ -205,7 +215,7 @@ pub fn request(method: &str, path: &str, status: u16, from: &str, elapsed: Durat
     };
     let note = if note.is_empty() { String::new() } else { format!("  {note}") };
     eprintln!(
-        "{DIM}{time}{DIM:#}  {BOLD}{method:<4}{BOLD:#} {path:<8} {status_style}{status}{status_style:#}  {DIM}{:>7}  {from}{DIM:#}{note}",
+        "{DIM}{time}{DIM:#}  {BOLD}{method:<6}{BOLD:#} {path:<28} {status_style}{status}{status_style:#}  {DIM}{:>7}  {from}{DIM:#}{note}",
         duration(elapsed)
     );
 }
