@@ -1,7 +1,6 @@
 //! Blocs paramétrables d'un ticket, décrits en JSON.
 
 mod air_quality;
-mod challenge;
 mod crypto;
 mod holidays;
 mod horoscope;
@@ -10,11 +9,13 @@ mod moon;
 mod news;
 mod on_this_day;
 mod quote;
+mod riddle;
 mod saint;
 mod sudoku;
 mod sun;
 mod weather;
 mod word;
+mod workout;
 
 use std::panic::AssertUnwindSafe;
 use std::sync::mpsc;
@@ -171,9 +172,27 @@ pub enum Block {
     Sun {
         location: String,
     },
-    Challenge {
+    /// Défi sportif du jour, sans équipement.
+    #[serde(alias = "defi_sportif")]
+    Workout {
+        /// facile, moyen (défaut) ou difficile.
         #[serde(default)]
-        show_answer: bool,
+        level: workout::Level,
+        #[serde(default)]
+        number: Option<usize>,
+    },
+    /// Énigme du jour (devinette, charade, logique, calcul).
+    #[serde(alias = "enigme")]
+    Riddle {
+        /// Limite à une famille : devinette, charade, logique, calcul.
+        #[serde(default)]
+        kind: Option<riddle::Kind>,
+        /// Numéro d'une énigme précise (imprimé sous chaque énigme).
+        #[serde(default)]
+        number: Option<usize>,
+        /// Réponse : envers (défaut), lendemain, dessous ou aucune.
+        #[serde(default)]
+        answer: riddle::Answer,
     },
     /// Revue de presse à partir de flux RSS, sans IA.
     News {
@@ -252,7 +271,8 @@ impl Block {
             Block::Quote {} => "citation",
             Block::Crypto { .. } => "crypto",
             Block::Sun { .. } => "lever/coucher du soleil",
-            Block::Challenge { .. } => "défi du jour",
+            Block::Riddle { .. } => "énigme",
+            Block::Workout { .. } => "défi sportif",
             Block::News { .. } => "actualités",
         }
     }
@@ -270,6 +290,7 @@ impl Block {
             Block::Crypto { coins, .. } => Some(coins.join(", ")),
             Block::Sun { location } => Some(location.clone()),
             Block::News { title, .. } => Some(title.clone()),
+            Block::Workout { level, .. } => Some(level.label().to_owned()),
             Block::Image { path, url, .. } => path.as_ref().or(url.as_ref()).map(|p| {
                 p.rsplit('/').next().unwrap_or(p).to_owned()
             }),
@@ -288,7 +309,7 @@ impl Block {
                 doc.text(text, Style::default().bold().center().size(*size));
             }
             Block::Text { text, bold, underline, reverse, small, size, align } => {
-                let style = Style { bold: *bold, underline: *underline, reverse: *reverse, small: *small, size: 1, align: *align };
+                let style = Style { bold: *bold, underline: *underline, reverse: *reverse, small: *small, align: *align, ..Style::default() };
                 doc.text(text, style.size(*size));
             }
             Block::Separator { style } => {
@@ -357,7 +378,8 @@ impl Block {
             Block::Quote {} => doc = quote::build(ctx.today),
             Block::Crypto { coins, currency } => doc = crypto::build(&ctx.http, coins, currency)?,
             Block::Sun { location } => doc = sun::build(ctx, location)?,
-            Block::Challenge { show_answer } => doc = challenge::build(ctx.today, *show_answer),
+            Block::Riddle { kind, number, answer } => doc = riddle::build(ctx.today, *kind, *number, *answer)?,
+            Block::Workout { level, number } => doc = workout::build(ctx.today, *level, *number)?,
             Block::News { title, feeds, count, qr, themes, exclude, max_age_hours } => {
                 let options = news::Options {
                     count: (*count).clamp(1, 5) as usize,
@@ -472,12 +494,12 @@ mod tests {
         let t: Ticket = serde_json::from_str(
             r#"{"blocks": [
                 {"type": "sun", "location": "Lyon"},
-                {"type": "challenge"}
+                {"type": "enigme", "kind": "charade", "answer": "lendemain"}
             ]}"#,
         )
         .unwrap();
         assert!(matches!(t.blocks[0], Block::Sun { ref location } if location == "Lyon"));
-        assert!(matches!(t.blocks[1], Block::Challenge { show_answer: false }));
+        assert!(matches!(t.blocks[1], Block::Riddle { kind: Some(riddle::Kind::Charade), .. }));
     }
 
     #[test]

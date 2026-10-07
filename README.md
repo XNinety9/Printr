@@ -69,7 +69,8 @@ Un paramètre inconnu est une erreur, pour repérer les fautes de frappe.
 | `air_quality` | `location` | Indice européen, particules, pollens (Open-Meteo) |
 | `crypto` | `coins` (`["bitcoin", "ethereum"]`, identifiants CoinGecko), `currency` (`eur`) | Cours et variation sur 24 h |
 | `sun` | `location` | Lever, coucher et durée du jour via Open-Meteo, sans clé |
-| `challenge` | `show_answer` (`false`) | Énigme ou question de logique du jour, générée localement |
+| `riddle` (ou `enigme`) | `kind` (`devinette`/`charade`/`logique`/`calcul`), `number`, `answer` (`envers`/`lendemain`/`dessous`/`aucune`) | 125 énigmes, une par jour sans répétition. Par défaut, la réponse est imprimée à l'envers : on retourne le ticket pour la lire |
+| `workout` (ou `defi_sportif`) | `level` (`facile`/`moyen`/`difficile`), `number` | Défi sportif du jour, sans équipement, 25 défis par niveau |
 | `news` | `title`, `feeds` (URL RSS/Atom), `count` (3, max 5), `qr` (2, max 2), `themes`, `exclude`, `max_age_hours` (24) | Revue de presse sans IA : voir ci-dessous |
 
 ### Actualités (`news`)

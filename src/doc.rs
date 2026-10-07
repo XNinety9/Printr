@@ -33,11 +33,21 @@ pub struct Style {
     /// Agrandissement en largeur et hauteur, de 1 à 8.
     pub size: u8,
     pub align: Align,
+    /// Texte imprimé à l'envers (tourné à 180°) : on retourne le ticket pour le lire.
+    pub upside_down: bool,
 }
 
 impl Default for Style {
     fn default() -> Self {
-        Self { bold: false, underline: false, reverse: false, small: false, size: 1, align: Align::Left }
+        Self {
+            bold: false,
+            underline: false,
+            reverse: false,
+            small: false,
+            size: 1,
+            align: Align::Left,
+            upside_down: false,
+        }
     }
 }
 
@@ -59,6 +69,9 @@ impl Style {
     }
     pub fn align(self, align: Align) -> Self {
         Self { align, ..self }
+    }
+    pub fn upside_down(self) -> Self {
+        Self { upside_down: true, ..self }
     }
     pub fn center(self) -> Self {
         self.align(Align::Center)
@@ -101,16 +114,23 @@ impl Doc {
         let prefix = cp858::normalize(prefix);
         let indent = " ".repeat(prefix.chars().count());
         let width = style.columns().saturating_sub(indent.len()).max(1);
+        let mut ops = Vec::new();
         for paragraph in cp858::normalize(text).lines() {
             if paragraph.trim().is_empty() {
-                self.feed(1);
+                ops.push(Op::Feed(1));
                 continue;
             }
             for (i, line) in wrap(paragraph, width).into_iter().enumerate() {
                 let lead = if i == 0 { &prefix } else { &indent };
-                self.ops.push(Op::Line { text: format!("{lead}{line}"), style });
+                ops.push(Op::Line { text: format!("{lead}{line}"), style });
             }
         }
+        // À l'envers, chaque ligne est retournée : on les imprime aussi dans l'ordre inverse
+        // pour que le texte se lise de haut en bas une fois le ticket retourné.
+        if style.upside_down {
+            ops.reverse();
+        }
+        self.ops.extend(ops);
         self
     }
 
@@ -302,6 +322,13 @@ fn styled_line(text: &str, style: &Style) -> (String, usize) {
     if style.reverse {
         ansi = ansi.invert();
     }
+    // Aperçu d'une ligne à l'envers : caractères en ordre inverse, en grisé.
+    let shown = if style.upside_down {
+        ansi = ansi.dimmed();
+        shown.chars().rev().collect()
+    } else {
+        shown
+    };
     (format!("{}{ansi}{shown}{ansi:#}", " ".repeat(margin + pad)), margin + pad + len)
 }
 
@@ -317,7 +344,8 @@ fn apply_style<D: Driver>(printer: &mut Printer<D>, style: &Style) -> Result<()>
         .underline(if style.underline { UnderlineMode::Single } else { UnderlineMode::None })?
         .reverse(style.reverse)?
         .font(if style.small { Font::B } else { Font::A })?
-        .size(style.size, style.size)?;
+        .size(style.size, style.size)?
+        .upside_down(style.upside_down)?;
     Ok(())
 }
 
