@@ -47,8 +47,8 @@ fn default_coins() -> Vec<String> {
 fn default_currency() -> String {
     "eur".to_owned()
 }
-fn default_country() -> String {
-    "France".to_owned()
+fn default_max_age_hours() -> u32 {
+    24
 }
 
 #[derive(Deserialize)]
@@ -175,22 +175,24 @@ pub enum Block {
         #[serde(default)]
         show_answer: bool,
     },
-    /// Actualités d'un pays, rédigées par Claude après recherche web.
+    /// Revue de presse à partir de flux RSS, sans IA.
     News {
-        #[serde(default = "default_country")]
-        country: String,
+        /// Titre du bandeau : « Actualités · <title> ».
+        title: String,
+        feeds: Vec<String>,
         #[serde(default = "three")]
         count: u8,
-        /// Nombre de QR codes vers les articles les plus intéressants (0 à 2).
+        /// Nombre de QR codes vers les articles les mieux classés (0 à 2).
         #[serde(default = "two")]
         qr: u8,
-    },
-    /// Actualités internationales.
-    WorldNews {
-        #[serde(default = "three")]
-        count: u8,
-        #[serde(default = "two")]
-        qr: u8,
+        /// Thèmes à privilégier (mots ou expressions).
+        #[serde(default)]
+        themes: Vec<String>,
+        /// Mots qui écartent un article.
+        #[serde(default)]
+        exclude: Vec<String>,
+        #[serde(default = "default_max_age_hours")]
+        max_age_hours: u32,
     },
 }
 
@@ -252,7 +254,6 @@ impl Block {
             Block::Sun { .. } => "lever/coucher du soleil",
             Block::Challenge { .. } => "défi du jour",
             Block::News { .. } => "actualités",
-            Block::WorldNews { .. } => "actualités internationales",
         }
     }
 
@@ -268,7 +269,7 @@ impl Block {
             Block::Countdown { label, .. } => Some(label.clone()),
             Block::Crypto { coins, .. } => Some(coins.join(", ")),
             Block::Sun { location } => Some(location.clone()),
-            Block::News { country, .. } => Some(country.clone()),
+            Block::News { title, .. } => Some(title.clone()),
             Block::Image { path, url, .. } => path.as_ref().or(url.as_ref()).map(|p| {
                 p.rsplit('/').next().unwrap_or(p).to_owned()
             }),
@@ -357,8 +358,16 @@ impl Block {
             Block::Crypto { coins, currency } => doc = crypto::build(&ctx.http, coins, currency)?,
             Block::Sun { location } => doc = sun::build(ctx, location)?,
             Block::Challenge { show_answer } => doc = challenge::build(ctx.today, *show_answer),
-            Block::News { country, count, qr } => doc = news::build(ctx, news::Scope::Country(country), *count, *qr)?,
-            Block::WorldNews { count, qr } => doc = news::build(ctx, news::Scope::World, *count, *qr)?,
+            Block::News { title, feeds, count, qr, themes, exclude, max_age_hours } => {
+                let options = news::Options {
+                    count: (*count).clamp(1, 5) as usize,
+                    qr: *qr as usize,
+                    themes,
+                    exclude,
+                    max_age: chrono::Duration::hours(*max_age_hours as i64),
+                };
+                doc = news::build(ctx, title, feeds, &options)?;
+            }
         }
         Ok(doc)
     }

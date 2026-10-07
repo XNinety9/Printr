@@ -53,11 +53,19 @@ pub fn digit(img: &mut GrayImage, d: u8, x: i64, y: i64, scale: i64) {
 /// Les QR codes natifs de l'imprimante ne se placent pas côte à côte : on les dessine en raster.
 pub fn qr_row(data: &[&str]) -> anyhow::Result<GrayImage> {
     anyhow::ensure!((1..=2).contains(&data.len()), "une rangée contient un ou deux QR codes");
+    let qr_error = |e| anyhow::anyhow!("QR code impossible : {e}");
     let codes = data
         .iter()
         .map(|d| qrcode::QrCode::new(d.as_bytes()))
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| anyhow::anyhow!("QR code impossible : {e}"))?;
+        .map_err(qr_error)?;
+    // Même version (donc même taille) pour tous les codes de la rangée.
+    let version = codes.iter().map(|c| c.version()).max_by_key(|v| v.width()).expect("au moins un code");
+    let codes = data
+        .iter()
+        .map(|d| qrcode::QrCode::with_version(d.as_bytes(), version, qrcode::EcLevel::M))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(qr_error)?;
 
     const QUIET: i64 = 4; // marge blanche réglementaire, en modules
     let column = PRINT_WIDTH as i64 / codes.len() as i64;

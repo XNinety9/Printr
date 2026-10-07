@@ -70,6 +70,28 @@ Un paramètre inconnu est une erreur, pour repérer les fautes de frappe.
 | `crypto` | `coins` (`["bitcoin", "ethereum"]`, identifiants CoinGecko), `currency` (`eur`) | Cours et variation sur 24 h |
 | `sun` | `location` | Lever, coucher et durée du jour via Open-Meteo, sans clé |
 | `challenge` | `show_answer` (`false`) | Énigme ou question de logique du jour, générée localement |
+| `news` | `title`, `feeds` (URL RSS/Atom), `count` (3, max 5), `qr` (2, max 2), `themes`, `exclude`, `max_age_hours` (24) | Revue de presse sans IA : voir ci-dessous |
+
+### Actualités (`news`)
+
+Le bloc lit les flux RSS ou Atom fournis, sans IA, gratuitement et en moins d'une seconde.
+Les articles sont classés selon :
+
+- les **thèmes** demandés : trouvés dans le titre (le plus fort), la rubrique de l'URL ou les
+  catégories, ou le chapô. Un thème se cherche en début de mot (« climat » trouve « climatique ») ;
+- leur **place dans le flux** (la une de la rédaction d'abord) ;
+- les **recoupements** : un sujet traité par plusieurs flux remonte ;
+- leur **fraîcheur** (au-delà de `max_age_hours`, l'article est écarté).
+
+Les directs, vidéos, podcasts et tribunes sont écartés, ainsi que les articles contenant un mot
+de `exclude`. Deux articles sur le même sujet ne sont jamais retenus ensemble. Les `qr` premiers
+reçoivent un QR code, deux par ligne. `PRINTR_DEBUG=1` affiche le classement complet.
+
+```json
+{ "type": "news", "title": "France",
+  "feeds": ["https://www.franceinfo.fr/titres.rss", "https://www.lemonde.fr/rss/une.xml"],
+  "themes": ["climat", "sciences", "santé"], "exclude": ["football"] }
+```
 
 Les blocs `horoscope` et `word_of_the_day` utilisent l'API Claude : définir `ANTHROPIC_API_KEY`
 (et optionnellement `PRINTR_CLAUDE_MODEL`, `claude-opus-5-5` par défaut).
