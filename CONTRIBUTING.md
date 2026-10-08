@@ -288,6 +288,19 @@ d'exemple (voir `barnum.rs`).
   fichiers met donc aussi le site à jour. Aperçu local :
   `uvx --with markdown --with pymdown-extensions python docs/build.py && python3 -m http.server -d _site`.
 
+## Versions
+
+Le numéro de version (`Cargo.toml`, affiché par `printr --version` et dans l'appli) suit le
+[versionnage sémantique](https://semver.org/lang/fr/) :
+
+- **correctif** (1.0.**1**) : une correction, sans rien changer à l'usage ;
+- **mineure** (1.**1**.0) : un bloc, une option ou un écran de plus, les tickets existants
+  marchent toujours ;
+- **majeure** (**2**.0.0) : un changement qui oblige à modifier ses tickets ou sa configuration.
+
+Chaque version publiée a son étiquette git (`v1.0.0`), créée sur `master` une fois la version
+poussée : `git tag -a v1.1.0 -m "printr 1.1.0" && git push origin v1.1.0`.
+
 ## Proposer une modification
 
 1. Crée une branche à partir de `master`.
