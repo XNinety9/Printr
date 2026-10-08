@@ -47,9 +47,10 @@ const STYLES: Styles = Styles::styled()
 )]
 struct Cli {
     /// Périphérique de l'imprimante (défaut /dev/usb/lp0, ou $PRINTR_DEVICE)
-    #[arg(short, long, value_name = "CHEMIN", default_value = "/dev/usb/lp0", env = "PRINTR_DEVICE",
-          hide_default_value = true, hide_env = true)]
-    device: PathBuf,
+    // `PRINTR_DEVICE` est lu à la main dans `target()` : venant de l'environnement, il ne doit pas
+    // entrer en conflit avec `--dump` ou `--tcp`, qui l'emportent.
+    #[arg(short, long, value_name = "CHEMIN")]
+    device: Option<PathBuf>,
 
     /// Écrit les octets ESC/POS dans ce fichier au lieu de l'imprimante
     #[arg(long, value_name = "FICHIER", conflicts_with_all = ["device", "tcp"])]
@@ -224,13 +225,20 @@ fn main() -> ExitCode {
     }
 }
 
-fn run(cli: Cli) -> Result<()> {
-    let start = Instant::now();
-    let target = match (&cli.tcp, &cli.dump) {
+/// Destination des octets : `--tcp`, `--dump`, sinon `--device`, `$PRINTR_DEVICE` ou /dev/usb/lp0.
+fn target(cli: &Cli) -> Target {
+    match (&cli.tcp, &cli.dump) {
         (Some(addr), _) => Target::Tcp(addr.clone()),
         (_, Some(path)) => Target::Dump(path.clone()),
-        _ => Target::Device(cli.device.clone()),
-    };
+        _ => Target::Device(cli.device.clone().unwrap_or_else(|| {
+            std::env::var_os("PRINTR_DEVICE").filter(|d| !d.is_empty()).map_or_else(|| "/dev/usb/lp0".into(), PathBuf::from)
+        })),
+    }
+}
+
+fn run(cli: Cli) -> Result<()> {
+    let start = Instant::now();
+    let target = target(&cli);
 
     // On prépare tout le ticket (y compris les requêtes réseau) avant d'ouvrir l'imprimante.
     let mut reports = Vec::new();
