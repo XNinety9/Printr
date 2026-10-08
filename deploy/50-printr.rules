@@ -1,0 +1,9 @@
+// Les membres du groupe printr peuvent démarrer, arrêter et redémarrer le service sans sudo :
+//   systemctl restart printr
+polkit.addRule(function (action, subject) {
+    if (action.id == "org.freedesktop.systemd1.manage-units" &&
+        action.lookup("unit") == "printr.service" &&
+        subject.isInGroup("printr")) {
+        return polkit.Result.YES;
+    }
+});
