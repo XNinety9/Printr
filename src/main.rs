@@ -56,7 +56,7 @@ struct Cli {
     #[arg(long, value_name = "FICHIER", conflicts_with_all = ["device", "tcp"])]
     dump: Option<PathBuf>,
 
-    /// Envoie en TCP (imprimante réseau ou émulateur), ex. 127.0.0.1:9100
+    /// Envoie en TCP (imprimante réseau ou émulateur), ex. 127.0.0.1:9100, ou $PRINTR_TCP
     #[arg(long, value_name = "HÔTE:PORT", conflicts_with = "device")]
     tcp: Option<String>,
 
@@ -215,7 +215,41 @@ fn parse_cli() -> Cli {
     Cli::from_arg_matches(&matches).unwrap_or_else(|e| e.exit())
 }
 
+/// Configuration du service sur le Pi, lue aussi par la commande `printr` : un ticket lancé à la
+/// main a la même clé Claude, la même imprimante et le même Barnum que le serveur.
+const SYSTEM_ENV: &str = "/etc/printr.env";
+
+/// Lignes `CLÉ=valeur` d'un fichier d'environnement (format systemd), guillemets retirés.
+fn parse_env_file(text: &str) -> Vec<(String, String)> {
+    text.lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .filter_map(|l| l.split_once('='))
+        .map(|(k, v)| {
+            let v = v.trim();
+            let unquoted = [('"', '"'), ('\'', '\'')]
+                .iter()
+                .find_map(|&(a, b)| v.strip_prefix(a).and_then(|v| v.strip_suffix(b)))
+                .unwrap_or(v);
+            (k.trim().to_owned(), unquoted.to_owned())
+        })
+        .filter(|(k, _)| !k.is_empty())
+        .collect()
+}
+
+/// Charge `/etc/printr.env` s'il est lisible, sans écraser les variables déjà définies.
+fn load_system_env() {
+    let Ok(text) = std::fs::read_to_string(SYSTEM_ENV) else { return };
+    for (key, value) in parse_env_file(&text) {
+        if std::env::var_os(&key).is_none() && !value.is_empty() {
+            // SAFETY : appelé au tout début de `main`, avant le moindre fil d'exécution.
+            unsafe { std::env::set_var(key, value) };
+        }
+    }
+}
+
 fn main() -> ExitCode {
+    load_system_env();
     match run(parse_cli()) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
@@ -225,14 +259,18 @@ fn main() -> ExitCode {
     }
 }
 
-/// Destination des octets : `--tcp`, `--dump`, sinon `--device`, `$PRINTR_DEVICE` ou /dev/usb/lp0.
+/// Destination des octets : `--tcp`, `--dump` ou `--device` ; sinon `$PRINTR_TCP` (imprimante
+/// réseau), `$PRINTR_DEVICE`, ou /dev/usb/lp0. Les options l'emportent sur l'environnement.
 fn target(cli: &Cli) -> Target {
-    match (&cli.tcp, &cli.dump) {
-        (Some(addr), _) => Target::Tcp(addr.clone()),
-        (_, Some(path)) => Target::Dump(path.clone()),
-        _ => Target::Device(cli.device.clone().unwrap_or_else(|| {
-            std::env::var_os("PRINTR_DEVICE").filter(|d| !d.is_empty()).map_or_else(|| "/dev/usb/lp0".into(), PathBuf::from)
-        })),
+    let env = |name| std::env::var(name).ok().filter(|v| !v.trim().is_empty());
+    match (&cli.tcp, &cli.dump, &cli.device) {
+        (Some(addr), _, _) => Target::Tcp(addr.clone()),
+        (_, Some(path), _) => Target::Dump(path.clone()),
+        (_, _, Some(device)) => Target::Device(device.clone()),
+        _ => match (env("PRINTR_TCP"), env("PRINTR_DEVICE")) {
+            (Some(addr), _) => Target::Tcp(addr),
+            (None, device) => Target::Device(device.map_or_else(|| "/dev/usb/lp0".into(), PathBuf::from)),
+        },
     }
 }
 
@@ -319,4 +357,19 @@ fn test_ticket() -> Doc {
         .feed(1)
         .qr("https://github.com/fabienbellanger/escpos-rs", 6);
     doc
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn env_file_like_systemd() {
+        let text = "# commentaire\nPRINTR_BARNUM=\"python3 /opt/barnum/main.py\"\nANTHROPIC_API_KEY=\n\nPRINTR_LISTEN=0.0.0.0:8080\nX='a b'\n";
+        let vars = parse_env_file(text);
+        assert_eq!(vars[0], ("PRINTR_BARNUM".into(), "python3 /opt/barnum/main.py".into()));
+        assert_eq!(vars[1], ("ANTHROPIC_API_KEY".into(), String::new()));
+        assert_eq!(vars[2].1, "0.0.0.0:8080");
+        assert_eq!(vars[3].1, "a b");
+    }
 }
