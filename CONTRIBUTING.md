@@ -22,6 +22,7 @@ Quelques variables d'environnement utiles :
 | `ANTHROPIC_API_KEY` | Blocs Claude (`horoscope`, `word_of_the_day`). Facultative : sans elle, ces blocs affichent une erreur et le reste du ticket sort normalement. |
 | `PRINTR_BARNUM` | Commande de [Barnum](https://github.com/XNinety9/Barnum) pour le bloc `barnum`, par exemple `python3 ../Barnum/main.py`. |
 | `PRINTR_DATA_DIR` | Comptes, presets et historique de l'interface web. Utilise un dossier jetable pour tes essais. |
+| `PRINTR_GLITCH` | Fréquence des glitchs (une impression sur N, 20 par défaut, 0 : jamais). |
 | `PRINTR_CACHE_DIR` | Cache des contenus du jour. |
 | `PRINTR_WEB_DIR=web` | Sert l'interface depuis le disque : on modifie `web/` sans recompiler. |
 | `PRINTR_DEBUG=1` | Affiche les réponses brutes de Claude et le classement des actualités. |

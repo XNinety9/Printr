@@ -3,6 +3,7 @@
 mod air_quality;
 pub mod barnum;
 mod crypto;
+mod glitch;
 mod holidays;
 mod horoscope;
 mod maze;
@@ -25,6 +26,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 use chrono::NaiveDate;
+use rand::RngExt;
 use serde::Deserialize;
 
 use crate::cache::Cache;
@@ -88,6 +90,11 @@ pub enum Block {
         size: u8,
         #[serde(default)]
         align: Align,
+    },
+    /// Message étrange de la machine (ajouté aussi au hasard, voir `glitch::chance`).
+    Glitch {
+        #[serde(default)]
+        seed: Option<u64>,
     },
     Separator {
         #[serde(default)]
@@ -296,6 +303,7 @@ impl Block {
         match self {
             Block::Title { .. } => "titre",
             Block::Text { .. } => "texte",
+            Block::Glitch { .. } => "glitch",
             Block::Separator { .. } => "séparateur",
             Block::Date {} => "date",
             Block::Feed { .. } => "espace",
@@ -363,6 +371,7 @@ impl Block {
                 let style = Style { bold: *bold, underline: *underline, reverse: *reverse, small: *small, align: *align, ..Style::default() };
                 doc.text(text, style.size(*size));
             }
+            Block::Glitch { seed } => doc = glitch::build(*seed),
             Block::Separator { style } => {
                 doc.rule(style.unwrap_or('-'));
             }
@@ -507,14 +516,25 @@ impl Ticket {
         });
         progress.finish();
 
+        // De temps en temps, la machine glisse un message entre deux blocs, sans rien dire en console.
+        let forced = self.blocks.iter().any(|b| matches!(b, Block::Glitch { .. }));
+        let glitch_at = (!ctx.preview && !forced && glitch::chance()).then(|| rand::rng().random_range(0..=done.len()));
+
         let mut ticket = Doc::new();
         let mut reports = Vec::with_capacity(done.len());
-        for (i, (doc, report)) in done.into_iter().map(|d| d.expect("chaque bloc a répondu")).enumerate() {
+        let mut parts: Vec<Doc> = Vec::with_capacity(done.len() + 1);
+        for (doc, report) in done.into_iter().map(|d| d.expect("chaque bloc a répondu")) {
+            parts.push(doc);
+            reports.push(report);
+        }
+        if let Some(at) = glitch_at {
+            parts.insert(at, glitch::build(None));
+        }
+        for (i, part) in parts.into_iter().enumerate() {
             if i > 0 {
                 ticket.feed(self.spacing);
             }
-            ticket.append(doc);
-            reports.push(report);
+            ticket.append(part);
         }
         (ticket, reports)
     }

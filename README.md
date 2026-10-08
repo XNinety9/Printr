@@ -171,6 +171,11 @@ Le bloc `barnum` appelle [Barnum](https://github.com/XNinety9/Barnum) en ligne d
 `barnum` s'il est installé, sinon la commande donnée dans `PRINTR_BARNUM`, par exemple
 `PRINTR_BARNUM="python3 /opt/barnum/main.py"` (Barnum ne dépend que de Python 3.10).
 
+De temps en temps (une impression sur 20), la machine glisse dans le ticket un message étrange,
+sans en-tête, comme du bruit imprimé : c'est le **glitch**. `PRINTR_GLITCH` règle la fréquence
+(`PRINTR_GLITCH=5` pour une sur cinq, `0` pour jamais) ; `{ "type": "glitch" }` en force un.
+Il n'apparaît jamais dans les aperçus.
+
 Les blocs `horoscope` et `word_of_the_day` utilisent l'API Claude : définir `ANTHROPIC_API_KEY`
 (et optionnellement `PRINTR_CLAUDE_MODEL`, `claude-haiku-5-5` par défaut).
 
