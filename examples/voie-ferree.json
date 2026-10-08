@@ -1,0 +1,8 @@
+{
+  "cut": true,
+  "blocks": [
+    { "type": "title", "text": "FabLab" },
+    { "type": "date" },
+    { "type": "voie_ferree", "difficulty": "moyen", "seed": 6754, "solution": true}
+  ]
+}

@@ -134,6 +134,7 @@ Un paramètre inconnu est une erreur, pour repérer les fautes de frappe.
 | `todo` | `items`, `title` (« À faire ») | Cases à cocher |
 | `sudoku` | `difficulty` (`facile`/`moyen`/`difficile`), `seed`, `solution` | Le n° imprimé est la graine : même `seed` + `"solution": true` imprime la solution |
 | `word_search` (ou `mots_meles`, `mots_caches`, `mots_en_grille`) | `difficulty` (`facile`/`moyen`/`difficile`), `theme`, `words`, `seed`, `solution` | Mots mêlés en français. `theme` : `animaux`, `fruits_legumes`, `cuisine`, `nature`, `sport`, `metiers`, `maison`, `voyage`, `musique`, `ecole`, `developpement`, `devops`, `reseaux`, `ia` (tiré du n° si absent) ; ou ses propres mots dans `words`. Facile : 10×10, 8 mots, → ↓ ; moyen : 12×12, 12 mots, + diagonales ; difficile : 14×14, 16 mots, dans tous les sens. Même n° + `"solution": true` imprime la solution |
+| `train_tracks` (ou `voie_ferree`, `rails`) | `difficulty` (`facile`/`moyen`/`difficile`), `seed`, `solution` | Relier A (bord gauche) à B (bord bas) par une seule voie, d'après le nombre de cases de voie de chaque ligne et colonne et quelques pièces posées. Grilles de 6×6, 8×8 et 10×10, à solution unique. Même `seed` + `"solution": true` imprime la solution |
 | `maze` | `width` (12), `height` (16), `seed` | |
 | `word_of_the_day` | — | Choisi par Claude, sans répéter les 60 derniers mots |
 | `quote` | — | Citation du jour, liste locale |
