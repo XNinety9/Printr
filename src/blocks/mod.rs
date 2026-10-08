@@ -17,6 +17,7 @@ mod sudoku;
 mod sun;
 mod weather;
 mod word;
+mod word_search;
 mod workout;
 
 use std::panic::AssertUnwindSafe;
@@ -135,6 +136,21 @@ pub enum Block {
     Sudoku {
         #[serde(default)]
         difficulty: sudoku::Difficulty,
+        #[serde(default)]
+        seed: Option<u64>,
+        #[serde(default)]
+        solution: bool,
+    },
+    #[serde(alias = "mots_meles", alias = "mots_caches", alias = "mots_en_grille")]
+    WordSearch {
+        #[serde(default)]
+        difficulty: sudoku::Difficulty,
+        /// Thème des mots ; tiré du numéro de grille si absent.
+        #[serde(default)]
+        theme: Option<word_search::Theme>,
+        /// Mots à cacher à la place d'un thème.
+        #[serde(default)]
+        words: Vec<String>,
         #[serde(default)]
         seed: Option<u64>,
         #[serde(default)]
@@ -306,6 +322,7 @@ impl Block {
             Block::Saint {} => "saint du jour",
             Block::Todo { .. } => "à faire",
             Block::Sudoku { .. } => "sudoku",
+            Block::WordSearch { .. } => "mots mêlés",
             Block::Maze { .. } => "labyrinthe",
             Block::WordOfTheDay {} => "mot du jour",
             Block::Holidays { .. } => "jours fériés",
@@ -332,6 +349,14 @@ impl Block {
             Block::Horoscope { sign, tone } => Some(format!("{sign} ({})", tone.label())),
             Block::Sudoku { difficulty, solution, .. } => {
                 Some(format!("{}{}", difficulty.label(), if *solution { ", solution" } else { "" }))
+            }
+            Block::WordSearch { difficulty, theme, words, solution, .. } => {
+                let subject = match (words.is_empty(), theme) {
+                    (false, _) => "mes mots, ",
+                    (true, Some(t)) => &format!("{}, ", t.label()),
+                    (true, None) => "",
+                };
+                Some(format!("{subject}{}{}", difficulty.label(), if *solution { ", solution" } else { "" }))
             }
             Block::Countdown { label, .. } => Some(label.clone()),
             Block::Crypto { coins, .. } => Some(coins.join(", ")),
@@ -412,6 +437,9 @@ impl Block {
                 }
             }
             Block::Sudoku { difficulty, seed, solution } => doc = sudoku::build(*difficulty, *seed, *solution),
+            Block::WordSearch { difficulty, theme, words, seed, solution } => {
+                doc = word_search::build(*difficulty, *theme, words, *seed, *solution);
+            }
             Block::Maze { width, height, seed } => {
                 doc = maze::build(width.unwrap_or(12), height.unwrap_or(16), *seed);
             }
