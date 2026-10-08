@@ -245,7 +245,8 @@ mêmes résultats, sans nouvel appel. `--refresh` force une nouvelle génératio
 - **Historique** : qui a imprimé quoi, et les éventuelles erreurs.
 
 Chaque membre de la famille a son compte. Le premier se crée sur l'écran d'accueil de
-l'appli ; les suivants depuis le menu **Mon compte**, où chacun change aussi son mot de passe.
+l'appli (depuis le réseau de la maison) ; les suivants depuis le menu **Mon compte**, où chacun
+change aussi son mot de passe. Le premier compte est administrateur : lui seul peut en supprimer.
 En ligne de commande, même pendant que le serveur tourne (il relit ses données) :
 
 ```sh
@@ -296,6 +297,30 @@ Dans un nouveau raccourci :
 
 Pour l'automatiser : Raccourcis > Automatisation > Heure de la journée, puis « Exécuter
 immédiatement ». Le téléphone doit pouvoir joindre le Pi (même Wi-Fi, ou un VPN type Tailscale).
+
+## Sécurité
+
+L'appli peut être ouverte sur Internet derrière un reverse proxy HTTPS (Caddy, nginx…). Elle
+se protège ainsi :
+
+- **Comptes** : mots de passe hachés avec Argon2 (8 caractères minimum), cookie de session
+  `HttpOnly`, `SameSite=Lax` et `Secure` en HTTPS. Le premier compte, administrateur, ne se crée
+  que depuis le réseau local ; seul l'administrateur peut supprimer un compte.
+- **Essais de mot de passe** : cinq échecs par adresse en quinze minutes, puis blocage ; une
+  seule vérification à la fois, pour que des essais en masse n'épuisent pas la mémoire.
+  Derrière le proxy, l'adresse du client est lue dans `X-Forwarded-For` (dernière entrée).
+- **Requêtes d'un autre site** refusées (en-tête `Origin`), même depuis un sous-domaine voisin.
+- **Réseau local hors d'atteinte** : depuis l'appli ou un script, les blocs (images, flux RSS,
+  agendas…) ne joignent que des adresses publiques, redirections comprises, et ne lisent
+  aucun fichier de la machine. En ligne de commande, tout reste permis.
+- **Abus** : 60 blocs au plus par ticket, images décodées avec des limites de taille, et
+  `PRINTR_MAX_TICKETS_PER_HOUR` impressions par personne et par heure (20 par défaut).
+- **Service** sans privilèges, mémoire plafonnée et système en lecture seule (voir
+  [`deploy/printr.service`](deploy/printr.service)) ; politique de sécurité du contenu (CSP)
+  sur l'interface.
+
+Côté machine, il reste conseillé de n'accepter que les clés en SSH, et de vérifier que le
+pare-feu IPv6 de la box ne laisse pas entrer les connexions vers le réseau local.
 
 ## Tester sans imprimante (émulateur)
 

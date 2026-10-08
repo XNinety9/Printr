@@ -22,6 +22,23 @@ NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=yes
 PrivateTmp=yes
+# Garde-fous : un ticket qui s'emballe ne peut pas faire tomber la machine.
+MemoryMax=400M
+TasksMax=256
+# Aucun privilège, noyau et système intouchables, seulement des sockets réseau ordinaires.
+CapabilityBoundingSet=
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
 # Cache des contenus du jour (horoscopes, mots du jour) : /var/cache/printr.
 CacheDirectory=printr
 CacheDirectoryMode=2770
