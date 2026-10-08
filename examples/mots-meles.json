@@ -1,0 +1,8 @@
+{
+  "cut": true,
+  "blocks": [
+    { "type": "title", "text": "FabLab" },
+    { "type": "date" },
+    { "type": "mots_meles", "difficulty": "moyen", "theme": "reseau" }
+  ]
+}

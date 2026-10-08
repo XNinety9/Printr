@@ -132,6 +132,7 @@ Un paramètre inconnu est une erreur, pour repérer les fautes de frappe.
 | `saint` | — | Calendrier local, hors ligne |
 | `todo` | `items`, `title` (« À faire ») | Cases à cocher |
 | `sudoku` | `difficulty` (`facile`/`moyen`/`difficile`), `seed`, `solution` | Le n° imprimé est la graine : même `seed` + `"solution": true` imprime la solution |
+| `word_search` (ou `mots_meles`, `mots_caches`, `mots_en_grille`) | `difficulty` (`facile`/`moyen`/`difficile`), `theme`, `words`, `seed`, `solution` | Mots mêlés en français. `theme` : `animaux`, `fruits_legumes`, `cuisine`, `nature`, `sport`, `metiers`, `maison`, `voyage`, `musique`, `ecole`, `developpement`, `devops`, `reseaux`, `ia` (tiré du n° si absent) ; ou ses propres mots dans `words`. Facile : 10×10, 8 mots, → ↓ ; moyen : 12×12, 12 mots, + diagonales ; difficile : 14×14, 16 mots, dans tous les sens. Même n° + `"solution": true` imprime la solution |
 | `maze` | `width` (12), `height` (16), `seed` | |
 | `word_of_the_day` | — | Choisi par Claude, sans répéter les 60 derniers mots |
 | `quote` | — | Citation du jour, liste locale |
@@ -278,6 +279,50 @@ cd emulator && uvx emupos run                # terminal 1
 cargo run -- --tcp 127.0.0.1:9100 test       # terminal 2
 # → emulator/receipts/*.png et *.txt
 ```
+
+## Développer sous Windows (dev container)
+
+Le dossier `.devcontainer/` fournit un environnement Linux avec Rust et uv : dans VS Code
+(extension Dev Containers, Docker Desktop lancé), **Reopen in Container**. Tout se fait ensuite
+dans le terminal du conteneur, comme sur le Pi :
+
+```sh
+cargo run -- --preview print ticket.json           # aperçu dans le terminal
+scripts/demo.sh ticket.json                         # rendu PNG via l'émulateur
+cargo run -- --tcp host.docker.internal:9101 print ticket.json   # vraie imprimante
+```
+
+### Relais PowerShell vers l'imprimante USB
+
+L'imprimante USB reste branchée sur Windows. Pour l'atteindre depuis le conteneur, le script
+[`scripts/windows-relay.ps1`](scripts/windows-relay.ps1) écoute sur `127.0.0.1:9101` côté Windows
+et transmet chaque connexion reçue à la file d'impression, en brut (RAW, sans le rendu du pilote).
+Un ticket = une connexion : il est imprimé à la fermeture de celle-ci.
+
+Dans un terminal PowerShell **Windows**, à la racine du dépôt, et le laisser ouvert :
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\windows-relay.ps1
+# Relais 127.0.0.1:9101 -> 'EPSON TM-T88V Receipt' (Ctrl+C pour arrêter)
+```
+
+Options : `-Printer "nom"` si la file Windows porte un autre nom (liste : `Get-Printer | Select Name`),
+`-Port 9102` pour un autre port. Chaque ticket reçu s'affiche avec sa taille en octets.
+
+Puis, dans le conteneur :
+
+```sh
+cargo run -- --tcp host.docker.internal:9101 print examples/matin.json
+```
+
+En cas de souci :
+
+- **`impossible de se connecter à host.docker.internal:9101`** : le relais ne tourne pas (ou sur un
+  autre port). Vérifier côté Windows avec `Test-NetConnection 127.0.0.1 -Port 9101`.
+- **Le script s'arrête au démarrage** : la file `-Printer` n'existe pas ; prendre le nom exact
+  donné par `Get-Printer`.
+- **Connexion acceptée mais rien ne sort** : vérifier que l'imprimante est allumée et que la file
+  Windows n'est pas en pause ou en erreur.
 
 ## Site et illustrations
 

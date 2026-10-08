@@ -145,6 +145,7 @@ const SIGNS = [
 ];
 const TONES = [['serieux', 'Sérieux'], ['farfelu', 'Farfelu'], ['vachard', 'Vachard'], ['insultant', 'Insultant']];
 const LEVELS = [['facile', 'Facile'], ['moyen', 'Moyen'], ['difficile', 'Difficile']];
+const WORD_THEMES = [['', 'Au hasard'], ['animaux', 'Animaux'], ['fruits_legumes', 'Fruits et légumes'], ['cuisine', 'Cuisine'], ['nature', 'Nature'], ['sport', 'Sport'], ['metiers', 'Métiers'], ['maison', 'Maison'], ['voyage', 'Voyage'], ['musique', 'Musique'], ['ecole', 'École'], ['developpement', 'Développement'], ['devops', 'DevOps'], ['reseaux', 'Réseaux'], ['ia', 'Intelligence artificielle']];
 const PICTOS = [['coeur', '❤️'], ['etoile', '⭐'], ['soleil', '☀️'], ['fleur', '🌸'], ['sourire', '😊']];
 const label = (options, value) => options.find(([v]) => v === value)?.[1] ?? value;
 const inDays = (n) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
@@ -302,6 +303,18 @@ const BLOCKS = [
       { key: 'solution', label: 'Imprimer la solution de cette grille', kind: 'toggle' },
     ],
     summary: (b) => label(LEVELS, b.difficulty),
+  },
+  {
+    type: 'word_search', label: 'Mots mêlés', emoji: '🔤', group: G.fun, desc: 'Des mots cachés dans une grille de lettres',
+    defaults: { difficulty: 'moyen', theme: '', words: [] },
+    fields: [
+      { key: 'difficulty', label: 'Difficulté', kind: 'segmented', options: LEVELS },
+      { key: 'theme', label: 'Thème', kind: 'select', options: WORD_THEMES },
+      { key: 'words', label: 'Mes mots (remplacent le thème)', kind: 'list', placeholder: 'grand-mère…', add: 'Ajouter un mot' },
+      { key: 'seed', label: 'Numéro de grille', kind: 'number', optional: true, help: 'Laisse vide pour une nouvelle grille.' },
+      { key: 'solution', label: 'Imprimer la solution de cette grille', kind: 'toggle' },
+    ],
+    summary: (b) => [(b.words || []).length ? 'mes mots' : label(WORD_THEMES, b.theme || ''), label(LEVELS, b.difficulty)].join(' · '),
   },
   {
     type: 'maze', label: 'Labyrinthe', emoji: '🌀', group: G.fun, desc: 'Entrée en haut, sortie en bas',

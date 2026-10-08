@@ -1,0 +1,22 @@
+// Environnement de développement (VS Code : « Reopen in Container »).
+// L'imprimante USB reste côté Windows : voir scripts/windows-relay.ps1 et le README.
+{
+  "name": "printr",
+  "image": "mcr.microsoft.com/devcontainers/rust:1-bookworm",
+  // target/ sur un volume Docker : compilation bien plus rapide qu'à travers le montage Windows.
+  "mounts": [
+    "source=printr-devcontainer-target,target=${containerWorkspaceFolder}/target,type=volume"
+  ],
+  // uv pour l'émulateur (uvx emupos run), qui télécharge lui-même Python 3.13.
+  "postCreateCommand": "sudo chown vscode:vscode target && curl -LsSf https://astral.sh/uv/install.sh | sh",
+  // L'émulateur écoute dans le conteneur ; inutile de rediriger ses ports vers Windows.
+  "portsAttributes": {
+    "9100": { "onAutoForward": "ignore" },
+    "8765": { "onAutoForward": "ignore" }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": ["rust-lang.rust-analyzer"]
+    }
+  }
+}
