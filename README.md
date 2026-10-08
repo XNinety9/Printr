@@ -22,22 +22,22 @@
 </p>
 
 Printr transforme une imprimante à tickets **Epson TM-T88V** en gadget familial. On compose un
-ticket à partir de **30 blocs** (météo, horoscope, sudoku, énigmes, actualités, photos…), on
-l'imprime depuis son téléphone, on le **planifie** pour 7 h 30 en semaine, ou on envoie un
-**petit mot avec une photo** à ceux qui sont restés à la maison. Un seul binaire Rust, sur un
-Raspberry Pi, qui parle ESC/POS directement à l'imprimante.
+ticket à partir de **30 blocs** (météo, horoscope, sudoku, mots mêlés, énigmes, actualités,
+photos…), on l'imprime depuis son téléphone, on le **planifie** pour 7 h 30 en semaine, ou on
+envoie un **petit mot avec une photo** à ceux qui sont restés à la maison. Un seul binaire Rust,
+sur un Raspberry Pi, qui parle ESC/POS directement à l'imprimante.
 
 <p align="center">
   <img src="docs/tickets/matin.png" alt="Ticket du matin" width="240">
   &nbsp;
-  <img src="docs/tickets/jeux.png" alt="Ticket de jeux, avec la réponse de l'énigme imprimée à l'envers" width="240">
+  <img src="docs/tickets/jeux.png" alt="Ticket de jeux : énigme avec sa réponse imprimée à l'envers, sudoku, mots mêlés, défi sportif" width="240">
   &nbsp;
   <img src="docs/tickets/petit-mot.png" alt="Petit mot avec une photo" width="240">
 </p>
 
 - **30 blocs** : météo, lune, saint du jour, jours fériés, horoscope (sérieux, farfelu, vachard
-  ou franchement insultant), mot du jour, sudoku, labyrinthe, énigmes à réponse imprimée à
-  l'envers, défi sportif, actualités par flux RSS, QR codes, pictogrammes, photos…
+  ou franchement insultant), mot du jour, sudoku, mots mêlés, labyrinthe, énigmes à réponse
+  imprimée à l'envers, défi sportif, actualités par flux RSS, QR codes, pictogrammes, photos…
 - **Une appli web pour la famille** : comptes, tickets enregistrés et partagés, aperçu en direct,
   planification au format 24 h, historique.
 - **Sobre** : presque tout est calculé localement ou vient d'API gratuites et sans clé. Claude

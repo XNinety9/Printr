@@ -16,6 +16,7 @@ BIN=target/release/printr
 
 # Données fictives : trois comptes, quelques tickets enregistrés.
 export PRINTR_DATA_DIR="$DEMO/data" PRINTR_CACHE_DIR="$DEMO/cache"
+export PRINTR_GLITCH=0  # pas de glitch surprise dans les illustrations
 for name in Camille Alex Léo; do echo demo1234 | $BIN user add "$name" >/dev/null 2>&1; done
 
 $BIN --dump "$DEMO/sortie.bin" serve --listen "127.0.0.1:$PORT_WEB" >"$DEMO/serve.log" 2>&1 &
