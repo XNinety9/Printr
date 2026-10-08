@@ -1,0 +1,3 @@
+# Fins de ligne LF dans le dépôt, quel que soit le système : un checkout Windows (montage du
+# dev container) ne doit pas faire apparaître tous les fichiers comme modifiés.
+* text=auto eol=lf

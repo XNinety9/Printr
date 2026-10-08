@@ -23,12 +23,14 @@ for _ in $(seq 60); do
 done
 
 mkdir -p emulator/receipts
-before=$(ls emulator/receipts/*.png 2>/dev/null | wc -l)
+# find plutôt que ls : sans aucun PNG, ls échoue et pipefail arrêterait le script.
+png_count() { find emulator/receipts -name '*.png' | wc -l; }
+before=$(png_count)
 ./target/debug/printr --tcp "127.0.0.1:$port" print "$ticket"
 
 # L'émulateur termine le ticket après la coupe ; on attend le PNG.
 for _ in $(seq 30); do
-    [ "$(ls emulator/receipts/*.png 2>/dev/null | wc -l)" -gt "$before" ] && break
+    [ "$(png_count)" -gt "$before" ] && break
     sleep 0.5
 done
 ls -t emulator/receipts/*.png | head -1
