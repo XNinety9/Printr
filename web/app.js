@@ -1393,14 +1393,16 @@ function App() {
         onClick=${n.hash === '#/compose' ? (e) => { if (route.hash !== '#/compose') { e.preventDefault(); openComposer(store.get('printr.draft', null) || emptyComposer()); } } : undefined}>
         <${Icon} name=${n.icon} />${n.label}</a>`)}
       <div class="spacer"></div>
-      <div class="navlink" style="cursor:default"><${Avatar} user=${me} /><span class="grow">${me.name}</span>
+      <div class="account-row">
+        <button type="button" class="navlink account" onClick=${() => setMenu(true)}><${Avatar} user=${me} />
+          <span class="grow"><strong>${me.name}</strong><span class="muted">Mon compte</span></span></button>
         <button class="iconbtn" aria-label="Se déconnecter" title="Se déconnecter" onClick=${logout}><${Icon} name="logout" /></button></div>
     </nav>
     <main class="main">
       <header class="topbar ${scrolled ? 'scrolled' : ''}">
         <h1>${title}</h1>
         ${route.hash === '#/compose' && composer.id && html`<button class="btn ghost small" onClick=${() => openComposer(emptyComposer())}><${Icon} name="plus" size=${16} /> Nouveau</button>`}
-        <button class="iconbtn me" style="width:auto;height:auto;padding:2px;border-radius:50%" aria-label="Mon compte" onClick=${() => setMenu(true)}><${Avatar} user=${me} /></button>
+        <button class="me" aria-label="Mon compte" title="Mon compte" onClick=${() => setMenu(true)}><${Avatar} user=${me} /><span>Mon compte</span></button>
       </header>
       ${page}
     </main>

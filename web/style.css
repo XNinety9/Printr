@@ -573,3 +573,21 @@ select.input { appearance: none; padding-right: 38px;
 .family-row + .family-row { border-top: 1px solid var(--line); }
 .family-add { display: grid; gap: 8px; margin-top: 10px; }
 @media (min-width: 560px) { .family-add { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; } .family-add:has(> :nth-child(2):last-child) { grid-template-columns: minmax(0, 1fr) auto; } }
+
+/* ---------- Accès à « Mon compte » ---------- */
+
+/* Barre latérale (ordinateur) : prénom et « Mon compte », la déconnexion à côté. */
+.account-row { display: flex; align-items: center; gap: 4px; }
+.navlink.account { flex: 1; min-width: 0; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; }
+.navlink.account .grow { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
+.navlink.account strong { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.navlink.account .muted { font-size: 12.5px; font-weight: 600; }
+/* Barre du haut (téléphone) : l'avatar suivi de « Mon compte », pour qu'on le trouve. */
+.topbar .me {
+  display: inline-flex; align-items: center; gap: 8px; padding: 3px 12px 3px 3px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink-2);
+  font: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer;
+}
+.topbar .me:hover { background: var(--surface-2); }
+@media (max-width: 380px) { .topbar .me span { display: none; } .topbar .me { padding: 3px; } }
+@media (min-width: 900px) { .topbar .me { display: none; } }
