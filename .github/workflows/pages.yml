@@ -1,0 +1,48 @@
+name: Site
+
+# Construit le site (docs/, plus la documentation rendue depuis README.md et CONTRIBUTING.md)
+# sur les pull requests, et le publie sur GitHub Pages depuis master.
+on:
+  push:
+    branches: [master]
+    paths: ["docs/**", "README.md", "CONTRIBUTING.md", ".github/workflows/pages.yml"]
+  pull_request:
+    paths: ["docs/**", "README.md", "CONTRIBUTING.md", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Construction du site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - run: pip install markdown==3.11 pymdown-extensions==12.1
+      - run: python docs/build.py
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+  deploy:
+    name: Publication sur GitHub Pages
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

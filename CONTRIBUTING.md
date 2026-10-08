@@ -283,6 +283,10 @@ d'exemple (voir `barnum.rs`).
   sur des données fictives. N'y mets jamais de vraies données personnelles.
 - Les déclinaisons du logo se régénèrent avec
   `uv run --with pillow python docs/brand/make-assets.py`.
+- Le site se construit avec `docs/build.py` : la page d'accueil (`docs/index.html`) et la
+  documentation, rendue depuis `README.md` et `CONTRIBUTING.md`. Une modification de ces
+  fichiers met donc aussi le site à jour. Aperçu local :
+  `uvx --with markdown --with pymdown-extensions python docs/build.py && python3 -m http.server -d _site`.
 
 ## Proposer une modification
 

@@ -187,6 +187,7 @@
       <a class="optional" href="#blocks"><span class="fr">Blocs</span><span class="en">Blocks</span></a>
       <a class="optional" href="#app"><span class="fr">Appli</span><span class="en">App</span></a>
       <a class="optional" href="#install"><span class="fr">Installer</span><span class="en">Install</span></a>
+      <a href="guide.html">Documentation</a>
       <a href="https://github.com/XNinety9/Printr">GitHub</a>
       <button class="toggle" type="button" onclick="toggleLang()" aria-label="Français / English"><span class="fr">EN</span><span class="en">FR</span></button>
     </div>
@@ -366,27 +367,23 @@
     <h2 class="en">A Raspberry Pi, a TM-T88V, ten minutes.</h2>
     <div class="steps">
       <div class="step"><div>
-        <h3 class="fr">Compiler pour le Pi</h3><h3 class="en">Build for the Pi</h3>
-        <p class="fr">Depuis ton ordinateur, avec <a href="https://github.com/cross-rs/cross">cross</a> (Docker).</p>
-        <p class="en">From your computer, with <a href="https://github.com/cross-rs/cross">cross</a> (Docker).</p>
-        <pre>cross build --release --target aarch64-unknown-linux-gnu   <span class="c"># Pi 3, Pi Zero 2 W</span>
-scp target/aarch64-unknown-linux-gnu/release/printr pi@raspberrypi:</pre></div></div>
+        <h3 class="fr">Préparer la machine</h3><h3 class="en">Prepare the machine</h3>
+        <p class="fr">Un Raspberry Pi sous Raspberry Pi OS Lite 64 bits, ou n'importe quel Linux avec systemd, joignable en SSH par clé. L'imprimante en USB, ou sur le réseau.</p>
+        <p class="en">A Raspberry Pi running Raspberry Pi OS Lite 64-bit, or any Linux with systemd, reachable over SSH with a key. The printer on USB, or on the network.</p>
+        <pre>ssh pi@printer.local   <span class="c"># ça répond ? / does it answer?</span></pre></div></div>
       <div class="step"><div>
-        <h3 class="fr">Brancher l'imprimante</h3><h3 class="en">Plug in the printer</h3>
-        <p class="fr">Une règle udev donne l'accès sans <code>sudo</code> et crée le lien <code>/dev/tm88</code>.</p>
-        <p class="en">A udev rule grants access without <code>sudo</code> and creates the <code>/dev/tm88</code> link.</p>
-        <pre>sudo cp deploy/70-tm-t88v.rules /etc/udev/rules.d/
-sudo udevadm control --reload &amp;&amp; sudo udevadm trigger
-printr --device /dev/tm88 test</pre></div></div>
+        <h3 class="fr">Déployer</h3><h3 class="en">Deploy</h3>
+        <p class="fr">Le script compile pour la bonne architecture, envoie tout et installe le service. Il demande le mot de passe <code>sudo</code> une seule fois ; ensuite, les mises à jour s'en passent.</p>
+        <p class="en">The script builds for the right architecture, sends everything and installs the service. It asks for the <code>sudo</code> password once; updates don't need it afterwards.</p>
+        <pre>scripts/deploy.sh pi@printer.local
+scripts/deploy.sh pi@printer.local   <span class="c"># mise à jour / update</span></pre></div></div>
       <div class="step"><div>
-        <h3 class="fr">Créer les comptes et lancer le service</h3><h3 class="en">Create accounts and start the service</h3>
-        <p class="fr">Un compte par personne, puis le service systemd fourni. La clé Claude est optionnelle.</p>
-        <p class="en">One account per person, then the bundled systemd unit. The Claude key is optional.</p>
-        <pre>sudo PRINTR_DATA_DIR=/var/lib/printr printr user add Camille
-sudo cp deploy/printr.service /etc/systemd/system/
-sudo cp deploy/printr.env.example /etc/printr.env   <span class="c"># ANTHROPIC_API_KEY…</span>
-sudo systemctl enable --now printr                <span class="c"># http://raspberrypi:8080</span></pre></div></div>
+        <h3 class="fr">Créer son compte</h3><h3 class="en">Create your account</h3>
+        <p class="fr">Au premier lancement, l'appli propose de créer son compte, puis ceux de la famille. La clé Claude est facultative.</p>
+        <p class="en">On first launch, the app offers to create your account, then the family's. The Claude key is optional.</p>
+        <pre>http://printer.local:8080</pre></div></div>
     </div>
+    <p class="intro" style="margin-top:30px"><a href="guide.html#installation"><span class="fr">Le guide d'installation complet →</span><span class="en">Full installation guide (in French) →</span></a></p>
   </div>
 </section>
 

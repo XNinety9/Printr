@@ -18,7 +18,7 @@
   <a href="https://xninety9.github.io/Printr/">Site</a> ·
   <a href="#tickets-json">Les blocs</a> ·
   <a href="#interface-web">L'appli</a> ·
-  <a href="#installation-sur-le-pi">Installer</a>
+  <a href="#installation">Installer</a>
 </p>
 
 Printr transforme une imprimante à tickets **Epson TM-T88V** en gadget familial. On compose un
@@ -57,9 +57,11 @@ sur un Raspberry Pi, qui parle ESC/POS directement à l'imprimante.
 
 ```sh
 cargo run --release -- --preview print examples/complet.json   # aperçu dans le terminal, sans imprimante
-cargo run --release -- user add Camille                        # un compte pour l'interface web
 cargo run --release -- --device /dev/usb/lp0 serve             # interface sur http://localhost:8080
+scripts/deploy.sh pi@printer.local                             # installation sur un Raspberry Pi (ou --local)
 ```
+
+Au premier lancement, l'interface propose de créer son compte, puis ceux de la famille.
 
 Pas encore d'imprimante ? `scripts/demo.sh` imprime le ticket complet dans un
 [émulateur](#tester-sans-imprimante-émulateur) et en donne une image PNG.
@@ -242,7 +244,9 @@ mêmes résultats, sans nouvel appel. `--refresh` force une nouvelle génératio
   avec `POST /api/shopping` et le jeton.
 - **Historique** : qui a imprimé quoi, et les éventuelles erreurs.
 
-Chaque membre de la famille a son compte :
+Chaque membre de la famille a son compte. Le premier se crée sur l'écran d'accueil de
+l'appli ; les suivants depuis le menu **Mon compte**, où chacun change aussi son mot de passe.
+En ligne de commande, même pendant que le serveur tourne (il relit ses données) :
 
 ```sh
 printr user add Camille       # demande le mot de passe (ou le lit sur l'entrée standard)
@@ -363,7 +367,15 @@ En cas de souci :
 
 ## Site et illustrations
 
-Le site vitrine vit dans [`docs/`](docs/) (GitHub Pages, branche `master`, dossier `/docs`).
+Le site vit dans [`docs/`](docs/) : la page d'accueil, et des pages de documentation générées
+depuis ce README et le [guide de contribution](CONTRIBUTING.md), pour ne jamais s'en écarter.
+GitHub Actions le construit et le publie sur GitHub Pages à chaque modification sur `master`.
+Pour le voir en local :
+
+```sh
+uvx --with markdown --with pymdown-extensions python docs/build.py && python3 -m http.server -d _site
+```
+
 Ses illustrations sont générées avec des données fictives uniquement :
 
 ```sh
@@ -371,28 +383,58 @@ docs/demo/photo-session.sh                              # captures de l'appli + 
 uv run --with pillow python docs/brand/make-assets.py   # déclinaisons du logo et icônes de l'appli
 ```
 
-## Compiler pour le Raspberry Pi
+## Installation
 
-Avec [`cross`](https://github.com/cross-rs/cross) (nécessite Docker) :
-
-```sh
-cross build --release --target aarch64-unknown-linux-gnu    # Pi 3 / Zero 2 W, OS 64 bits
-cross build --release --target arm-unknown-linux-gnueabihf  # Pi Zero W (ARMv6)
-scp target/aarch64-unknown-linux-gnu/release/printr pi@raspberrypi:
-```
-
-## Installation sur le Pi
-
-L'imprimante est exposée par le module noyau `usblp` en `/dev/usb/lp0`.
-Pour y accéder sans `sudo` :
+printr s'installe comme service systemd sur n'importe quel Linux : Raspberry Pi (Raspberry Pi
+OS Lite 64 bits conseillé), serveur ou PC, en ARM 64 bits, ARM 32 bits ou x86_64. L'imprimante
+peut être en USB ou sur le réseau.
 
 ```sh
-sudo cp deploy/70-tm-t88v.rules /etc/udev/rules.d/
-sudo udevadm control --reload && sudo udevadm trigger
-sudo usermod -aG lp $USER   # puis se reconnecter
+scripts/deploy.sh pi@printer.local      # machine distante, par SSH (clé) ; --port N si besoin
+scripts/deploy.sh --local               # cette machine
 ```
 
-La règle crée aussi le lien stable `/dev/tm88` : `printr --device /dev/tm88 test`.
+Le script détecte l'architecture de la machine, compile pour elle (avec
+[`cross`](https://github.com/cross-rs/cross), pour une glibc compatible), envoie le programme
+et lance [`deploy/install.sh`](deploy/install.sh), qui demande le mot de passe `sudo` **une
+seule fois** et la clé Claude (facultative). L'installation :
 
-Pour lancer le serveur au démarrage, voir [deploy/printr.service](deploy/printr.service)
-et [deploy/printr.env.example](deploy/printr.env.example) (jeton, clé API, périphérique).
+- crée l'utilisateur système `printr` et ajoute ton compte aux groupes `printr` et `lp` ;
+- installe le programme dans `/opt/printr` (et la commande `printr`) ;
+- installe la règle udev de l'imprimante USB (lien stable `/dev/tm88`) et charge `usblp` ;
+- clone [Barnum](https://github.com/XNinety9/Barnum) dans `/opt/barnum` (si `python3` et `git`
+  sont là) ;
+- crée `/etc/printr.env` et le service, puis vérifie qu'il répond.
+
+**La relancer ne perd rien.** Avant toute modification, elle vérifie que les données sont
+lisibles (sinon elle s'arrête sans rien toucher) et les sauvegarde dans
+`/var/backups/printr` (les cinq dernières). La configuration existante est gardée : seules les
+options nouvelles y sont ajoutées. L'ancien programme reste dans `/opt/printr/printr.old` et les
+anciens fichiers système modifiés rejoignent les sauvegardes. Chaque étape dit ce qui a changé.
+
+Ensuite, **plus besoin de sudo** (après s'être déconnecté et reconnecté, pour le groupe) :
+
+```sh
+scripts/deploy.sh pi@printer.local      # depuis le PC : mise à jour du programme et redémarrage
+nano /etc/printr.env                    # configuration (clé Claude, imprimante, port…)
+systemctl restart printr                # redémarrage
+journalctl -u printr -f                 # suivre les impressions
+```
+
+`--install` relance l'installation complète (nouveau fichier de service, nouvelle règle udev…).
+Pour une imprimante réseau, définir `PRINTR_TCP=adresse:9100` dans `/etc/printr.env`. Sur la
+machine, la commande `printr` lit aussi ce fichier : un ticket lancé à la main utilise la même
+imprimante et la même clé que le serveur.
+
+Pour tout faire à la main, compiler pour la machine visée, avec
+[`cross`](https://github.com/cross-rs/cross) (Docker) depuis un autre ordinateur, puis lancer
+l'installation sur la machine (`--help` pour les options) :
+
+```sh
+cross build --release --target aarch64-unknown-linux-gnu     # Pi 3, Pi 4, Pi 5, Zero 2 W (64 bits)
+cross build --release --target armv7-unknown-linux-gnueabihf # Pi 2, Pi 3 en 32 bits
+cross build --release --target arm-unknown-linux-gnueabihf   # Pi Zero W, Pi 1 (ARMv6)
+cargo build --release                                        # cette machine
+sudo deploy/install.sh --binary chemin/vers/printr
+```
+
