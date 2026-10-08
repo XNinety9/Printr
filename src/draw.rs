@@ -40,6 +40,9 @@ const DIGITS: [[&str; 7]; 9] = [
     [".###.", "#...#", "#...#", ".####", "....#", "...#.", ".##.."],
 ];
 
+/// Le zéro, à part : les grilles de sudoku n'en ont pas besoin.
+const ZERO: [&str; 7] = [".###.", "#...#", "#..##", "#.#.#", "##..#", "#...#", ".###."];
+
 pub const DIGIT_W: i64 = 5;
 pub const DIGIT_H: i64 = 7;
 
@@ -50,6 +53,35 @@ pub fn digit(img: &mut GrayImage, d: u8, x: i64, y: i64, scale: i64) {
         for (col, c) in line.bytes().enumerate() {
             if c == b'#' {
                 fill_rect(img, x + col as i64 * scale, y + row as i64 * scale, scale, scale);
+            }
+        }
+    }
+}
+
+/// Dessine un nombre entier (chiffres de 5×7 séparés d'une colonne), coin haut-gauche en (x, y).
+pub fn number(img: &mut GrayImage, n: u32, x: i64, y: i64, scale: i64) {
+    for (i, d) in n.to_string().bytes().enumerate() {
+        let x = x + i as i64 * (DIGIT_W + 1) * scale;
+        let d = d - b'0';
+        if d == 0 {
+            glyph(img, &ZERO, x, y, scale, BLACK);
+        } else {
+            digit(img, d, x, y, scale);
+        }
+    }
+}
+
+/// Largeur, en points, d'un nombre dessiné par `number`.
+pub fn number_width(n: u32, scale: i64) -> i64 {
+    let len = n.to_string().len() as i64;
+    (len * (DIGIT_W + 1) - 1) * scale
+}
+
+fn glyph(img: &mut GrayImage, rows: &[&str; 7], x: i64, y: i64, scale: i64, ink: Luma<u8>) {
+    for (row, line) in rows.iter().enumerate() {
+        for (col, b) in line.bytes().enumerate() {
+            if b == b'#' {
+                fill_rect_with(img, x + col as i64 * scale, y + row as i64 * scale, scale, scale, ink);
             }
         }
     }

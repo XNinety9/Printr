@@ -96,6 +96,22 @@ pub struct HistoryEntry {
     pub ok: bool,
     #[serde(default)]
     pub errors: Vec<String>,
+    /// Types des blocs imprimés (« sudoku », « météo »…), pour le bilan du mois.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub blocks: Vec<String>,
+    /// Longueur de papier, en millimètres.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub paper_mm: Option<u32>,
+}
+
+/// Un article de la liste de courses partagée.
+#[derive(Serialize, Deserialize, Clone)]
+pub struct ShoppingItem {
+    pub id: String,
+    pub text: String,
+    /// Prénom de qui l'a ajouté.
+    pub by: String,
+    pub added: DateTime<Utc>,
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -108,6 +124,14 @@ pub struct Data {
     pub presets: Vec<Preset>,
     #[serde(default)]
     pub history: Vec<HistoryEntry>,
+    #[serde(default)]
+    pub shopping: Vec<ShoppingItem>,
+}
+
+/// Lit les données sur le disque, sans rien créer : pour les blocs (liste de courses, bilan).
+pub fn read_data() -> Result<Data> {
+    let dir = data_dir().context("répertoire de données introuvable (définir PRINTR_DATA_DIR)")?;
+    Ok(Store::open_at(&dir.join("printr.json"))?.data)
 }
 
 pub struct Store {

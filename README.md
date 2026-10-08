@@ -22,7 +22,7 @@
 </p>
 
 Printr transforme une imprimante à tickets **Epson TM-T88V** en gadget familial. On compose un
-ticket à partir de **30 blocs** (météo, horoscope, sudoku, mots mêlés, énigmes, actualités,
+ticket à partir de **40 blocs** (météo, horoscope, sudoku, mots mêlés, énigmes, actualités,
 photos…), on l'imprime depuis son téléphone, on le **planifie** pour 7 h 30 en semaine, ou on
 envoie un **petit mot avec une photo** à ceux qui sont restés à la maison. Un seul binaire Rust,
 sur un Raspberry Pi, qui parle ESC/POS directement à l'imprimante.
@@ -35,9 +35,10 @@ sur un Raspberry Pi, qui parle ESC/POS directement à l'imprimante.
   <img src="docs/tickets/petit-mot.png" alt="Petit mot avec une photo" width="240">
 </p>
 
-- **30 blocs** : météo, lune, saint du jour, jours fériés, horoscope (sérieux, farfelu, vachard
-  ou franchement insultant), mot du jour, sudoku, mots mêlés, labyrinthe, énigmes à réponse
-  imprimée à l'envers, défi sportif, actualités par flux RSS, QR codes, pictogrammes, photos…
+- **40 blocs** : météo, agenda, horoscope (sérieux, farfelu, vachard ou franchement insultant),
+  mot du jour, sudoku, logimage, mots mêlés, petit bac, coloriage, énigmes à réponse imprimée à
+  l'envers, défi sportif, liste de courses, poubelles, Wi-Fi invités, bons à offrir, bilan du
+  mois façon ticket de caisse, actualités par flux RSS, photos…
 - **Une appli web pour la famille** : comptes, tickets enregistrés et partagés, aperçu en direct,
   planification au format 24 h, historique.
 - **Sobre** : presque tout est calculé localement ou vient d'API gratuites et sans clé. Claude
@@ -146,6 +147,38 @@ Un paramètre inconnu est une erreur, pour repérer les fautes de frappe.
 | `riddle` (ou `enigme`) | `kind` (`devinette`/`charade`/`logique`/`calcul`), `number`, `answer` (`envers`/`lendemain`/`dessous`/`aucune`) | 125 énigmes, une par jour sans répétition. Par défaut, la réponse est imprimée à l'envers : on retourne le ticket pour la lire |
 | `workout` (ou `defi_sportif`) | `level` (`facile`/`moyen`/`difficile`), `number` | Défi sportif du jour, sans équipement, 25 défis par niveau |
 | `news` | `title`, `feeds` (URL RSS/Atom), `count` (3, max 5), `qr` (2, max 2), `themes`, `exclude`, `max_age_hours` (24) | Revue de presse sans IA : voir ci-dessous |
+| `petit_bac` | `players` (1), `letter`, `count` (6), `categories`, `seed` | Une lettre et des catégories, une feuille par joueur, toutes avec la même lettre |
+| `mental_math` (ou `calcul_mental`) | `difficulty` (`facile`/`moyen`/`difficile`), `count` (10), `seed` | Fiche d'opérations, résultats imprimés à l'envers |
+| `anagram` (ou `mot_mystere`) | `theme` (comme `word_search`), `count` (3), `seed` | Lettres mélangées, thème et longueur en indice, réponses à l'envers |
+| `nonogram` (ou `logimage`) | `number` (1 à 10), `solution` | Logimage de 10×10 ; chaque dessin a une solution unique, trouvable par déduction (vérifié par les tests) |
+| `cipher` (ou `message_code`) | `message`, `cipher` (`cesar`/`morse`/`nombres`), `shift`, `answer` (true) | Message codé et sa grille de déchiffrement ; message au hasard si absent |
+| `coloring` (ou `coloriage`) | `seed` | Mandala à colorier, différent à chaque numéro |
+| `coupon` (ou `bon`) | `text`, `from`, `to`, `valid_until`, `count` (1) | « Bon pour… » avec frise, numéro de série et ligne de découpe ; idée au hasard si `text` est absent |
+| `shopping` (ou `courses`) | `title`, `clear` (false) | La liste de courses partagée de l'appli ; avec `clear`, le serveur la vide une fois imprimée |
+| `agenda` | `calendars` (liens ICS ou `webcal://`, ou fichiers), `days` (1, max 7), `title` | Rendez-vous du jour, répétitions et fuseaux horaires compris |
+| `bins` (ou `poubelles`) | `collections` (`name`, `days`, `every`, `from`), `when` (`veille`/`jour`), `always` | « Ce soir, on sort le bac jaune » ; rien n'est imprimé les soirs sans ramassage, sauf avec `always` |
+| `wifi` | `ssid`, `password`, `security` (`wpa`/`wep`/`none`), `hidden`, `show_password` (true) | QR code qui connecte directement au réseau |
+| `monthly_report` (ou `bilan`) | `month` (`AAAA-MM`, mois en cours par défaut) | Bilan façon ticket de caisse, tiré de l'historique de l'appli |
+
+Chaque bloc a son exemple dans [`docs/exemples/`](docs/exemples/) : le ticket JSON et son rendu,
+régénérés par `docs/exemples/generer.sh` (données fictives).
+
+<p align="center">
+  <img src="docs/exemples/logimage.png" alt="Logimage" width="200">
+  &nbsp;
+  <img src="docs/exemples/coloriage.png" alt="Mandala à colorier" width="200">
+  &nbsp;
+  <img src="docs/exemples/bilan.png" alt="Bilan du mois façon ticket de caisse" width="200">
+</p>
+
+Exemple de ramassage, avec le bac jaune un vendredi sur deux :
+
+```json
+{ "type": "poubelles", "collections": [
+  { "name": "ordures ménagères", "days": ["lundi", "vendredi"] },
+  { "name": "bac jaune", "days": ["vendredi"], "every": 2, "from": "2026-10-09" }
+] }
+```
 
 ### Actualités (`news`)
 
@@ -204,6 +237,9 @@ mêmes résultats, sans nouvel appel. `--refresh` force une nouvelle génératio
   la famille et à **planifier** (jours et heure). Une échéance manquée de plus de 15 minutes
   n'est pas rattrapée.
 - **Petit mot** : une photo prise avec le téléphone, un dessin (cœur, étoile…), quelques mots.
+- **Courses** : la liste partagée de la famille ; chacun ajoute ce qui manque, on l'imprime en
+  partant (et elle se vide toute seule). Un raccourci iOS peut aussi y ajouter des articles
+  avec `POST /api/shopping` et le jeton.
 - **Historique** : qui a imprimé quoi, et les éventuelles erreurs.
 
 Chaque membre de la famille a son compte :
@@ -230,6 +266,7 @@ printr serve --listen 0.0.0.0:8080 --token $(openssl rand -hex 24)   # jeton : o
 | `GET /` | — | Vérifie que le serveur tourne |
 | `POST /print` | Un ticket JSON | Imprime le ticket |
 | `POST /todo` | `{"title"?, "items"?: [...], "text"?: "une\nligne\npar\nélément"}` | Imprime la date et une liste à cocher |
+| `POST /api/shopping` | `{"text": "lait\npain"}` | Ajoute des articles à la liste de courses (un par ligne) |
 
 Pour les scripts, les `POST` exigent l'en-tête `Authorization: Bearer <jeton>` (défini avec `--token`). Ajouter `?preview` renvoie
 l'aperçu texte sans imprimer. La réponse est `{"ok": true, "errors": [...]}`, où `errors` liste

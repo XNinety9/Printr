@@ -150,7 +150,10 @@ const PICTOS = [['coeur', '❤️'], ['etoile', '⭐'], ['soleil', '☀️'], ['
 const label = (options, value) => options.find(([v]) => v === value)?.[1] ?? value;
 const inDays = (n) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
 
-const G = { layout: 'Mise en page', daily: 'Au quotidien', fun: 'Jeux & défis', info: 'Infos', org: 'Organisation' };
+const G = { layout: 'Mise en page', daily: 'Au quotidien', fun: 'Jeux & défis', gift: 'Petites attentions', info: 'Infos', org: 'Organisation' };
+const FAMILY_THEMES = WORD_THEMES.filter(([v]) => !['developpement', 'devops', 'reseaux', 'ia'].includes(v));
+const WEEKDAYS = [['lundi', 'Lundi'], ['mardi', 'Mardi'], ['mercredi', 'Mercredi'], ['jeudi', 'Jeudi'], ['vendredi', 'Vendredi'], ['samedi', 'Samedi'], ['dimanche', 'Dimanche']];
+const EVERY = [[1, 'Chaque semaine'], [2, 'Une semaine sur deux'], [3, 'Toutes les 3 semaines'], [4, 'Toutes les 4 semaines']];
 
 const BLOCKS = [
   {
@@ -326,6 +329,70 @@ const BLOCKS = [
     summary: (b) => `${b.width} × ${b.height}`,
   },
   {
+    type: 'nonogram', label: 'Logimage', emoji: '🖍️', group: G.fun, desc: 'Noircir des cases pour révéler un dessin',
+    defaults: {},
+    fields: [
+      { key: 'number', label: 'Numéro du dessin (1 à 10)', kind: 'number', min: 1, max: 10, optional: true },
+      { key: 'solution', label: 'Imprimer la solution', kind: 'toggle' },
+    ],
+  },
+  {
+    type: 'petit_bac', label: 'Petit bac', emoji: '✏️', group: G.fun, desc: 'Une lettre, des catégories, à jouer en famille',
+    defaults: { players: 1, count: 6, categories: [] },
+    fields: [
+      { key: 'players', label: 'Joueurs (une feuille chacun)', kind: 'number', min: 1, max: 6 },
+      { key: 'letter', label: 'Lettre', kind: 'text', placeholder: 'Au hasard', maxlength: 1 },
+      { key: 'count', label: 'Nombre de catégories', kind: 'number', min: 3, max: 12 },
+      { key: 'categories', label: 'Mes catégories (remplacent le tirage)', kind: 'list', placeholder: 'Dinosaure…', add: 'Ajouter une catégorie' },
+    ],
+    summary: (b) => `${b.players} joueur${b.players > 1 ? 's' : ''}${b.letter ? ` · lettre ${b.letter.toUpperCase()}` : ''}`,
+  },
+  {
+    type: 'mental_math', label: 'Calcul mental', emoji: '➗', group: G.fun, desc: 'Une fiche d’opérations, résultats à l’envers',
+    defaults: { difficulty: 'facile', count: 10 },
+    fields: [
+      { key: 'difficulty', label: 'Niveau', kind: 'segmented', options: LEVELS },
+      { key: 'count', label: 'Opérations', kind: 'number', min: 4, max: 30 },
+    ],
+    summary: (b) => `${label(LEVELS, b.difficulty)} · ${b.count} opérations`,
+  },
+  {
+    type: 'anagram', label: 'Mot mystère', emoji: '🔀', group: G.fun, desc: 'Des lettres mélangées à remettre dans l’ordre',
+    defaults: { count: 3, theme: '' },
+    fields: [
+      { key: 'theme', label: 'Thème', kind: 'select', options: FAMILY_THEMES },
+      { key: 'count', label: 'Nombre de mots', kind: 'number', min: 1, max: 6 },
+    ],
+    summary: (b) => `${b.count} mot${b.count > 1 ? 's' : ''} · ${label(WORD_THEMES, b.theme || '')}`,
+  },
+  {
+    type: 'cipher', label: 'Message codé', emoji: '🕵️', group: G.fun, desc: 'César, morse ou nombres, à déchiffrer',
+    defaults: { cipher: 'cesar', answer: true, message: '' },
+    fields: [
+      { key: 'cipher', label: 'Code', kind: 'segmented', options: [['cesar', 'César'], ['morse', 'Morse'], ['nombres', 'Nombres']] },
+      { key: 'message', label: 'Message secret', kind: 'textarea', placeholder: 'Laisse vide pour un message au hasard' },
+      { key: 'answer', label: 'Imprimer la réponse à l’envers', kind: 'toggle' },
+    ],
+    summary: (b) => ({ cesar: 'César', morse: 'Morse', nombres: 'Nombres' })[b.cipher] || '',
+  },
+  {
+    type: 'coloring', label: 'Coloriage', emoji: '🎨', group: G.fun, desc: 'Un mandala à colorier, toujours différent',
+    defaults: {},
+    fields: [{ key: 'seed', label: 'Numéro du mandala', kind: 'number', optional: true, help: 'Laisse vide pour un nouveau mandala.' }],
+  },
+  {
+    type: 'coupon', label: 'Bon à offrir', emoji: '🎟️', group: G.gift, desc: '« Bon pour un petit-déjeuner au lit »',
+    defaults: { count: 1, text: '' },
+    fields: [
+      { key: 'text', label: 'Bon pour…', kind: 'text', placeholder: 'un petit-déjeuner au lit (vide : une idée au hasard)' },
+      { key: 'from', label: 'Offert par', kind: 'text' },
+      { key: 'to', label: 'Pour', kind: 'text' },
+      { key: 'valid_until', label: 'Valable jusqu’au', kind: 'date' },
+      { key: 'count', label: 'Nombre de bons', kind: 'number', min: 1, max: 6 },
+    ],
+    summary: (b) => b.text || 'Idée au hasard',
+  },
+  {
     type: 'news', label: 'Actualités', emoji: '📰', group: G.info, desc: 'Revue de presse depuis tes flux RSS',
     defaults: { title: 'France', feeds: ['https://www.franceinfo.fr/titres.rss', 'https://www.lemonde.fr/rss/une.xml'], count: 3, qr: 2, themes: [], exclude: [] },
     fields: [
@@ -360,6 +427,59 @@ const BLOCKS = [
       { key: 'items', label: 'Choses à faire', kind: 'list', placeholder: 'Acheter du pain', add: 'Ajouter une ligne' },
     ],
     summary: (b) => `${(b.items || []).filter(Boolean).length} élément(s)`,
+  },
+  {
+    type: 'shopping', label: 'Liste de courses', emoji: '🛒', group: G.org, desc: 'La liste partagée de l’appli',
+    defaults: { title: 'Liste de courses', clear: true },
+    fields: [
+      { key: 'title', label: 'Titre', kind: 'text' },
+      { key: 'clear', label: 'Vider la liste une fois imprimée', kind: 'toggle' },
+    ],
+  },
+  {
+    type: 'agenda', label: 'Agenda', emoji: '🗓️', group: G.org, desc: 'Tes rendez-vous, depuis un calendrier en ligne',
+    defaults: { calendars: [''], days: 1 },
+    fields: [
+      { key: 'calendars', label: 'Liens des calendriers (ICS)', kind: 'list', placeholder: 'webcal://…', add: 'Ajouter un calendrier',
+        help: 'iCloud : partage le calendrier en public et copie le lien. Google : « Adresse secrète au format iCal ».' },
+      { key: 'days', label: 'Jours', kind: 'number', min: 1, max: 7 },
+      { key: 'title', label: 'Titre', kind: 'text', placeholder: 'Agenda' },
+    ],
+    summary: (b) => `${b.days} jour${b.days > 1 ? 's' : ''}`,
+  },
+  {
+    type: 'bins', label: 'Poubelles', emoji: '🗑️', group: G.org, desc: '« Ce soir, on sort le bac jaune »',
+    defaults: { when: 'veille', always: false, collections: [{ name: 'Bac jaune', days: ['jeudi'], every: 1 }] },
+    fields: [
+      { key: 'collections', label: 'Ramassages', kind: 'bins' },
+      { key: 'when', label: 'Rappel', kind: 'segmented', options: [['veille', 'La veille au soir'], ['jour', 'Le jour même']] },
+      { key: 'always', label: 'Imprimer aussi les jours sans ramassage', kind: 'toggle' },
+    ],
+    normalize: (d) => {
+      d.collections = (d.collections || []).filter((c) => c.name?.trim()).map((c) => {
+        const out = { name: c.name.trim(), days: c.days, every: Number(c.every) || 1 };
+        if (out.every > 1 && c.from) out.from = c.from;
+        return out;
+      });
+      return d;
+    },
+    summary: (b) => (b.collections || []).map((c) => c.name).filter(Boolean).join(', '),
+  },
+  {
+    type: 'wifi', label: 'Wi-Fi invités', emoji: '📶', group: G.org, desc: 'Un QR code pour se connecter',
+    defaults: { ssid: '', password: '', security: 'wpa', show_password: true },
+    fields: [
+      { key: 'ssid', label: 'Nom du réseau', kind: 'text' },
+      { key: 'password', label: 'Mot de passe', kind: 'text' },
+      { key: 'security', label: 'Sécurité', kind: 'segmented', options: [['wpa', 'WPA'], ['wep', 'WEP'], ['none', 'Ouvert']] },
+      { key: 'show_password', label: 'Écrire le mot de passe en clair', kind: 'toggle' },
+    ],
+    summary: (b) => b.ssid,
+  },
+  {
+    type: 'monthly_report', label: 'Bilan du mois', emoji: '🧾', group: G.org, desc: 'Qui a imprimé quoi, façon ticket de caisse',
+    defaults: {},
+    fields: [{ key: 'month', label: 'Mois', kind: 'month', help: 'Laisse vide pour le mois en cours.' }],
   },
 ];
 const BLOCK = Object.fromEntries(BLOCKS.map((b) => [b.type, b]));
@@ -467,6 +587,30 @@ function ListEdit({ value, onChange, placeholder, add }) {
   </div>`;
 }
 
+// Ramassages des poubelles : un nom, un jour, une fréquence (et une date de référence).
+function BinsEdit({ value, onChange }) {
+  const rows = value?.length ? value : [{ name: '', days: ['lundi'], every: 1 }];
+  const set = (i, patch) => onChange(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  return html`<div class="bins">
+    ${rows.map((r, i) => html`<div class="bin-row" key=${i}>
+      <div class="item">
+        <input class="input" value=${r.name} placeholder="Bac jaune, verre…" onInput=${(e) => set(i, { name: e.target.value })} />
+        <button type="button" class="iconbtn danger" aria-label="Retirer" onClick=${() => onChange(rows.filter((_, j) => j !== i))}><${Icon} name="x" /></button>
+      </div>
+      <div class="bin-when">
+        <select class="input" value=${r.days?.[0] || 'lundi'} onChange=${(e) => set(i, { days: [e.target.value] })}>
+          ${WEEKDAYS.map(([v, t]) => html`<option value=${v}>${t}</option>`)}</select>
+        <select class="input" value=${r.every || 1} onChange=${(e) => set(i, { every: Number(e.target.value) })}>
+          ${EVERY.map(([v, t]) => html`<option value=${v}>${t}</option>`)}</select>
+      </div>
+      ${(r.every || 1) > 1 && html`<label class="help">Un jour de ramassage connu, pour caler les semaines :
+        <input class="input" type="date" value=${r.from || ''} onInput=${(e) => set(i, { from: e.target.value })} /></label>`}
+    </div>`)}
+    <button type="button" class="btn ghost small" onClick=${() => onChange([...rows, { name: '', days: ['lundi'], every: 1 }])}>
+      <${Icon} name="plus" size=${16} /> Ajouter un ramassage</button>
+  </div>`;
+}
+
 function PhotoField({ value, onChange }) {
   const input = useRef();
   const [busy, setBusy] = useState(false);
@@ -514,10 +658,15 @@ function FieldInput({ field, value, onChange }) {
       return html`<${ListEdit} value=${value} onChange=${onChange} placeholder=${field.placeholder} add=${field.add} />`;
     case 'date':
       return html`<input class="input" type="date" value=${value ?? ''} onInput=${(e) => onChange(e.target.value)} />`;
+    case 'month':
+      return html`<input class="input" type="month" value=${value ?? ''} onInput=${(e) => onChange(e.target.value)} />`;
+    case 'bins':
+      return html`<${BinsEdit} value=${value} onChange=${onChange} />`;
     case 'image':
       return html`<${PhotoField} value=${value} onChange=${onChange} />`;
     default:
-      return html`<input class="input" value=${value ?? ''} placeholder=${field.placeholder} onInput=${(e) => onChange(e.target.value)} />`;
+      return html`<input class="input" value=${value ?? ''} placeholder=${field.placeholder} maxlength=${field.maxlength}
+        onInput=${(e) => onChange(e.target.value)} />`;
   }
 }
 
@@ -729,6 +878,7 @@ function Home({ me, presets, reload, openComposer }) {
     <div class="hero">
       <a class="action-card coral" href="#/message"><div class="big-emoji">💌</div><div><strong>Petit mot</strong><span>Une photo, quelques mots</span></div></a>
       <button class="action-card sky" onClick=${() => openComposer(emptyComposer())}><div class="big-emoji">🧾</div><div><strong>Nouveau ticket</strong><span>Compose bloc par bloc</span></div></button>
+      <a class="action-card mint wide" href="#/courses"><div class="big-emoji">🛒</div><div><strong>Courses</strong><span>La liste de toute la famille</span></div></a>
     </div>
     <div class="section-title">Mes tickets</div>
     ${presets === null ? html`<div style="padding:30px;display:grid;place-items:center"><${Spinner} /></div>`
@@ -1002,6 +1152,66 @@ function Message({ me, onSaved }) {
 }
 
 // ============================================================================
+// Écran : liste de courses
+// ============================================================================
+
+function Shopping({ users }) {
+  const [items, setItems] = useState(null);
+  const [text, setText] = useState('');
+  const [clear, setClear] = useState(() => store.get('printr.shopping.clear', true));
+  const [busy, setBusy] = useState(false);
+  const [confirm, setConfirm] = useState(false);
+  const input = useRef();
+  const byName = Object.fromEntries((users || []).map((u) => [u.name, u]));
+  const load = () => api('GET', '/api/shopping').then(setItems).catch((e) => { toast(e.message, 'error'); setItems([]); });
+  useEffect(() => { load(); }, []);
+
+  const add = async (e) => {
+    e.preventDefault();
+    if (!text.trim()) return;
+    try { setItems(await api('POST', '/api/shopping', { text })); setText(''); input.current?.focus(); } catch (err) { toast(err.message, 'error'); }
+  };
+  const remove = async (id) => {
+    setItems((list) => list.filter((i) => i.id !== id));
+    try { setItems(await api('DELETE', `/api/shopping/${id}`)); } catch (err) { toast(err.message, 'error'); load(); }
+  };
+  const print = async () => {
+    setBusy(true);
+    try {
+      const ticket = { cut: true, spacing: 1, blocks: [{ type: 'date' }, { type: 'shopping', clear }] };
+      await api('POST', '/api/print', { ticket, label: 'Liste de courses' });
+      toast('Liste imprimée, bonnes courses !', 'ok', '🛒');
+      load();
+    } catch (err) { toast(err.message, 'error'); } finally { setBusy(false); }
+  };
+  const setClearPref = (v) => { setClear(v); store.set('printr.shopping.clear', v); };
+
+  return html`<div class="page" style="max-width:640px">
+    <form class="shop-add" onSubmit=${add}>
+      <input ref=${input} class="input" value=${text} placeholder="Lait, pain, piles…" onInput=${(e) => setText(e.target.value)}
+        aria-label="Article à ajouter" enterkeyhint="done" />
+      <button class="btn primary" disabled=${!text.trim()}><${Icon} name="plus" /> Ajouter</button>
+    </form>
+    ${items === null ? html`<div style="padding:30px;display:grid;place-items:center"><${Spinner} /></div>`
+      : !items.length ? html`<div class="empty"><div class="big-emoji">🧺</div><h3>La liste est vide</h3>
+          <p class="muted" style="margin:0">Ajoute ce qui manque au fil de la semaine : toute la famille voit la même liste.</p></div>`
+      : html`<div class="card shop-list">${items.map((item) => html`<div class="shop-item" key=${item.id}>
+          <button class="shop-check" aria-label=${`Retirer ${item.text}`} title="C'est pris !" onClick=${() => remove(item.id)}><${Icon} name="check" size=${16} /></button>
+          <span class="grow">${item.text}</span>
+          ${byName[item.by] ? html`<${Avatar} user=${byName[item.by]} size="small" />` : html`<span class="muted" style="font-size:12px">${item.by}</span>`}
+        </div>`)}</div>
+        <div class="shop-actions">
+          <${Switch} label="Vider la liste une fois imprimée" checked=${clear} onChange=${setClearPref} />
+          <button class="btn primary big block" disabled=${busy} onClick=${print}>${busy ? html`<${Spinner} />` : html`<${Icon} name="printer" />`} Imprimer la liste</button>
+          <button class="btn ghost block" onClick=${() => setConfirm(true)}><${Icon} name="trash" /> Tout effacer</button>
+        </div>`}
+    ${confirm && html`<${Confirm} title="Effacer toute la liste ?" message="Tous les articles seront retirés, pour toute la famille."
+      action="Effacer" danger onConfirm=${async () => { setItems(await api('DELETE', '/api/shopping')); toast('Liste effacée', 'ok', '🧹'); }}
+      onClose=${() => setConfirm(false)} />`}
+  </div>`;
+}
+
+// ============================================================================
 // Écran : historique
 // ============================================================================
 
@@ -1059,6 +1269,8 @@ const NAV = [
   { hash: '#/message', label: 'Petit mot', icon: 'heart', title: 'Un petit mot' },
   { hash: '#/history', label: 'Historique', icon: 'history', title: 'Historique' },
 ];
+// Écrans accessibles depuis l'accueil, sans onglet.
+const ROUTES = [...NAV, { hash: '#/courses', title: 'Liste de courses' }];
 
 function App() {
   const [me, setMe] = useState(undefined);
@@ -1091,13 +1303,14 @@ function App() {
 
   const openComposer = (state) => { setComposer(state); location.hash = '#/compose'; };
   const logout = async () => { await api('POST', '/api/logout').catch(() => {}); setMenu(false); setMe(null); };
-  const route = NAV.find((n) => n.hash === hash) || NAV[0];
+  const route = ROUTES.find((n) => n.hash === hash) || NAV[0];
   const title = route.hash === '#/compose' ? (composer.id ? 'Modifier le ticket' : 'Nouveau ticket') : route.title;
 
   let page;
   if (route.hash === '#/compose') page = html`<${Composer} initial=${composer} onSaved=${loadPresets} />`;
   else if (route.hash === '#/message') page = html`<${Message} me=${me} onSaved=${loadPresets} />`;
   else if (route.hash === '#/history') page = html`<${History} users=${users} />`;
+  else if (route.hash === '#/courses') page = html`<${Shopping} users=${users} />`;
   else page = html`<${Home} me=${me} presets=${presets} reload=${loadPresets} openComposer=${openComposer} />`;
 
   return html`<div class="shell">

@@ -35,7 +35,7 @@ impl Shape {
     }
 
     /// Le point (x, y), dans un repère où la forme tient dans [-1, 1]², est-il noir ?
-    fn ink(self, x: f64, y: f64) -> bool {
+    pub(crate) fn ink(self, x: f64, y: f64) -> bool {
         let r = (x * x + y * y).sqrt();
         let angle = y.atan2(x);
         match self {

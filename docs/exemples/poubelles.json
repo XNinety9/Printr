@@ -1,0 +1,5 @@
+{ "blocks": [{ "type": "poubelles", "collections": [
+  { "name": "ordures ménagères", "days": ["lundi", "vendredi"] },
+  { "name": "bac jaune", "days": ["vendredi"], "every": 2, "from": "2026-10-09" },
+  { "name": "verre", "days": ["mercredi"], "every": 4, "from": "2026-10-14" }
+] }] }

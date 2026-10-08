@@ -34,6 +34,8 @@ Quelques variables d'environnement utiles :
   [emupos](https://pypi.org/project/emupos/) (profil TM-T88V dans `emulator/`) et donne le PNG
   du ticket, au point près.
 - **Octets bruts** : `--dump sortie.bin` écrit exactement ce qui partirait vers l'imprimante.
+- **Exemples de blocs** : `docs/exemples/generer.sh [bloc…]` réimprime les exemples de
+  `docs/exemples/` dans l'émulateur, avec des données fictives. Pense à y ajouter ton bloc.
 - **Interface web** :
 
   ```sh
@@ -226,6 +228,7 @@ Avec `PRINTR_WEB_DIR=web`, recharge simplement la page pour voir ton bloc dans l
 
 ### 7. Le documenter
 
+- un exemple dans `docs/exemples/` (`mon_bloc.json`), dont `generer.sh mon_bloc` tire le PNG ;
 - une ligne dans le tableau des blocs du `README.md` (paramètres et valeurs par défaut) ;
 - une puce dans le catalogue de `docs/index.html`, en français et en anglais.
 

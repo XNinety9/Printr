@@ -33,7 +33,7 @@ pub enum Theme {
     Ia,
 }
 
-const THEMES: [Theme; 14] = [
+pub(crate) const THEMES: [Theme; 14] = [
     Theme::Animaux,
     Theme::FruitsLegumes,
     Theme::Cuisine,
@@ -70,7 +70,7 @@ impl Theme {
         }
     }
 
-    fn words(self) -> &'static [&'static str] {
+    pub(crate) fn words(self) -> &'static [&'static str] {
         match self {
             Theme::Animaux => &[
                 "chat", "chien", "lapin", "cheval", "vache", "mouton", "cochon", "canard", "poule", "renard",
@@ -161,7 +161,7 @@ impl Theme {
 }
 
 /// Mot tel qu'il se cherche dans la grille : majuscules sans accents, lettres seules.
-fn grid_form(word: &str) -> String {
+pub(crate) fn grid_form(word: &str) -> String {
     let mut s = String::with_capacity(word.len());
     for c in word.chars().flat_map(char::to_lowercase) {
         let t = match c {

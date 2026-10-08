@@ -45,6 +45,7 @@ pub struct Printed {
 impl App {
     /// Construit, imprime et note dans l'historique un ticket.
     pub fn print(&self, ticket: &Ticket, by: &str, label: &str) -> Printed {
+        let started = Utc::now();
         let (doc, reports) = ticket.build(&Ctx::new(false), &mut Silent);
         let errors: Vec<String> =
             reports.iter().filter_map(|r| r.error.as_ref().map(|e| format!("{} : {e}", r.label))).collect();
@@ -59,7 +60,14 @@ impl App {
             label: label.to_owned(),
             ok: failure.is_none(),
             errors: failure.iter().chain(&errors).cloned().collect(),
+            blocks: ticket.blocks.iter().map(|b| b.name().to_owned()).collect(),
+            paper_mm: Some((doc.height_dots() as f64 * 25.4 / 180.0).round() as u32),
         });
+        // Liste de courses imprimée avec `clear` : on retire ce qui y figurait (pas ce qui a été
+        // ajouté pendant l'impression).
+        if failure.is_none() && ticket.blocks.iter().any(|b| matches!(b, Block::Shopping { clear: true, .. })) {
+            store.data.shopping.retain(|item| item.added > started);
+        }
         if let Err(e) = store.save() {
             eprintln!("historique non enregistré : {e:#}");
         }
@@ -255,6 +263,16 @@ struct ScheduleInput {
 
 fn yes() -> bool {
     true
+}
+
+#[derive(Deserialize)]
+struct ShoppingInput {
+    /// Un article, ou plusieurs (un par ligne).
+    text: String,
+}
+
+fn shopping_json(store: &Store) -> Value {
+    json!(store.data.shopping)
 }
 
 #[derive(Deserialize)]
@@ -542,6 +560,44 @@ fn handle(app: &App, request: &mut Request) -> Reply {
             let Some(preset) = preset else { return Reply::error(404, "preset inconnu") };
             let ticket = try_reply!(parse_ticket(&preset.ticket));
             printed_reply(app.print(&ticket, &by, &preset.name), &preset.name)
+        }
+        (Method::Get, ["api", "shopping"]) => {
+            let store = app.store.lock().unwrap_or_else(|e| e.into_inner());
+            Reply::ok(shopping_json(&store))
+        }
+        (Method::Post, ["api", "shopping"]) => {
+            let input: ShoppingInput = try_reply!(json_body(request));
+            let items: Vec<&str> = input.text.lines().map(str::trim).filter(|l| !l.is_empty()).collect();
+            if items.is_empty() {
+                return Reply::error(400, "rien à ajouter");
+            }
+            let mut store = app.store.lock().unwrap_or_else(|e| e.into_inner());
+            for text in &items {
+                let text: String = text.chars().take(80).collect();
+                store.data.shopping.push(store::ShoppingItem { id: store::new_id(6), text, by: by.clone(), added: Utc::now() });
+            }
+            match store.save() {
+                Ok(()) => Reply::ok(shopping_json(&store)).note(format!("courses : {}", items.join(", "))),
+                Err(e) => Reply::error(500, format!("{e:#}")),
+            }
+        }
+        (Method::Delete, ["api", "shopping", rest @ ..]) => {
+            let mut store = app.store.lock().unwrap_or_else(|e| e.into_inner());
+            let note = match rest {
+                [] => {
+                    store.data.shopping.clear();
+                    "liste de courses vidée".to_owned()
+                }
+                [id] => {
+                    store.data.shopping.retain(|i| i.id != *id);
+                    "article retiré".to_owned()
+                }
+                _ => return Reply::error(404, "route inconnue"),
+            };
+            match store.save() {
+                Ok(()) => Reply::ok(shopping_json(&store)).note(note),
+                Err(e) => Reply::error(500, format!("{e:#}")),
+            }
         }
         (Method::Get, ["api", "history"]) => {
             let store = app.store.lock().unwrap_or_else(|e| e.into_inner());

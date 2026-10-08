@@ -1,24 +1,36 @@
 //! Blocs paramétrables d'un ticket, décrits en JSON.
 
+mod agenda;
 mod air_quality;
+mod anagram;
 pub mod barnum;
+mod bins;
+mod cipher;
+mod coloring;
+mod coupon;
 mod crypto;
 mod glitch;
 mod holidays;
 mod horoscope;
 mod maze;
+mod mental_math;
+mod monthly;
 mod moon;
 mod news;
+mod nonogram;
 mod on_this_day;
+mod petit_bac;
 mod picto;
 mod quote;
 mod riddle;
 mod saint;
+mod shopping;
 mod sudoku;
 mod sun;
 mod weather;
 mod word;
 mod word_search;
+mod wifi;
 mod workout;
 
 use std::panic::AssertUnwindSafe;
@@ -46,6 +58,12 @@ fn two() -> u8 {
 }
 fn three() -> u8 {
     3
+}
+fn six() -> u8 {
+    6
+}
+fn ten() -> u8 {
+    10
 }
 fn default_coins() -> Vec<String> {
     vec!["bitcoin".to_owned(), "ethereum".to_owned()]
@@ -245,6 +263,132 @@ pub enum Block {
         #[serde(default)]
         answer: riddle::Answer,
     },
+    /// Petit bac : une lettre, des catégories, une feuille par joueur.
+    PetitBac {
+        #[serde(default)]
+        letter: Option<char>,
+        /// Catégories imposées ; tirées au hasard si vide.
+        #[serde(default)]
+        categories: Vec<String>,
+        /// Nombre de catégories tirées au hasard.
+        #[serde(default = "six")]
+        count: u8,
+        #[serde(default = "one")]
+        players: u8,
+        #[serde(default)]
+        seed: Option<u64>,
+    },
+    /// Fiche de calcul mental, résultats à l'envers.
+    #[serde(alias = "calcul_mental")]
+    MentalMath {
+        #[serde(default)]
+        difficulty: sudoku::Difficulty,
+        #[serde(default = "ten")]
+        count: u8,
+        #[serde(default)]
+        seed: Option<u64>,
+    },
+    /// Mots mystères : lettres mélangées, réponses à l'envers.
+    #[serde(alias = "mot_mystere", alias = "anagramme")]
+    Anagram {
+        #[serde(default)]
+        theme: Option<word_search::Theme>,
+        #[serde(default = "three")]
+        count: u8,
+        #[serde(default)]
+        seed: Option<u64>,
+    },
+    /// Logimage (picross) : un dessin à révéler.
+    #[serde(alias = "logimage", alias = "picross")]
+    Nonogram {
+        #[serde(default)]
+        number: Option<usize>,
+        #[serde(default)]
+        solution: bool,
+    },
+    /// Message codé (César, morse, nombres).
+    #[serde(alias = "message_code")]
+    Cipher {
+        #[serde(default)]
+        message: Option<String>,
+        #[serde(default)]
+        cipher: cipher::Cipher,
+        /// Décalage du code César (au hasard si absent).
+        #[serde(default)]
+        shift: Option<u8>,
+        /// Message en clair, imprimé à l'envers en bas.
+        #[serde(default = "yes")]
+        answer: bool,
+        #[serde(default)]
+        seed: Option<u64>,
+    },
+    /// Liste de courses partagée de l'appli.
+    #[serde(alias = "courses")]
+    Shopping {
+        #[serde(default)]
+        title: Option<String>,
+        /// Vide la liste une fois imprimée (impressions par le serveur).
+        #[serde(default)]
+        clear: bool,
+    },
+    /// Bon à offrir.
+    #[serde(alias = "bon")]
+    Coupon {
+        /// « un petit-déjeuner au lit » ; une idée au hasard si absent.
+        #[serde(default)]
+        text: Option<String>,
+        #[serde(default)]
+        from: Option<String>,
+        #[serde(default)]
+        to: Option<String>,
+        #[serde(default)]
+        valid_until: Option<NaiveDate>,
+        #[serde(default = "one")]
+        count: u8,
+    },
+    /// QR code de connexion au Wi-Fi.
+    Wifi {
+        ssid: String,
+        #[serde(default)]
+        password: Option<String>,
+        #[serde(default)]
+        security: wifi::Security,
+        #[serde(default)]
+        hidden: bool,
+        #[serde(default = "yes")]
+        show_password: bool,
+    },
+    /// Rappel des poubelles à sortir.
+    #[serde(alias = "poubelles")]
+    Bins {
+        collections: Vec<bins::Collection>,
+        #[serde(default)]
+        when: bins::When,
+        /// Imprime aussi les soirs sans ramassage (avec le prochain).
+        #[serde(default)]
+        always: bool,
+    },
+    /// Agenda du jour depuis des calendriers ICS.
+    Agenda {
+        calendars: Vec<String>,
+        #[serde(default = "one")]
+        days: u8,
+        #[serde(default)]
+        title: Option<String>,
+    },
+    /// Bilan du mois, façon ticket de caisse.
+    #[serde(alias = "bilan")]
+    MonthlyReport {
+        /// « AAAA-MM » ; le mois en cours si absent.
+        #[serde(default)]
+        month: Option<String>,
+    },
+    /// Mandala à colorier.
+    #[serde(alias = "coloriage")]
+    Coloring {
+        #[serde(default)]
+        seed: Option<u64>,
+    },
     /// Revue de presse à partir de flux RSS, sans IA.
     News {
         /// Titre du bandeau : « Actualités · <title> ».
@@ -315,8 +459,20 @@ pub struct Report {
 }
 
 impl Block {
-    fn name(&self) -> &'static str {
+    pub fn name(&self) -> &'static str {
         match self {
+            Block::PetitBac { .. } => "petit bac",
+            Block::MentalMath { .. } => "calcul mental",
+            Block::Anagram { .. } => "mot mystère",
+            Block::Nonogram { .. } => "logimage",
+            Block::Cipher { .. } => "message codé",
+            Block::Shopping { .. } => "liste de courses",
+            Block::Coupon { .. } => "bon à offrir",
+            Block::Wifi { .. } => "Wi-Fi",
+            Block::Bins { .. } => "poubelles",
+            Block::Agenda { .. } => "agenda",
+            Block::MonthlyReport { .. } => "bilan du mois",
+            Block::Coloring { .. } => "coloriage",
             Block::Title { .. } => "titre",
             Block::Text { .. } => "texte",
             Block::Glitch { .. } => "glitch",
@@ -366,6 +522,13 @@ impl Block {
                 };
                 Some(format!("{subject}{}{}", difficulty.label(), if *solution { ", solution" } else { "" }))
             }
+            Block::MentalMath { difficulty, .. } => Some(difficulty.label().to_owned()),
+            Block::Cipher { cipher, .. } => Some(cipher.label().to_owned()),
+            Block::Coupon { text, .. } => text.clone(),
+            Block::Wifi { ssid, .. } => Some(ssid.clone()),
+            Block::Agenda { title, .. } => title.clone(),
+            Block::MonthlyReport { month, .. } => month.clone(),
+            Block::Nonogram { number, .. } => number.map(|n| format!("n° {n}")),
             Block::Countdown { label, .. } => Some(label.clone()),
             Block::Crypto { coins, .. } => Some(coins.join(", ")),
             Block::Sun { location } => Some(location.clone()),
@@ -482,6 +645,33 @@ impl Block {
                 };
                 doc = barnum::build(who, ctx.today, *sky, variant.as_deref())?;
             }
+            Block::PetitBac { letter, categories, count, players, seed } => {
+                doc = petit_bac::build(*letter, categories, *count, *players, *seed);
+            }
+            Block::MentalMath { difficulty, count, seed } => doc = mental_math::build(*difficulty, *count, *seed),
+            Block::Anagram { theme, count, seed } => doc = anagram::build(*theme, *count, *seed),
+            Block::Nonogram { number, solution } => doc = nonogram::build(*number, *solution)?,
+            Block::Cipher { message, cipher: kind, shift, answer, seed } => {
+                doc = cipher::build(message.as_deref(), *kind, *shift, *answer, *seed);
+            }
+            Block::Shopping { title, .. } => doc = shopping::build(title.as_deref())?,
+            Block::Coupon { text, from, to, valid_until, count } => {
+                let coupon = coupon::Coupon {
+                    text: text.as_deref(),
+                    from: from.as_deref(),
+                    to: to.as_deref(),
+                    valid_until: *valid_until,
+                    count: *count,
+                };
+                doc = coupon::build(&coupon, ctx.today);
+            }
+            Block::Wifi { ssid, password, security, hidden, show_password } => {
+                doc = wifi::build(ssid, password.as_deref(), *security, *hidden, *show_password)?;
+            }
+            Block::Bins { collections, when, always } => doc = bins::build(collections, *when, *always, ctx.today)?,
+            Block::Agenda { calendars, days, title } => doc = agenda::build(ctx, calendars, *days, title.as_deref())?,
+            Block::MonthlyReport { month } => doc = monthly::build(month.as_deref(), ctx.today)?,
+            Block::Coloring { seed } => doc = coloring::build(*seed),
             Block::News { title, feeds, count, qr, themes, exclude, max_age_hours } => {
                 let options = news::Options {
                     count: (*count).clamp(1, 5) as usize,

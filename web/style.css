@@ -277,7 +277,15 @@ select.input { appearance: none; padding-right: 38px;
 .action-card span { display: block; margin-top: 2px; font-size: 13px; line-height: 1.35; color: var(--ink-2); }
 .action-card.coral { background: linear-gradient(135deg, #ffd9c9, #ffc1aa); }
 .action-card.sky { background: linear-gradient(135deg, #d6ecf6, #bfe0ef); }
+.action-card.mint { background: linear-gradient(135deg, #dcf1df, #c4e8ca); }
+/* Troisième carte : pleine largeur et en ligne sur téléphone, en colonne sur grand écran. */
+.action-card.wide { grid-column: 1 / -1; flex-direction: row; align-items: center; justify-content: flex-start; min-height: 0; gap: 14px; }
+@media (min-width: 720px) {
+  .hero { grid-template-columns: 1fr 1fr 1fr; }
+  .action-card.wide { grid-column: auto; flex-direction: column; align-items: stretch; justify-content: space-between; min-height: 128px; gap: 18px; }
+}
 @media (prefers-color-scheme: dark) {
+  .action-card.mint { background: linear-gradient(135deg, #17331d, #1c3f24); }
   .action-card.coral { background: linear-gradient(135deg, #4a2418, #5b2a1b); }
   .action-card.sky { background: linear-gradient(135deg, #17323d, #1b3e4b); }
 }
@@ -532,3 +540,27 @@ select.input { appearance: none; padding-right: 38px;
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+/* ---------- Liste de courses ---------- */
+
+.shop-add { display: flex; gap: 8px; margin-bottom: 14px; }
+.shop-add .input { flex: 1; min-width: 0; }
+.shop-list { overflow: hidden; }
+.shop-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; font-size: 16px; }
+.shop-item + .shop-item { border-top: 1px solid var(--line); }
+.shop-check {
+  display: grid; place-items: center; flex-shrink: 0;
+  width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
+  border: 2px solid var(--line); background: transparent; color: transparent;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.shop-check:hover { border-color: var(--ok); color: var(--ok); background: var(--ok-soft); }
+.shop-actions { display: grid; gap: 10px; margin-top: 16px; }
+
+/* ---------- Ramassages des poubelles ---------- */
+
+.bin-row { padding: 10px; margin-bottom: 8px; border-radius: 12px; background: var(--surface-2); }
+.bin-row .item { display: flex; gap: 6px; margin-bottom: 6px; }
+.bin-row .item .input { flex: 1; min-width: 0; }
+.bin-when { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 6px; }
+.bin-row .help { display: grid; gap: 4px; margin-top: 6px; font-size: 12.5px; color: var(--muted); }

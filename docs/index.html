@@ -6,7 +6,7 @@
 <title>Printr — des petits tickets qui font du bien</title>
 <meta name="description" content="Printr transforme une imprimante à tickets Epson TM-T88V en gadget familial : météo, horoscope, sudoku, mots mêlés, énigmes, actualités, petits mots avec photo… composés et planifiés depuis le téléphone.">
 <meta property="og:title" content="Printr — des petits tickets qui font du bien">
-<meta property="og:description" content="Une imprimante à tickets, 30 blocs, une appli web familiale et un planificateur. En Rust, sur un Raspberry Pi.">
+<meta property="og:description" content="Une imprimante à tickets, 40 blocs, une appli web familiale et un planificateur. En Rust, sur un Raspberry Pi.">
 <meta property="og:image" content="https://xninety9.github.io/Printr/preview.png">
 <meta property="og:type" content="website">
 <link rel="icon" href="mark.png" type="image/png">
@@ -129,6 +129,7 @@
   .prints .ticket:hover { transform: rotate(0) translateY(-6px); }
   .prints figcaption { margin-top: 18px; text-align: center; color: var(--fg-dim); font-size: .95rem; }
   .prints figcaption strong { display: block; color: var(--fg); font-size: 1.02rem; }
+  .prints.more { margin-top: 56px; }
 
   /* Horoscope */
   .tones { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
@@ -226,9 +227,9 @@
     <h2 class="en">One receipt printer, lots of ideas.</h2>
     <div class="grid">
       <div class="card"><div class="emoji">🧩</div>
-        <h3 class="fr">30 blocs à assembler</h3><h3 class="en">30 blocks to mix</h3>
-        <p class="fr">Météo, lune, saint du jour, jours fériés, horoscope, mot du jour, sudoku, labyrinthe, mots mêlés, énigmes, défi sportif, actualités, photos, QR codes…</p>
-        <p class="en">Weather, moon, holidays, horoscope, word of the day, sudoku, mazes, word searches, riddles, workout challenges, news, photos, QR codes…</p></div>
+        <h3 class="fr">40 blocs à assembler</h3><h3 class="en">40 blocks to mix</h3>
+        <p class="fr">Météo, horoscope, agenda, liste de courses, sudoku, logimage, mots mêlés, coloriage, énigmes, bons à offrir, actualités, photos, QR codes…</p>
+        <p class="en">Weather, horoscope, calendar, shopping list, sudoku, nonograms, word searches, coloring pages, riddles, gift coupons, news, photos, QR codes…</p></div>
       <div class="card"><div class="emoji">📱</div>
         <h3 class="fr">Une appli pour toute la famille</h3><h3 class="en">An app for the whole family</h3>
         <p class="fr">Chacun son compte, ses tickets enregistrés, et ceux qu'on partage. Aperçu en direct, pensée pour le téléphone.</p>
@@ -270,6 +271,17 @@
       <figure><div class="ticket"><img src="tickets/petit-mot.png" alt="Petit mot : cœurs, photo d'un café, message" loading="lazy"></div>
         <figcaption><strong class="fr">Le petit mot</strong><strong class="en">A little note</strong>
           <span class="fr">Une photo envoyée depuis le téléphone</span><span class="en">A photo sent from a phone</span></figcaption></figure>
+    </div>
+    <div class="prints more">
+      <figure><div class="ticket"><img src="exemples/coloriage.png" alt="Mandala à colorier" loading="lazy"></div>
+        <figcaption><strong class="fr">Le coloriage</strong><strong class="en">Coloring page</strong>
+          <span class="fr">Un mandala différent à chaque impression</span><span class="en">A new mandala every time</span></figcaption></figure>
+      <figure><div class="ticket"><img src="exemples/bilan.png" alt="Bilan du mois façon ticket de caisse" loading="lazy"></div>
+        <figcaption><strong class="fr">Le bilan du mois</strong><strong class="en">The monthly receipt</strong>
+          <span class="fr">Qui a imprimé quoi, façon ticket de caisse</span><span class="en">Who printed what, as a till receipt</span></figcaption></figure>
+      <figure><div class="ticket"><img src="exemples/bon.png" alt="Bon pour un petit-déjeuner au lit" loading="lazy"></div>
+        <figcaption><strong class="fr">Le bon à offrir</strong><strong class="en">Gift coupon</strong>
+          <span class="fr">« Bon pour un petit-déjeuner au lit »</span><span class="en">“Good for one breakfast in bed”</span></figcaption></figure>
     </div>
   </div>
 </section>
@@ -313,10 +325,17 @@
         <span class="chip">🏖️ <span class="fr">Jours fériés</span><span class="en">Holidays</span></span><span class="chip">⏳ <span class="fr">Compte à rebours</span><span class="en">Countdown</span></span></div></div>
       <div class="group"><h3><span class="fr">Jeux &amp; défis</span><span class="en">Games &amp; challenges</span></h3><div class="chips">
         <span class="chip">🧩 <span class="fr">Énigme</span><span class="en">Riddle</span></span><span class="chip">💪 <span class="fr">Défi sportif</span><span class="en">Workout</span></span>
-        <span class="chip">🔢 Sudoku</span><span class="chip">🌀 <span class="fr">Labyrinthe</span><span class="en">Maze</span></span><span class="chip">🔤 <span class="fr">Mots mêlés</span><span class="en">Word search</span></span></div></div>
+        <span class="chip">🔢 Sudoku</span><span class="chip">🌀 <span class="fr">Labyrinthe</span><span class="en">Maze</span></span><span class="chip">🔤 <span class="fr">Mots mêlés</span><span class="en">Word search</span></span>
+        <span class="chip">🖍️ <span class="fr">Logimage</span><span class="en">Nonogram</span></span><span class="chip">✏️ <span class="fr">Petit bac</span><span class="en">Scattergories</span></span>
+        <span class="chip">➗ <span class="fr">Calcul mental</span><span class="en">Mental math</span></span><span class="chip">🔀 <span class="fr">Mot mystère</span><span class="en">Anagram</span></span>
+        <span class="chip">🕵️ <span class="fr">Message codé</span><span class="en">Secret message</span></span><span class="chip">🎨 <span class="fr">Coloriage</span><span class="en">Coloring</span></span>
+        <span class="chip">🎟️ <span class="fr">Bon à offrir</span><span class="en">Gift coupon</span></span></div></div>
       <div class="group"><h3><span class="fr">Infos &amp; organisation</span><span class="en">News &amp; to-dos</span></h3><div class="chips">
         <span class="chip">📰 <span class="fr">Actualités (RSS)</span><span class="en">News (RSS)</span></span><span class="chip">🏛️ <span class="fr">Éphéméride</span><span class="en">On this day</span></span>
-        <span class="chip">🪙 Crypto</span><span class="chip">✅ <span class="fr">À faire</span><span class="en">To-do</span></span></div></div>
+        <span class="chip">🪙 Crypto</span><span class="chip">✅ <span class="fr">À faire</span><span class="en">To-do</span></span>
+        <span class="chip">🛒 <span class="fr">Liste de courses</span><span class="en">Shopping list</span></span><span class="chip">🗓️ <span class="fr">Agenda</span><span class="en">Calendar</span></span>
+        <span class="chip">🗑️ <span class="fr">Poubelles</span><span class="en">Bin day</span></span><span class="chip">📶 <span class="fr">Wi-Fi invités</span><span class="en">Guest Wi-Fi</span></span>
+        <span class="chip">🧾 <span class="fr">Bilan du mois</span><span class="en">Monthly receipt</span></span></div></div>
     </div>
     <p class="note fr">Les blocs entourés d'orange utilisent Claude Haiku : un petit appel payant par jour, mis en cache. Tout le reste est local ou passe par des API gratuites et sans clé (Open-Meteo, Wikipédia, CoinGecko).</p>
     <p class="note en">Orange-outlined blocks use Claude Haiku: one small paid call per day, cached. Everything else is local or uses free, keyless APIs (Open-Meteo, Wikipedia, CoinGecko).</p>
