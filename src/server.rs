@@ -56,7 +56,7 @@ impl App {
     /// Construit, imprime et note dans l'historique un ticket.
     pub fn print(&self, ticket: &Ticket, by: &str, label: &str) -> Printed {
         let started = Utc::now();
-        let (doc, reports) = ticket.build(&Ctx::new(false), &mut Silent);
+        let (doc, reports) = ticket.build(&Ctx::web(false), &mut Silent);
         let errors: Vec<String> =
             reports.iter().filter_map(|r| r.error.as_ref().map(|e| format!("{} : {e}", r.label))).collect();
         let failure = {
@@ -164,8 +164,20 @@ fn json_body<T: for<'de> Deserialize<'de>>(request: &mut Request) -> Result<T, R
     serde_json::from_slice(&body).map_err(|e| Reply::error(400, format!("JSON invalide : {e}")))
 }
 
+/// Nombre de blocs maximal d'un ticket venu du réseau : chacun peut lancer des requêtes et du
+/// calcul, de quoi épuiser le Pi sans limite.
+const MAX_BLOCKS: usize = 60;
+
+fn check_ticket(ticket: Ticket) -> Result<Ticket, Reply> {
+    if ticket.blocks.len() > MAX_BLOCKS {
+        return Err(Reply::error(400, format!("ticket trop long ({} blocs, {MAX_BLOCKS} au plus)", ticket.blocks.len())));
+    }
+    Ok(ticket)
+}
+
 fn parse_ticket(value: &Value) -> Result<Ticket, Reply> {
-    serde_json::from_value(value.clone()).map_err(|e| Reply::error(400, format!("ticket invalide : {e}")))
+    let ticket = serde_json::from_value(value.clone()).map_err(|e| Reply::error(400, format!("ticket invalide : {e}")))?;
+    check_ticket(ticket)
 }
 
 fn user_json(user: &User) -> Value {
@@ -366,7 +378,7 @@ fn preset_json(preset: &Preset, store: &Store) -> Value {
 
 /// Enregistre une photo envoyée par l'interface : réduite à la largeur du papier, en PNG.
 fn save_upload(bytes: &[u8]) -> Result<String> {
-    let img = image::load_from_memory(bytes).context("image illisible")?;
+    let img = crate::raster::decode(bytes)?;
     let img = if img.width() > crate::raster::PRINT_WIDTH {
         img.resize(crate::raster::PRINT_WIDTH, u32::MAX, image::imageops::FilterType::Lanczos3)
     } else {
@@ -530,7 +542,7 @@ fn handle(app: &App, request: &mut Request) -> Reply {
         (Method::Post, ["api", "preview"]) => {
             let input: PrintRequest = try_reply!(json_body(request));
             let ticket = try_reply!(parse_ticket(&input.ticket));
-            let (doc, reports) = ticket.build(&Ctx::new(false).for_preview(), &mut Silent);
+            let (doc, reports) = ticket.build(&Ctx::web(false).for_preview(), &mut Silent);
             let mut out = doc.to_json();
             out["cut"] = json!(ticket.cut);
             out["reports"] = json!(reports
@@ -708,11 +720,11 @@ fn handle(app: &App, request: &mut Request) -> Reply {
                     .and_then(TodoRequest::into_ticket)
             };
             let ticket = match ticket {
-                Ok(t) => t,
+                Ok(t) => try_reply!(check_ticket(t)),
                 Err(e) => return e.into(),
             };
             if preview {
-                let (doc, _) = ticket.build(&Ctx::new(false).for_preview(), &mut Silent);
+                let (doc, _) = ticket.build(&Ctx::web(false).for_preview(), &mut Silent);
                 let body = doc.preview(ticket.cut).into_bytes();
                 return Reply { status: 200, content_type: "text/plain; charset=utf-8", body, headers: Vec::new(), note: "aperçu".into() };
             }
@@ -752,7 +764,7 @@ pub fn serve(listen: &str, token: Option<String>, target: Target) -> Result<()> 
     });
     let server = Server::http(listen).map_err(|e| anyhow::anyhow!("impossible d'écouter sur {listen} : {e}"))?;
 
-    let ctx = Ctx::new(false);
+    let ctx = Ctx::web(false);
     let cache = ctx.cache.as_ref().map(|c| c.dir().display().to_string());
     ui::banner(listen, &destination, ctx.claude.as_ref().map(|c| c.model()), cache.as_deref(), &data, users);
 

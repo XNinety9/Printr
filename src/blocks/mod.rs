@@ -420,19 +420,42 @@ pub struct Ctx {
     pub refresh: bool,
     /// Aperçu : aucun appel payant (Claude) ; les blocs concernés affichent un texte d'attente.
     pub preview: bool,
+    /// Ligne de commande : fichiers locaux et réseau local permis. Depuis l'appli web ou un
+    /// script (`Ctx::web`), seules les adresses publiques sont joignables, et aucun fichier
+    /// local ne se lit.
+    pub local: bool,
 }
 
 impl Ctx {
+    /// Ticket lancé en ligne de commande, par quelqu'un qui a déjà la main sur la machine.
     pub fn new(refresh: bool) -> Self {
-        let http = ureq::Agent::config_builder().timeout_global(Some(Duration::from_secs(20))).build().into();
+        Self::with_access(refresh, true)
+    }
+
+    /// Ticket venu de l'appli web, d'un script ou d'une planification.
+    pub fn web(refresh: bool) -> Self {
+        Self::with_access(refresh, false)
+    }
+
+    fn with_access(refresh: bool, local: bool) -> Self {
         Self {
             today: chrono::Local::now().date_naive(),
-            http,
+            http: crate::net::agent(!local),
             claude: Claude::from_env(),
             cache: Cache::open(),
             refresh,
             preview: false,
+            local,
         }
+    }
+
+    /// Refuse la lecture d'un fichier local hors ligne de commande.
+    pub fn check_local_file(&self, path: &str) -> Result<()> {
+        anyhow::ensure!(
+            self.local,
+            "fichier local refusé depuis l'appli ({path}) : utilise une adresse web ou une photo envoyée"
+        );
+        Ok(())
     }
 
     pub fn for_preview(mut self) -> Self {
@@ -576,7 +599,10 @@ impl Block {
                         let dir = crate::store::uploads_dir().context("répertoire de données introuvable")?;
                         raster::load(&dir.join(format!("{id}.png")), *dither)?
                     }
-                    (Some(path), None, None) => raster::load(path.as_ref(), *dither)?,
+                    (Some(path), None, None) => {
+                        ctx.check_local_file(path)?;
+                        raster::load(path.as_ref(), *dither)?
+                    }
                     (None, Some(url), None) => {
                         let bytes = ctx
                             .http
@@ -587,7 +613,7 @@ impl Block {
                             .with_config()
                             .limit(20 * 1024 * 1024)
                             .read_to_vec()?;
-                        raster::prepare(&image::load_from_memory(&bytes)?, *dither)
+                        raster::prepare(&raster::decode(&bytes)?, *dither)
                     }
                     _ => anyhow::bail!("indiquer `path`, `url` ou `upload` (un seul)"),
                 };
@@ -817,7 +843,7 @@ mod tests {
             r#"{"blocks": [{"type": "text", "text": "avant"}, {"type": "image", "path": "/nope.png"}, {"type": "text", "text": "après"}]}"#,
         )
         .unwrap();
-        let ctx = Ctx { today: NaiveDate::from_ymd_opt(2026, 10, 7).unwrap(), http: ureq::agent(), claude: None, cache: None, refresh: false, preview: false };
+        let ctx = Ctx { today: NaiveDate::from_ymd_opt(2026, 10, 7).unwrap(), http: ureq::agent(), claude: None, cache: None, refresh: false, preview: false, local: true };
         let (doc, reports) = t.build(&ctx, &mut Silent);
         let preview = doc.preview(true);
         assert_eq!(reports.iter().filter(|r| r.error.is_some()).count(), 1);
@@ -842,6 +868,7 @@ mod tests {
             cache: None,
             refresh: false,
             preview: false,
+            local: true,
         };
         /// Note l'ordre dans lequel les blocs se terminent.
         struct Recorder(Vec<String>);

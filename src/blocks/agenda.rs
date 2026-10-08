@@ -208,6 +208,7 @@ fn fetch(ctx: &Ctx, source: &str) -> Result<String> {
         let mut response = ctx.http.get(&url).call().context("calendrier injoignable")?;
         Ok(response.body_mut().with_config().limit(10 * 1024 * 1024).read_to_string()?)
     } else {
+        ctx.check_local_file(&url)?;
         std::fs::read_to_string(&url).with_context(|| format!("calendrier illisible : {url}"))
     }
 }

@@ -84,14 +84,16 @@ fn run(command: &[String], who: &Who, date: NaiveDate, variant: Option<&str>) ->
     let (program, base) = command.split_first().context("commande Barnum vide")?;
     let mut cmd = Command::new(program);
     cmd.args(base);
-    match who {
-        Who::Sign(sign) => cmd.arg(sign),
-        Who::Birth(birth) => cmd.arg("--naissance").arg(birth.to_string()),
-    };
-    cmd.arg("--date").arg(date.to_string()).arg("--json");
+    // Options d'abord, sous la forme `--option=valeur`, puis `--` : un signe ou une variante
+    // venus de l'appli ne peuvent jamais être pris pour une option de Barnum.
+    cmd.arg(format!("--date={date}")).arg("--json");
     if let Some(variant) = variant {
-        cmd.arg("--sel").arg(variant);
+        cmd.arg(format!("--sel={variant}"));
     }
+    match who {
+        Who::Sign(sign) => cmd.arg("--").arg(sign),
+        Who::Birth(birth) => cmd.arg(format!("--naissance={birth}")),
+    };
     let mut child = cmd
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
