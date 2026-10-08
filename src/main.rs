@@ -14,6 +14,7 @@ mod cp858;
 mod doc;
 mod draw;
 mod fr;
+mod guard;
 mod net;
 mod output;
 mod raster;

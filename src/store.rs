@@ -54,6 +54,10 @@ pub struct User {
     pub name: String,
     pub color: String,
     password_hash: String,
+    /// Peut retirer des comptes. Le premier compte l'est ; pour des données plus anciennes sans
+    /// administrateur, le plus ancien compte (voir `Store::is_admin`).
+    #[serde(default)]
+    pub admin: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -233,8 +237,17 @@ impl Store {
         let color = COLORS[self.data.users.len() % COLORS.len()].to_owned();
         let password_hash = hash(password)?;
         let id = new_id(8);
-        self.data.users.push(User { id: id.clone(), name: name.to_owned(), color, password_hash });
+        let admin = self.data.users.is_empty();
+        self.data.users.push(User { id: id.clone(), name: name.to_owned(), color, password_hash, admin });
         Ok(id)
+    }
+
+    /// Administrateur : le compte marqué comme tel, ou à défaut le plus ancien.
+    pub fn is_admin(&self, id: &str) -> bool {
+        match self.data.users.iter().find(|u| u.admin) {
+            Some(_) => self.user(id).is_some_and(|u| u.admin),
+            None => self.data.users.first().is_some_and(|u| u.id == id),
+        }
     }
 
     pub fn set_password(&mut self, name: &str, password: &str) -> Result<()> {
@@ -262,12 +275,9 @@ impl Store {
 
     // ---- Sessions ----
 
-    /// Vérifie le mot de passe et ouvre une session ; renvoie le jeton de session.
-    pub fn login(&mut self, user_id: &str, password: &str) -> Option<String> {
-        let user = self.user(user_id)?;
-        let parsed = PasswordHash::new(&user.password_hash).ok()?;
-        Argon2::default().verify_password(password.as_bytes(), &parsed).ok()?;
-        Some(self.open_session(user_id))
+    /// Empreinte du mot de passe, pour la vérifier hors du verrou des données (Argon2 est lent).
+    pub fn password_hash(&self, user_id: &str) -> Option<String> {
+        self.user(user_id).map(|u| u.password_hash.clone())
     }
 
     /// Ouvre une session pour ce compte ; renvoie le jeton.
@@ -302,9 +312,17 @@ impl Store {
     }
 }
 
+/// Longueur minimale d'un nouveau mot de passe (l'appli est joignable depuis Internet).
+pub const MIN_PASSWORD: usize = 8;
+
+/// Vérifie un mot de passe contre son empreinte Argon2.
+pub fn verify_password(hash: &str, password: &str) -> bool {
+    PasswordHash::new(hash).is_ok_and(|parsed| Argon2::default().verify_password(password.as_bytes(), &parsed).is_ok())
+}
+
 fn hash(password: &str) -> Result<String> {
-    if password.chars().count() < 4 {
-        bail!("mot de passe trop court (4 caractères minimum)");
+    if password.chars().count() < MIN_PASSWORD {
+        bail!("mot de passe trop court ({MIN_PASSWORD} caractères minimum)");
     }
     Argon2::default()
         .hash_password(password.as_bytes())
@@ -348,11 +366,13 @@ mod tests {
     #[test]
     fn users_sessions_and_persistence() {
         let mut store = temp_store("users");
-        store.add_user("Camille", "secret1").unwrap();
-        assert!(store.add_user("camille", "autre1").is_err());
+        store.add_user("Camille", "secret123").unwrap();
+        assert!(store.add_user("camille", "autre1234").is_err());
         let id = store.users()[0].id.clone();
-        assert!(store.login(&id, "mauvais").is_none());
-        let token = store.login(&id, "secret1").unwrap();
+        let hash = store.password_hash(&id).unwrap();
+        assert!(!verify_password(&hash, "mauvais"));
+        assert!(verify_password(&hash, "secret123"));
+        let token = store.open_session(&id);
         assert_eq!(store.session_user(&token).unwrap().name, "Camille");
         store.save().unwrap();
 

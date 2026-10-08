@@ -785,9 +785,9 @@ function FirstAccount({ onLogin }) {
   return html`<form class="first-account" onSubmit=${submit}>
     <p style="margin:24px 0 14px"><strong>Bienvenue !</strong><br/><span class="muted">Crée ton compte pour commencer. Tu pourras ensuite ajouter le reste de la famille.</span></p>
     <div class="field"><input class="input" placeholder="Ton prénom" autocomplete="username" value=${name} onInput=${(e) => setName(e.target.value)} autofocus /></div>
-    <div class="field"><input class="input" type="password" placeholder="Mot de passe (4 caractères minimum)" autocomplete="new-password"
+    <div class="field"><input class="input" type="password" placeholder="Mot de passe (8 caractères minimum)" autocomplete="new-password"
       value=${password} onInput=${(e) => setPassword(e.target.value)} /></div>
-    <button class="btn primary big block" disabled=${busy || !name.trim() || password.length < 4}>${busy ? html`<${Spinner} />` : 'Créer mon compte'}</button>
+    <button class="btn primary big block" disabled=${busy || !name.trim() || password.length < 8}>${busy ? html`<${Spinner} />` : 'Créer mon compte'}</button>
   </form>`;
 }
 
@@ -1315,18 +1315,19 @@ function AccountSheet({ me, users, reloadUsers, onLogout, onClose }) {
     <div class="section-title">La famille</div>
     <div class="card family">${users.map((u) => html`<div class="family-row" key=${u.id}>
       <${Avatar} user=${u} /><span class="grow">${u.name}${u.id === me.id ? html` <span class="muted">(toi)</span>` : ''}</span>
-      ${u.id !== me.id && html`<button class="iconbtn danger" aria-label=${`Supprimer ${u.name}`} title="Supprimer" onClick=${() => remove(u)}><${Icon} name="trash" /></button>`}
+      ${u.admin && html`<span class="chip">Admin</span>`}
+      ${me.admin && u.id !== me.id && html`<button class="iconbtn danger" aria-label=${`Supprimer ${u.name}`} title="Supprimer" onClick=${() => remove(u)}><${Icon} name="trash" /></button>`}
     </div>`)}</div>
     <form class="family-add" onSubmit=${add}>
       <input class="input" placeholder="Prénom" value=${name} onInput=${(e) => setName(e.target.value)} />
-      <input class="input" type="password" placeholder="Son mot de passe" autocomplete="new-password" value=${password} onInput=${(e) => setPassword(e.target.value)} />
-      <button class="btn secondary" disabled=${busy || !name.trim() || password.length < 4}><${Icon} name="plus" size=${16} /> Ajouter</button>
+      <input class="input" type="password" placeholder="Son mot de passe (8 caractères minimum)" autocomplete="new-password" value=${password} onInput=${(e) => setPassword(e.target.value)} />
+      <button class="btn secondary" disabled=${busy || !name.trim() || password.length < 8}><${Icon} name="plus" size=${16} /> Ajouter</button>
     </form>
 
     <div class="section-title">Mon mot de passe</div>
     <form class="family-add" onSubmit=${changePassword}>
-      <input class="input" type="password" placeholder="Nouveau mot de passe" autocomplete="new-password" value=${mine} onInput=${(e) => setMine(e.target.value)} />
-      <button class="btn secondary" disabled=${busy || mine.length < 4}>Changer</button>
+      <input class="input" type="password" placeholder="Nouveau mot de passe (8 caractères minimum)" autocomplete="new-password" value=${mine} onInput=${(e) => setMine(e.target.value)} />
+      <button class="btn secondary" disabled=${busy || mine.length < 8}>Changer</button>
     </form>
 
     <button class="btn danger block" style="margin-top:22px" onClick=${onLogout}><${Icon} name="logout" /> Se déconnecter</button>

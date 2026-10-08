@@ -18,6 +18,7 @@ use serde_json::{json, Value};
 use tiny_http::{Header, Method, Request, Response, Server};
 
 use crate::blocks::{Block, Ctx, Silent, Ticket};
+use crate::guard::{self, LoginGuard};
 use crate::output::Target;
 use crate::store::{self, HistoryEntry, Preset, Schedule, Store, User};
 use crate::ui;
@@ -26,6 +27,11 @@ use crate::ui;
 const MAX_JSON: u64 = 1024 * 1024;
 const MAX_IMAGE: u64 = 15 * 1024 * 1024;
 const COOKIE: &str = "printr_session";
+/// Impressions par personne et par heure, par défaut (`PRINTR_MAX_TICKETS_PER_HOUR`).
+const DEFAULT_MAX_PER_HOUR: usize = 20;
+/// Politique de sécurité du contenu de l'interface : rien d'autre que ses propres fichiers.
+const CSP: &str = "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; \
+                   script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
 
 pub struct App {
     pub store: Mutex<Store>,
@@ -34,6 +40,9 @@ pub struct App {
     destination: String,
     token: Option<String>,
     web_dir: Option<PathBuf>,
+    guard: LoginGuard,
+    /// Impressions permises par personne et par heure (0 : sans limite).
+    max_per_hour: usize,
 }
 
 /// Résultat d'une impression, renvoyé à l'interface.
@@ -43,6 +52,22 @@ pub struct Printed {
 }
 
 impl App {
+    /// Refuse une impression de plus si `by` a déjà atteint son quota de l'heure. Les
+    /// planifications ne comptent pas : elles sont réglées par les membres eux-mêmes.
+    fn quota_exceeded(&self, by: &str) -> Option<Reply> {
+        if self.max_per_hour == 0 || by == "planification" {
+            return None;
+        }
+        let since = Utc::now() - chrono::Duration::hours(1);
+        let store = self.lock_store();
+        let recent: Vec<_> = store.data.history.iter().filter(|e| e.by == by && e.at > since).collect();
+        if recent.len() < self.max_per_hour {
+            return None;
+        }
+        let wait = (recent[0].at + chrono::Duration::hours(1) - Utc::now()).num_minutes().max(1);
+        Some(Reply::error(429, format!("{} impressions dans l'heure, c'est le maximum : réessaie dans {wait} min", self.max_per_hour)))
+    }
+
     /// Verrouille les données, après les avoir relues si le fichier a changé sur le disque
     /// (compte créé en ligne de commande pendant que le serveur tourne, par exemple).
     pub fn lock_store(&self) -> std::sync::MutexGuard<'_, Store> {
@@ -180,8 +205,8 @@ fn parse_ticket(value: &Value) -> Result<Ticket, Reply> {
     check_ticket(ticket)
 }
 
-fn user_json(user: &User) -> Value {
-    json!({ "id": user.id, "name": user.name, "color": user.color })
+fn user_json(store: &Store, user: &User) -> Value {
+    json!({ "id": user.id, "name": user.name, "color": user.color, "admin": store.is_admin(&user.id) })
 }
 
 /// Utilisateur connecté (cookie de session), ou script muni du jeton.
@@ -266,8 +291,10 @@ struct NewPassword {
     password: String,
 }
 
-fn session_cookie(token: &str) -> String {
-    format!("{COOKIE}={token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=15552000")
+/// Cookie de session ; `Secure` quand la page est servie en HTTPS (derrière le reverse proxy).
+fn session_cookie(token: &str, https: bool) -> String {
+    let secure = if https { "; Secure" } else { "" };
+    format!("{COOKIE}={token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=15552000{secure}")
 }
 
 #[derive(Deserialize)]
@@ -372,7 +399,7 @@ fn preset_json(preset: &Preset, store: &Store) -> Value {
         "ticket": preset.ticket,
         "schedules": preset.schedules,
         "updated": preset.updated,
-        "owner": store.user(&preset.owner).map(user_json),
+        "owner": store.user(&preset.owner).map(|u| user_json(store, u)),
     })
 }
 
@@ -404,11 +431,16 @@ fn handle(app: &App, request: &mut Request) -> Reply {
     let url = request.url().to_owned();
     let (path, query) = url.split_once('?').unwrap_or((&url, ""));
     let method = request.method().clone();
+    let client = guard::client_ip(request.remote_addr().map(|a| a.ip()), header(request, "X-Forwarded-For"));
+    let https = header(request, "X-Forwarded-Proto").is_some_and(|p| p.eq_ignore_ascii_case("https"));
 
     if method == Method::Get {
         if let Some((body, content_type)) = asset(app, path) {
-            return Reply { status: 200, content_type, body, headers: Vec::new(), note: String::new() };
+            return Reply { status: 200, content_type, body, headers: Vec::new(), note: String::new() }
+                .header("Content-Security-Policy", CSP.split_whitespace().collect::<Vec<_>>().join(" "));
         }
+    } else if !guard::same_origin(header(request, "Origin"), header(request, "Host")) {
+        return Reply::error(403, "requête venue d'un autre site, refusée");
     }
 
     let segments: Vec<&str> = path.trim_matches('/').split('/').collect();
@@ -416,28 +448,39 @@ fn handle(app: &App, request: &mut Request) -> Reply {
         // Routes publiques : écran de connexion.
         (Method::Get, ["api", "users"]) => {
             let store = app.lock_store();
-            return Reply::ok(json!(store.users().iter().map(user_json).collect::<Vec<_>>()));
+            return Reply::ok(json!(store.users().iter().map(|u| user_json(&store, u)).collect::<Vec<_>>()));
         }
         (Method::Post, ["api", "login"]) => {
             let login: Login = try_reply!(json_body(request));
-            let mut store = app.lock_store();
-            let Some(token) = store.login(&login.user_id, &login.password) else {
-                drop(store);
-                // Ralentit les essais de mots de passe.
-                std::thread::sleep(std::time::Duration::from_millis(600));
+            let ip = client.unwrap_or(std::net::IpAddr::from([0, 0, 0, 0]));
+            if let Err(wait) = app.guard.check(ip) {
+                let minutes = wait.as_secs().div_ceil(60).max(1);
+                return Reply::error(429, format!("trop d'essais : réessaie dans {minutes} min")).note(format!("connexion bloquée pour {ip}"));
+            }
+            // Argon2 est lent : la vérification se fait sans bloquer les données des autres.
+            let hash = app.lock_store().password_hash(&login.user_id);
+            if !hash.is_some_and(|h| app.guard.verify(&h, &login.password)) {
+                app.guard.failed(ip);
                 return Reply::error(401, "mot de passe incorrect");
-            };
-            let user = store.user(&login.user_id).map(user_json);
+            }
+            app.guard.succeeded(ip);
+            let mut store = app.lock_store();
+            let token = store.open_session(&login.user_id);
+            let user = store.user(&login.user_id).map(|u| user_json(&store, u));
             if let Err(e) = store.save() {
                 return Reply::error(500, format!("{e:#}"));
             }
             let name = user.as_ref().and_then(|u| u["name"].as_str()).unwrap_or("?").to_owned();
             return Reply::ok(json!({ "ok": true, "user": user }))
-                .header("Set-Cookie", session_cookie(&token))
+                .header("Set-Cookie", session_cookie(&token, https))
                 .note(format!("connexion de {name}"));
         }
         // Premier lancement : tant qu'aucun compte n'existe, l'écran d'accueil crée le premier.
         (Method::Post, ["api", "setup"]) => {
+            // Depuis Internet, personne ne doit pouvoir s'approprier une installation vide.
+            if client.is_some_and(crate::net::is_public) {
+                return Reply::error(403, "le premier compte se crée depuis le réseau de la maison");
+            }
             let input: NewUser = try_reply!(json_body(request));
             let mut store = app.lock_store();
             if !store.users().is_empty() {
@@ -448,12 +491,12 @@ fn handle(app: &App, request: &mut Request) -> Reply {
                 Err(e) => return e.into(),
             };
             let token = store.open_session(&id);
-            let user = store.user(&id).map(user_json);
+            let user = store.user(&id).map(|u| user_json(&store, u));
             if let Err(e) = store.save() {
                 return Reply::error(500, format!("{e:#}"));
             }
             return Reply::ok(json!({ "ok": true, "user": user }))
-                .header("Set-Cookie", session_cookie(&token))
+                .header("Set-Cookie", session_cookie(&token, https))
                 .note(format!("premier compte : {}", input.name.trim()));
         }
         _ => {}
@@ -492,7 +535,7 @@ fn handle(app: &App, request: &mut Request) -> Reply {
                 Ok(id) => id,
                 Err(e) => return e.into(),
             };
-            let user = store.user(&id).map(user_json);
+            let user = store.user(&id).map(|u| user_json(&store, u));
             match store.save() {
                 Ok(()) => Reply::ok(json!({ "ok": true, "user": user })).note(format!("compte créé par {by} : {}", input.name.trim())),
                 Err(e) => Reply::error(500, format!("{e:#}")),
@@ -506,6 +549,9 @@ fn handle(app: &App, request: &mut Request) -> Reply {
                 return Reply::error(400, "tu ne peux pas supprimer ton propre compte");
             }
             let mut store = app.lock_store();
+            if !user_id.as_deref().is_some_and(|me| store.is_admin(me)) {
+                return Reply::error(403, "seul l'administrateur peut supprimer un compte");
+            }
             let Some(name) = store.user(id).map(|u| u.name.clone()) else { return Reply::error(404, "compte inconnu") };
             store.remove_user_id(id);
             match store.save() {
@@ -523,12 +569,15 @@ fn handle(app: &App, request: &mut Request) -> Reply {
             // `set_password` ferme toutes les sessions : on en rouvre une pour cet appareil.
             let token = store.open_session(&me.id);
             match store.save() {
-                Ok(()) => Reply::ok(json!({ "ok": true })).header("Set-Cookie", session_cookie(&token)).note(format!("mot de passe changé : {by}")),
+                Ok(()) => Reply::ok(json!({ "ok": true })).header("Set-Cookie", session_cookie(&token, https)).note(format!("mot de passe changé : {by}")),
                 Err(e) => Reply::error(500, format!("{e:#}")),
             }
         }
         (Method::Get, ["api", "me"]) => match &caller {
-            Caller::User(u) => Reply::ok(json!({ "user": user_json(u) })),
+            Caller::User(u) => {
+                let store = app.lock_store();
+                Reply::ok(json!({ "user": user_json(&store, u) }))
+            }
             Caller::Script => Reply::ok(json!({ "user": null })),
         },
         (Method::Get, ["api", "status"]) => {
@@ -555,6 +604,9 @@ fn handle(app: &App, request: &mut Request) -> Reply {
             let input: PrintRequest = try_reply!(json_body(request));
             let ticket = try_reply!(parse_ticket(&input.ticket));
             let label = input.label.unwrap_or_else(|| "Ticket composé".to_owned());
+            if let Some(refused) = app.quota_exceeded(&by) {
+                return refused;
+            }
             printed_reply(app.print(&ticket, &by, &label), &label)
         }
         (Method::Post, ["api", "images"]) => {
@@ -663,6 +715,9 @@ fn handle(app: &App, request: &mut Request) -> Reply {
             };
             let Some(preset) = preset else { return Reply::error(404, "preset inconnu") };
             let ticket = try_reply!(parse_ticket(&preset.ticket));
+            if let Some(refused) = app.quota_exceeded(&by) {
+                return refused;
+            }
             printed_reply(app.print(&ticket, &by, &preset.name), &preset.name)
         }
         (Method::Get, ["api", "shopping"]) => {
@@ -729,6 +784,9 @@ fn handle(app: &App, request: &mut Request) -> Reply {
                 return Reply { status: 200, content_type: "text/plain; charset=utf-8", body, headers: Vec::new(), note: "aperçu".into() };
             }
             let label = if segments == ["todo"] { "Liste à faire" } else { "Ticket (script)" };
+            if let Some(refused) = app.quota_exceeded(&by) {
+                return refused;
+            }
             printed_reply(app.print(&ticket, &by, label), label)
         }
         _ => Reply::error(404, "route inconnue"),
@@ -761,6 +819,8 @@ pub fn serve(listen: &str, token: Option<String>, target: Target) -> Result<()> 
         destination: destination.clone(),
         token,
         web_dir: std::env::var_os("PRINTR_WEB_DIR").map(PathBuf::from),
+        guard: LoginGuard::default(),
+        max_per_hour: std::env::var("PRINTR_MAX_TICKETS_PER_HOUR").ok().and_then(|v| v.trim().parse().ok()).unwrap_or(DEFAULT_MAX_PER_HOUR),
     });
     let server = Server::http(listen).map_err(|e| anyhow::anyhow!("impossible d'écouter sur {listen} : {e}"))?;
 
