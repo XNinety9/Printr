@@ -26,7 +26,7 @@ fn run_due(app: &App) {
     // Repère les échéances et les marque comme faites avant d'imprimer : un ticket lent
     // à construire ne doit jamais partir deux fois.
     let due: Vec<(String, serde_json::Value)> = {
-        let mut store = app.store.lock().unwrap_or_else(|e| e.into_inner());
+        let mut store = app.lock_store();
         let mut due = Vec::new();
         for preset in &mut store.data.presets {
             for schedule in &mut preset.schedules {

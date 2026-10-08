@@ -2,10 +2,15 @@
 //! Tout tient dans un fichier JSON du répertoire de données, réécrit de façon atomique.
 //!
 //! Répertoire : `$PRINTR_DATA_DIR`, sinon `$STATE_DIRECTORY` (systemd `StateDirectory=`),
-//! sinon `$XDG_DATA_HOME/printr`, sinon `~/.local/share/printr`.
+//! sinon `/var/lib/printr` s'il existe (installation sur le Pi), sinon `$XDG_DATA_HOME/printr`,
+//! sinon `~/.local/share/printr`.
+//!
+//! Sur le Pi, le dossier appartient au groupe `printr` (setgid) : le service et les membres du
+//! groupe le partagent, d'où des fichiers lisibles et modifiables par le groupe.
 
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::SystemTime;
 
 use anyhow::{bail, Context, Result};
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
@@ -20,10 +25,14 @@ const SESSION_DAYS: i64 = 180;
 /// Couleurs attribuées aux utilisateurs, dans l'ordre de création.
 const COLORS: &[&str] = &["#e4572e", "#2e86ab", "#7a9e3f", "#a259c4", "#f2a541", "#3fa7a0"];
 
+/// Données du service installé sur le Pi.
+const SYSTEM_DIR: &str = "/var/lib/printr";
+
 pub fn data_dir() -> Option<PathBuf> {
     let env = |name| std::env::var_os(name).filter(|v| !v.is_empty()).map(PathBuf::from);
     env("PRINTR_DATA_DIR")
         .or_else(|| env("STATE_DIRECTORY"))
+        .or_else(|| Some(PathBuf::from(SYSTEM_DIR)).filter(|d| d.is_dir()))
         .or_else(|| env("XDG_DATA_HOME").map(|d| d.join("printr")))
         .or_else(|| env("HOME").map(|d| d.join(".local/share/printr")))
 }
@@ -137,12 +146,31 @@ pub fn read_data() -> Result<Data> {
 pub struct Store {
     path: PathBuf,
     pub data: Data,
+    /// Date de modification du fichier lu ou écrit en dernier : une modification venue d'ailleurs
+    /// (`printr user add` pendant que le serveur tourne) est rechargée au lieu d'être écrasée.
+    modified: Option<SystemTime>,
+}
+
+fn modified(path: &Path) -> Option<SystemTime> {
+    fs::metadata(path).and_then(|m| m.modified()).ok()
+}
+
+/// Droits partagés avec le groupe (dossier setgid sur le Pi) ; sans effet ailleurs.
+#[cfg(unix)]
+fn share_with_group(path: &Path, mode: u32) {
+    use std::os::unix::fs::PermissionsExt;
+    let _ = fs::set_permissions(path, fs::Permissions::from_mode(mode));
 }
 
 impl Store {
     pub fn open() -> Result<Self> {
         let dir = data_dir().context("répertoire de données introuvable (définir PRINTR_DATA_DIR)")?;
-        fs::create_dir_all(dir.join("images")).with_context(|| format!("impossible de créer {}", dir.display()))?;
+        let images = dir.join("images");
+        if !images.is_dir() {
+            fs::create_dir_all(&images).with_context(|| format!("impossible de créer {}", images.display()))?;
+            #[cfg(unix)]
+            share_with_group(&images, 0o2770);
+        }
         Self::open_at(&dir.join("printr.json"))
     }
 
@@ -152,7 +180,16 @@ impl Store {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Data::default(),
             Err(e) => return Err(e).with_context(|| format!("impossible de lire {}", path.display())),
         };
-        Ok(Self { path: path.to_owned(), data })
+        Ok(Self { path: path.to_owned(), data, modified: modified(path) })
+    }
+
+    /// Relit le fichier s'il a été modifié depuis la dernière lecture ou écriture.
+    pub fn reload_if_changed(&mut self) -> Result<()> {
+        let now = modified(&self.path);
+        if now.is_some() && now != self.modified {
+            *self = Self::open_at(&self.path)?;
+        }
+        Ok(())
     }
 
     pub fn path(&self) -> &Path {
@@ -160,15 +197,13 @@ impl Store {
     }
 
     /// Écrit dans un fichier temporaire puis renomme : jamais de fichier à moitié écrit.
-    pub fn save(&self) -> Result<()> {
+    pub fn save(&mut self) -> Result<()> {
         let tmp = self.path.with_extension("json.tmp");
         fs::write(&tmp, serde_json::to_string_pretty(&self.data)?)?;
         #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            fs::set_permissions(&tmp, fs::Permissions::from_mode(0o600))?;
-        }
+        share_with_group(&tmp, 0o660);
         fs::rename(&tmp, &self.path)?;
+        self.modified = modified(&self.path);
         Ok(())
     }
 
@@ -186,7 +221,8 @@ impl Store {
         self.data.users.iter().find(|u| u.name.eq_ignore_ascii_case(name.trim()))
     }
 
-    pub fn add_user(&mut self, name: &str, password: &str) -> Result<()> {
+    /// Crée un compte ; renvoie son identifiant.
+    pub fn add_user(&mut self, name: &str, password: &str) -> Result<String> {
         let name = name.trim();
         if name.is_empty() {
             bail!("le prénom est vide");
@@ -196,8 +232,9 @@ impl Store {
         }
         let color = COLORS[self.data.users.len() % COLORS.len()].to_owned();
         let password_hash = hash(password)?;
-        self.data.users.push(User { id: new_id(8), name: name.to_owned(), color, password_hash });
-        Ok(())
+        let id = new_id(8);
+        self.data.users.push(User { id: id.clone(), name: name.to_owned(), color, password_hash });
+        Ok(id)
     }
 
     pub fn set_password(&mut self, name: &str, password: &str) -> Result<()> {
@@ -212,10 +249,15 @@ impl Store {
 
     pub fn remove_user(&mut self, name: &str) -> Result<()> {
         let id = self.find_by_name(name).map(|u| u.id.clone()).with_context(|| format!("utilisateur inconnu : {name}"))?;
+        self.remove_user_id(&id);
+        Ok(())
+    }
+
+    /// Supprime un compte, ses sessions et ses presets.
+    pub fn remove_user_id(&mut self, id: &str) {
         self.data.users.retain(|u| u.id != id);
         self.data.sessions.retain(|s| s.user_id != id);
         self.data.presets.retain(|p| p.owner != id);
-        Ok(())
     }
 
     // ---- Sessions ----
@@ -225,6 +267,11 @@ impl Store {
         let user = self.user(user_id)?;
         let parsed = PasswordHash::new(&user.password_hash).ok()?;
         Argon2::default().verify_password(password.as_bytes(), &parsed).ok()?;
+        Some(self.open_session(user_id))
+    }
+
+    /// Ouvre une session pour ce compte ; renvoie le jeton.
+    pub fn open_session(&mut self, user_id: &str) -> String {
         let token = new_id(32);
         let now = Utc::now();
         self.data.sessions.retain(|s| s.expires > now);
@@ -233,7 +280,7 @@ impl Store {
             user_id: user_id.to_owned(),
             expires: now + Duration::days(SESSION_DAYS),
         });
-        Some(token)
+        token
     }
 
     pub fn session_user(&self, token: &str) -> Option<&User> {

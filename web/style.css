@@ -564,3 +564,12 @@ select.input { appearance: none; padding-right: 38px;
 .bin-row .item .input { flex: 1; min-width: 0; }
 .bin-when { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 6px; }
 .bin-row .help { display: grid; gap: 4px; margin-top: 6px; font-size: 12.5px; color: var(--muted); }
+
+/* ---------- Premier compte et famille ---------- */
+
+.first-account { text-align: left; }
+.family { overflow: hidden; }
+.family-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; }
+.family-row + .family-row { border-top: 1px solid var(--line); }
+.family-add { display: grid; gap: 8px; margin-top: 10px; }
+@media (min-width: 560px) { .family-add { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; } .family-add:has(> :nth-child(2):last-child) { grid-template-columns: minmax(0, 1fr) auto; } }

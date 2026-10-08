@@ -43,6 +43,16 @@ pub struct Printed {
 }
 
 impl App {
+    /// Verrouille les données, après les avoir relues si le fichier a changé sur le disque
+    /// (compte créé en ligne de commande pendant que le serveur tourne, par exemple).
+    pub fn lock_store(&self) -> std::sync::MutexGuard<'_, Store> {
+        let mut store = self.store.lock().unwrap_or_else(|e| e.into_inner());
+        if let Err(e) = store.reload_if_changed() {
+            eprintln!("données non relues : {e:#}");
+        }
+        store
+    }
+
     /// Construit, imprime et note dans l'historique un ticket.
     pub fn print(&self, ticket: &Ticket, by: &str, label: &str) -> Printed {
         let started = Utc::now();
@@ -53,7 +63,7 @@ impl App {
             let printer = self.printer.lock().unwrap_or_else(|e| e.into_inner());
             printer.send(&doc, ticket.cut).err().map(|e| format!("{e:#}"))
         };
-        let mut store = self.store.lock().unwrap_or_else(|e| e.into_inner());
+        let mut store = self.lock_store();
         store.record(HistoryEntry {
             at: Utc::now(),
             by: by.to_owned(),
@@ -185,7 +195,7 @@ fn caller(app: &App, request: &Request) -> Option<Caller> {
         }
     }
     let session = cookie(request, COOKIE)?;
-    let store = app.store.lock().unwrap_or_else(|e| e.into_inner());
+    let store = app.lock_store();
     store.session_user(&session).cloned().map(Caller::User)
 }
 
@@ -230,6 +240,22 @@ fn asset(app: &App, path: &str) -> Option<(Vec<u8>, &'static str)> {
 struct Login {
     user_id: String,
     password: String,
+}
+
+/// Nouveau compte : le premier (écran d'accueil) ou un membre de la famille.
+#[derive(Deserialize)]
+struct NewUser {
+    name: String,
+    password: String,
+}
+
+#[derive(Deserialize)]
+struct NewPassword {
+    password: String,
+}
+
+fn session_cookie(token: &str) -> String {
+    format!("{COOKIE}={token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=15552000")
 }
 
 #[derive(Deserialize)]
@@ -377,12 +403,12 @@ fn handle(app: &App, request: &mut Request) -> Reply {
     match (&method, segments.as_slice()) {
         // Routes publiques : écran de connexion.
         (Method::Get, ["api", "users"]) => {
-            let store = app.store.lock().unwrap_or_else(|e| e.into_inner());
+            let store = app.lock_store();
             return Reply::ok(json!(store.users().iter().map(user_json).collect::<Vec<_>>()));
         }
         (Method::Post, ["api", "login"]) => {
             let login: Login = try_reply!(json_body(request));
-            let mut store = app.store.lock().unwrap_or_else(|e| e.into_inner());
+            let mut store = app.lock_store();
             let Some(token) = store.login(&login.user_id, &login.password) else {
                 drop(store);
                 // Ralentit les essais de mots de passe.
@@ -395,8 +421,28 @@ fn handle(app: &App, request: &mut Request) -> Reply {
             }
             let name = user.as_ref().and_then(|u| u["name"].as_str()).unwrap_or("?").to_owned();
             return Reply::ok(json!({ "ok": true, "user": user }))
-                .header("Set-Cookie", format!("{COOKIE}={token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=15552000"))
+                .header("Set-Cookie", session_cookie(&token))
                 .note(format!("connexion de {name}"));
+        }
+        // Premier lancement : tant qu'aucun compte n'existe, l'écran d'accueil crée le premier.
+        (Method::Post, ["api", "setup"]) => {
+            let input: NewUser = try_reply!(json_body(request));
+            let mut store = app.lock_store();
+            if !store.users().is_empty() {
+                return Reply::error(403, "des comptes existent déjà : connecte-toi");
+            }
+            let id = match store.add_user(&input.name, &input.password) {
+                Ok(id) => id,
+                Err(e) => return e.into(),
+            };
+            let token = store.open_session(&id);
+            let user = store.user(&id).map(user_json);
+            if let Err(e) = store.save() {
+                return Reply::error(500, format!("{e:#}"));
+            }
+            return Reply::ok(json!({ "ok": true, "user": user }))
+                .header("Set-Cookie", session_cookie(&token))
+                .note(format!("premier compte : {}", input.name.trim()));
         }
         _ => {}
     }
@@ -417,11 +463,57 @@ fn handle(app: &App, request: &mut Request) -> Reply {
     match (&method, segments.as_slice()) {
         (Method::Post, ["api", "logout"]) => {
             if let Some(token) = cookie(request, COOKIE) {
-                let mut store = app.store.lock().unwrap_or_else(|e| e.into_inner());
+                let mut store = app.lock_store();
                 store.logout(&token);
                 let _ = store.save();
             }
             Reply::ok(json!({ "ok": true })).header("Set-Cookie", format!("{COOKIE}=; Path=/; Max-Age=0"))
+        }
+        // Comptes de la famille : tout membre connecté peut en ajouter ou en retirer.
+        (Method::Post, ["api", "users"]) => {
+            if user_id.is_none() {
+                return Reply::error(403, "réservé aux membres de la famille");
+            }
+            let input: NewUser = try_reply!(json_body(request));
+            let mut store = app.lock_store();
+            let id = match store.add_user(&input.name, &input.password) {
+                Ok(id) => id,
+                Err(e) => return e.into(),
+            };
+            let user = store.user(&id).map(user_json);
+            match store.save() {
+                Ok(()) => Reply::ok(json!({ "ok": true, "user": user })).note(format!("compte créé par {by} : {}", input.name.trim())),
+                Err(e) => Reply::error(500, format!("{e:#}")),
+            }
+        }
+        (Method::Delete, ["api", "users", id]) => {
+            if user_id.is_none() {
+                return Reply::error(403, "réservé aux membres de la famille");
+            }
+            if user_id.as_deref() == Some(*id) {
+                return Reply::error(400, "tu ne peux pas supprimer ton propre compte");
+            }
+            let mut store = app.lock_store();
+            let Some(name) = store.user(id).map(|u| u.name.clone()) else { return Reply::error(404, "compte inconnu") };
+            store.remove_user_id(id);
+            match store.save() {
+                Ok(()) => Reply::ok(json!({ "ok": true })).note(format!("compte {name} supprimé par {by}")),
+                Err(e) => Reply::error(500, format!("{e:#}")),
+            }
+        }
+        (Method::Put, ["api", "me", "password"]) => {
+            let Caller::User(me) = &caller else { return Reply::error(403, "réservé aux membres de la famille") };
+            let input: NewPassword = try_reply!(json_body(request));
+            let mut store = app.lock_store();
+            if let Err(e) = store.set_password(&me.name, &input.password) {
+                return e.into();
+            }
+            // `set_password` ferme toutes les sessions : on en rouvre une pour cet appareil.
+            let token = store.open_session(&me.id);
+            match store.save() {
+                Ok(()) => Reply::ok(json!({ "ok": true })).header("Set-Cookie", session_cookie(&token)).note(format!("mot de passe changé : {by}")),
+                Err(e) => Reply::error(500, format!("{e:#}")),
+            }
         }
         (Method::Get, ["api", "me"]) => match &caller {
             Caller::User(u) => Reply::ok(json!({ "user": user_json(u) })),
@@ -471,7 +563,7 @@ fn handle(app: &App, request: &mut Request) -> Reply {
             }
         }
         (Method::Get, ["api", "presets"]) => {
-            let store = app.store.lock().unwrap_or_else(|e| e.into_inner());
+            let store = app.lock_store();
             let visible: Vec<Value> = store
                 .data
                 .presets
@@ -502,7 +594,7 @@ fn handle(app: &App, request: &mut Request) -> Reply {
                 schedules,
                 updated: Utc::now(),
             };
-            let mut store = app.store.lock().unwrap_or_else(|e| e.into_inner());
+            let mut store = app.lock_store();
             let out = preset_json(&preset, &store);
             let note = format!("preset « {} » créé", preset.name);
             store.data.presets.push(preset);
@@ -514,7 +606,7 @@ fn handle(app: &App, request: &mut Request) -> Reply {
         (Method::Put | Method::Delete, ["api", "presets", id]) => {
             let input: Option<PresetInput> =
                 if method == Method::Put { Some(try_reply!(json_body(request))) } else { None };
-            let mut store = app.store.lock().unwrap_or_else(|e| e.into_inner());
+            let mut store = app.lock_store();
             let Some(index) = store.data.presets.iter().position(|p| p.id == *id) else {
                 return Reply::error(404, "preset inconnu");
             };
@@ -554,7 +646,7 @@ fn handle(app: &App, request: &mut Request) -> Reply {
         }
         (Method::Post, ["api", "presets", id, "print"]) => {
             let preset = {
-                let store = app.store.lock().unwrap_or_else(|e| e.into_inner());
+                let store = app.lock_store();
                 store.data.presets.iter().find(|p| p.id == *id && (p.shared || Some(&p.owner) == user_id.as_ref())).cloned()
             };
             let Some(preset) = preset else { return Reply::error(404, "preset inconnu") };
@@ -562,7 +654,7 @@ fn handle(app: &App, request: &mut Request) -> Reply {
             printed_reply(app.print(&ticket, &by, &preset.name), &preset.name)
         }
         (Method::Get, ["api", "shopping"]) => {
-            let store = app.store.lock().unwrap_or_else(|e| e.into_inner());
+            let store = app.lock_store();
             Reply::ok(shopping_json(&store))
         }
         (Method::Post, ["api", "shopping"]) => {
@@ -571,7 +663,7 @@ fn handle(app: &App, request: &mut Request) -> Reply {
             if items.is_empty() {
                 return Reply::error(400, "rien à ajouter");
             }
-            let mut store = app.store.lock().unwrap_or_else(|e| e.into_inner());
+            let mut store = app.lock_store();
             for text in &items {
                 let text: String = text.chars().take(80).collect();
                 store.data.shopping.push(store::ShoppingItem { id: store::new_id(6), text, by: by.clone(), added: Utc::now() });
@@ -582,7 +674,7 @@ fn handle(app: &App, request: &mut Request) -> Reply {
             }
         }
         (Method::Delete, ["api", "shopping", rest @ ..]) => {
-            let mut store = app.store.lock().unwrap_or_else(|e| e.into_inner());
+            let mut store = app.lock_store();
             let note = match rest {
                 [] => {
                     store.data.shopping.clear();
@@ -600,7 +692,7 @@ fn handle(app: &App, request: &mut Request) -> Reply {
             }
         }
         (Method::Get, ["api", "history"]) => {
-            let store = app.store.lock().unwrap_or_else(|e| e.into_inner());
+            let store = app.lock_store();
             let recent: Vec<&HistoryEntry> = store.data.history.iter().rev().take(100).collect();
             Reply::ok(json!(recent))
         }

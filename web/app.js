@@ -767,6 +767,30 @@ function usePreview(ticket) {
 // Écran : connexion
 // ============================================================================
 
+// Premier lancement : aucun compte encore, on crée le sien directement ici.
+function FirstAccount({ onLogin }) {
+  const [name, setName] = useState('');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const submit = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const { user } = await api('POST', '/api/setup', { name, password });
+      store.set('printr.lastUser', user.id);
+      toast(`Bienvenue ${user.name} !`, 'ok', '🎉');
+      onLogin(user);
+    } catch (err) { toast(err.message, 'error'); } finally { setBusy(false); }
+  };
+  return html`<form class="first-account" onSubmit=${submit}>
+    <p style="margin:24px 0 14px"><strong>Bienvenue !</strong><br/><span class="muted">Crée ton compte pour commencer. Tu pourras ensuite ajouter le reste de la famille.</span></p>
+    <div class="field"><input class="input" placeholder="Ton prénom" autocomplete="username" value=${name} onInput=${(e) => setName(e.target.value)} autofocus /></div>
+    <div class="field"><input class="input" type="password" placeholder="Mot de passe (4 caractères minimum)" autocomplete="new-password"
+      value=${password} onInput=${(e) => setPassword(e.target.value)} /></div>
+    <button class="btn primary big block" disabled=${busy || !name.trim() || password.length < 4}>${busy ? html`<${Spinner} />` : 'Créer mon compte'}</button>
+  </form>`;
+}
+
 function Login({ onLogin }) {
   const [users, setUsers] = useState(null);
   const [who, setWho] = useState(store.get('printr.lastUser'));
@@ -800,9 +824,7 @@ function Login({ onLogin }) {
     <h1>Printr</h1>
     <p class="muted" style="margin:0">L'imprimante de la maison</p>
     ${users === null ? html`<div style="margin:32px"><${Spinner} /></div>` : users.length === 0
-      ? html`<div class="card" style="padding:18px;margin-top:28px;text-align:left">
-          <strong>Aucun compte pour l'instant.</strong>
-          <p class="muted" style="margin:6px 0 0">Crée-en un sur le serveur : <code>printr user add Prénom</code></p></div>`
+      ? html`<${FirstAccount} onLogin=${onLogin} />`
       : html`<div class="who">${users.map((u) => html`<button type="button" class=${who === u.id ? 'on' : ''}
           style=${{ color: u.color }} onClick=${() => setWho(u.id)}><${Avatar} user=${u} size="large" />
           <span style="color:var(--ink-2)">${u.name}</span></button>`)}</div>`}
@@ -1263,6 +1285,55 @@ function Toasts() {
     <span class="emoji">${t.emoji || (t.kind === 'error' ? '⚠️' : '✓')}</span><span>${t.message}</span></div>`)}</div>`;
 }
 
+// Mon compte : la famille (ajouter, retirer), mon mot de passe, la déconnexion.
+function AccountSheet({ me, users, reloadUsers, onLogout, onClose }) {
+  const [name, setName] = useState('');
+  const [password, setPassword] = useState('');
+  const [mine, setMine] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [confirm, setConfirm] = useState(null);
+  const run = async (fn) => { setBusy(true); try { await fn(); } catch (e) { toast(e.message, 'error'); } finally { setBusy(false); } };
+  const add = (e) => { e.preventDefault(); run(async () => {
+    const { user } = await api('POST', '/api/users', { name, password });
+    toast(`Compte créé pour ${user.name}`, 'ok', '👋');
+    setName(''); setPassword(''); reloadUsers();
+  }); };
+  const changePassword = (e) => { e.preventDefault(); run(async () => {
+    await api('PUT', '/api/me/password', { password: mine });
+    toast('Mot de passe changé', 'ok', '🔑'); setMine('');
+  }); };
+  const remove = (u) => setConfirm({
+    title: `Supprimer le compte de ${u.name} ?`,
+    message: html`Ses tickets enregistrés et leurs planifications seront supprimés aussi.`,
+    action: 'Supprimer', danger: true,
+    onConfirm: async () => { await api('DELETE', `/api/users/${u.id}`); toast(`Compte de ${u.name} supprimé`, 'ok', '🗑️'); reloadUsers(); },
+  });
+  return html`<${Sheet} title="Mon compte" onClose=${onClose}>
+    <div class="row" style="margin-bottom:6px"><${Avatar} user=${me} size="large" /><div><strong>${me.name}</strong>
+      <div class="muted">Connecté sur cet appareil</div></div></div>
+
+    <div class="section-title">La famille</div>
+    <div class="card family">${users.map((u) => html`<div class="family-row" key=${u.id}>
+      <${Avatar} user=${u} /><span class="grow">${u.name}${u.id === me.id ? html` <span class="muted">(toi)</span>` : ''}</span>
+      ${u.id !== me.id && html`<button class="iconbtn danger" aria-label=${`Supprimer ${u.name}`} title="Supprimer" onClick=${() => remove(u)}><${Icon} name="trash" /></button>`}
+    </div>`)}</div>
+    <form class="family-add" onSubmit=${add}>
+      <input class="input" placeholder="Prénom" value=${name} onInput=${(e) => setName(e.target.value)} />
+      <input class="input" type="password" placeholder="Son mot de passe" autocomplete="new-password" value=${password} onInput=${(e) => setPassword(e.target.value)} />
+      <button class="btn secondary" disabled=${busy || !name.trim() || password.length < 4}><${Icon} name="plus" size=${16} /> Ajouter</button>
+    </form>
+
+    <div class="section-title">Mon mot de passe</div>
+    <form class="family-add" onSubmit=${changePassword}>
+      <input class="input" type="password" placeholder="Nouveau mot de passe" autocomplete="new-password" value=${mine} onInput=${(e) => setMine(e.target.value)} />
+      <button class="btn secondary" disabled=${busy || mine.length < 4}>Changer</button>
+    </form>
+
+    <button class="btn danger block" style="margin-top:22px" onClick=${onLogout}><${Icon} name="logout" /> Se déconnecter</button>
+    ${confirm && html`<${Confirm} ...${confirm} onClose=${() => setConfirm(null)} />`}
+  </${Sheet}>`;
+}
+
 const NAV = [
   { hash: '#/', label: 'Accueil', icon: 'home', title: 'Printr' },
   { hash: '#/compose', label: 'Composer', icon: 'ticket', title: 'Composer' },
@@ -1282,6 +1353,7 @@ function App() {
   const hash = useHash();
 
   const loadPresets = useCallback(() => api('GET', '/api/presets').then(setPresets).catch((e) => toast(e.message, 'error')), []);
+  const loadUsers = useCallback(() => api('GET', '/api/users').then(setUsers).catch(() => {}), []);
 
   useEffect(() => {
     api('GET', '/api/me').then(({ user }) => setMe(user)).catch(() => setMe(null));
@@ -1290,7 +1362,7 @@ function App() {
   useEffect(() => {
     if (!me) return;
     loadPresets();
-    api('GET', '/api/users').then(setUsers).catch(() => {});
+    loadUsers();
   }, [me]);
   useEffect(() => {
     const onScroll = () => setScrolled(scrollY > 4);
@@ -1334,11 +1406,7 @@ function App() {
     <nav class="tabbar" aria-label="Navigation">
       ${NAV.map((n) => html`<a class="tab ${n.hash === route.hash ? 'active' : ''}" href=${n.hash}><${Icon} name=${n.icon} />${n.label}</a>`)}
     </nav>
-    ${menu && html`<${Sheet} title=${me.name} onClose=${() => setMenu(false)}>
-      <div class="row" style="margin-bottom:14px"><${Avatar} user=${me} size="large" /><div><strong>${me.name}</strong>
-        <div class="muted">Connecté sur cet appareil</div></div></div>
-      <button class="btn danger block" onClick=${logout}><${Icon} name="logout" /> Se déconnecter</button>
-    </${Sheet}>`}
+    ${menu && html`<${AccountSheet} me=${me} users=${users} reloadUsers=${loadUsers} onLogout=${logout} onClose=${() => setMenu(false)} />`}
     <${Toasts} />
   </div>`;
 }

@@ -205,7 +205,7 @@ pub fn banner(listen: &str, destination: &str, claude: Option<&str>, cache: Opti
     row(
         "comptes",
         if users == 0 {
-            format!("{WARN}aucun{WARN:#} : crée-en un avec « printr user add <prénom> »")
+            format!("{WARN}aucun{WARN:#} : ouvre l'interface pour créer le premier")
         } else {
             plural(users, "utilisateur")
         },
