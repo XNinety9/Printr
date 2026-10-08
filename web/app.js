@@ -320,6 +320,16 @@ const BLOCKS = [
     summary: (b) => [(b.words || []).length ? 'mes mots' : label(WORD_THEMES, b.theme || ''), label(LEVELS, b.difficulty)].join(' · '),
   },
   {
+    type: 'train_tracks', label: 'Voie ferrée', emoji: '🚂', group: G.fun, desc: 'Relier A à B en une seule voie',
+    defaults: { difficulty: 'moyen' },
+    fields: [
+      { key: 'difficulty', label: 'Difficulté', kind: 'segmented', options: LEVELS },
+      { key: 'seed', label: 'Numéro de grille', kind: 'number', optional: true, help: 'Laisse vide pour une nouvelle grille.' },
+      { key: 'solution', label: 'Imprimer la solution de cette grille', kind: 'toggle' },
+    ],
+    summary: (b) => label(LEVELS, b.difficulty),
+  },
+  {
     type: 'maze', label: 'Labyrinthe', emoji: '🌀', group: G.fun, desc: 'Entrée en haut, sortie en bas',
     defaults: { width: 12, height: 16 },
     fields: [

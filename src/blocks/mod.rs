@@ -27,6 +27,7 @@ mod saint;
 mod shopping;
 mod sudoku;
 mod sun;
+mod train_tracks;
 mod weather;
 mod word;
 mod word_search;
@@ -176,6 +177,15 @@ pub enum Block {
         /// Mots à cacher à la place d'un thème.
         #[serde(default)]
         words: Vec<String>,
+        #[serde(default)]
+        seed: Option<u64>,
+        #[serde(default)]
+        solution: bool,
+    },
+    #[serde(alias = "voie_ferree", alias = "rails")]
+    TrainTracks {
+        #[serde(default)]
+        difficulty: sudoku::Difficulty,
         #[serde(default)]
         seed: Option<u64>,
         #[serde(default)]
@@ -487,6 +497,7 @@ impl Block {
             Block::Todo { .. } => "à faire",
             Block::Sudoku { .. } => "sudoku",
             Block::WordSearch { .. } => "mots mêlés",
+            Block::TrainTracks { .. } => "voie ferrée",
             Block::Maze { .. } => "labyrinthe",
             Block::WordOfTheDay {} => "mot du jour",
             Block::Holidays { .. } => "jours fériés",
@@ -511,7 +522,7 @@ impl Block {
             Block::Title { text, .. } => Some(text.chars().take(24).collect()),
             Block::Weather { location, .. } | Block::AirQuality { location } => Some(location.clone()),
             Block::Horoscope { sign, tone } => Some(format!("{sign} ({})", tone.label())),
-            Block::Sudoku { difficulty, solution, .. } => {
+            Block::Sudoku { difficulty, solution, .. } | Block::TrainTracks { difficulty, solution, .. } => {
                 Some(format!("{}{}", difficulty.label(), if *solution { ", solution" } else { "" }))
             }
             Block::WordSearch { difficulty, theme, words, solution, .. } => {
@@ -611,6 +622,9 @@ impl Block {
             Block::Sudoku { difficulty, seed, solution } => doc = sudoku::build(*difficulty, *seed, *solution),
             Block::WordSearch { difficulty, theme, words, seed, solution } => {
                 doc = word_search::build(*difficulty, *theme, words, *seed, *solution);
+            }
+            Block::TrainTracks { difficulty, seed, solution } => {
+                doc = train_tracks::build(*difficulty, *seed, *solution);
             }
             Block::Maze { width, height, seed } => {
                 doc = maze::build(width.unwrap_or(12), height.unwrap_or(16), *seed);
