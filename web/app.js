@@ -349,7 +349,11 @@ const newBlock = (type) => ({ uid: uid(), open: true, data: { type, ...clone(BLO
 // Données d'un bloc telles qu'attendues par le serveur : champs vides retirés.
 function cleanBlock(data) {
   const def = BLOCK[data.type];
-  const out = { type: data.type };
+  // Les paramètres sans champ dans le formulaire (ajoutés à la main dans le JSON, comme le
+  // numéro d'une énigme) sont conservés tels quels : ouvrir puis enregistrer ne perd rien.
+  const known = new Set((def?.fields || []).map((f) => f.key));
+  const out = Object.fromEntries(Object.entries(data).filter(([k, v]) => !known.has(k) && v !== '' && v != null));
+  out.type = data.type;
   for (const field of def?.fields || []) {
     let v = data[field.key];
     if (field.kind === 'list') v = (v || []).map((s) => String(s).trim()).filter(Boolean);
@@ -620,7 +624,7 @@ function Login({ onLogin }) {
   };
 
   return html`<div class="login"><div class="login-card">
-    <img class="logo" src="/icon.svg" alt="" />
+    <img class="logo" src="/mark.png" alt="" />
     <h1>Printr</h1>
     <p class="muted" style="margin:0">L'imprimante de la maison</p>
     ${users === null ? html`<div style="margin:32px"><${Spinner} /></div>` : users.length === 0
@@ -1075,7 +1079,7 @@ function App() {
 
   return html`<div class="shell">
     <nav class="sidebar" aria-label="Navigation">
-      <div class="brand"><img src="/icon.svg" alt="" />Printr</div>
+      <div class="brand"><img src="/mark.png" alt="" />Printr</div>
       ${NAV.map((n) => html`<a class="navlink ${n.hash === route.hash ? 'active' : ''}" href=${n.hash}
         onClick=${n.hash === '#/compose' ? (e) => { if (route.hash !== '#/compose') { e.preventDefault(); openComposer(store.get('printr.draft', null) || emptyComposer()); } } : undefined}>
         <${Icon} name=${n.icon} />${n.label}</a>`)}

@@ -189,7 +189,11 @@ fn asset(app: &App, path: &str) -> Option<(Vec<u8>, &'static str)> {
         "/app.js" => ("app.js", "text/javascript; charset=utf-8"),
         "/style.css" => ("style.css", "text/css; charset=utf-8"),
         "/vendor/preact-htm.mjs" => ("vendor/preact-htm.mjs", "text/javascript; charset=utf-8"),
-        "/icon.svg" => ("icon.svg", "image/svg+xml"),
+        "/favicon.png" => ("favicon.png", "image/png"),
+        "/mark.png" => ("mark.png", "image/png"),
+        "/icon-192.png" => ("icon-192.png", "image/png"),
+        "/icon-512.png" => ("icon-512.png", "image/png"),
+        "/apple-touch-icon.png" => ("apple-touch-icon.png", "image/png"),
         "/manifest.webmanifest" => ("manifest.webmanifest", "application/manifest+json"),
         _ => return None,
     };
@@ -202,7 +206,11 @@ fn asset(app: &App, path: &str) -> Option<(Vec<u8>, &'static str)> {
         "app.js" => include_bytes!("../web/app.js"),
         "style.css" => include_bytes!("../web/style.css"),
         "vendor/preact-htm.mjs" => include_bytes!("../web/vendor/preact-htm.mjs"),
-        "icon.svg" => include_bytes!("../web/icon.svg"),
+        "favicon.png" => include_bytes!("../web/favicon.png"),
+        "mark.png" => include_bytes!("../web/mark.png"),
+        "icon-192.png" => include_bytes!("../web/icon-192.png"),
+        "icon-512.png" => include_bytes!("../web/icon-512.png"),
+        "apple-touch-icon.png" => include_bytes!("../web/apple-touch-icon.png"),
         _ => include_bytes!("../web/manifest.webmanifest"),
     };
     Some((bytes.to_vec(), content_type))

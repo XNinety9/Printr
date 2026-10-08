@@ -1,6 +1,78 @@
-# Printr
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/logo-dark.png">
+    <img src="docs/logo-light.png" alt="Printr" width="220">
+  </picture>
+</p>
 
-Impression sur une Epson TM-T88V (ESC/POS, USB) depuis un Raspberry Pi, en Rust avec la crate [`escpos`](https://docs.rs/escpos).
+<p align="center"><strong>Des petits tickets qui font du bien, tous les matins.</strong></p>
+
+<p align="center">
+  <a href="https://xninety9.github.io/Printr/"><img alt="Site" src="https://img.shields.io/badge/site-xninety9.github.io%2FPrintr-e2600e"></a>
+  <img alt="Rust" src="https://img.shields.io/badge/Rust-stable-b7410e?logo=rust&logoColor=white">
+  <img alt="Raspberry Pi" src="https://img.shields.io/badge/Raspberry%20Pi-3%20%C2%B7%20Zero%202%20W-c51a4a?logo=raspberrypi&logoColor=white">
+  <img alt="Epson TM-T88V" src="https://img.shields.io/badge/ESC%2FPOS-Epson%20TM--T88V-1f1b16">
+</p>
+
+<p align="center">
+  <a href="https://xninety9.github.io/Printr/">Site</a> ·
+  <a href="#tickets-json">Les blocs</a> ·
+  <a href="#interface-web">L'appli</a> ·
+  <a href="#installation-sur-le-pi">Installer</a>
+</p>
+
+Printr transforme une imprimante à tickets **Epson TM-T88V** en gadget familial. On compose un
+ticket à partir de **30 blocs** (météo, horoscope, sudoku, énigmes, actualités, photos…), on
+l'imprime depuis son téléphone, on le **planifie** pour 7 h 30 en semaine, ou on envoie un
+**petit mot avec une photo** à ceux qui sont restés à la maison. Un seul binaire Rust, sur un
+Raspberry Pi, qui parle ESC/POS directement à l'imprimante.
+
+<p align="center">
+  <img src="docs/tickets/matin.png" alt="Ticket du matin" width="240">
+  &nbsp;
+  <img src="docs/tickets/jeux.png" alt="Ticket de jeux, avec la réponse de l'énigme imprimée à l'envers" width="240">
+  &nbsp;
+  <img src="docs/tickets/petit-mot.png" alt="Petit mot avec une photo" width="240">
+</p>
+
+- **30 blocs** : météo, lune, saint du jour, jours fériés, horoscope (sérieux, farfelu, vachard
+  ou franchement insultant), mot du jour, sudoku, labyrinthe, énigmes à réponse imprimée à
+  l'envers, défi sportif, actualités par flux RSS, QR codes, pictogrammes, photos…
+- **Une appli web pour la famille** : comptes, tickets enregistrés et partagés, aperçu en direct,
+  planification au format 24 h, historique.
+- **Sobre** : presque tout est calculé localement ou vient d'API gratuites et sans clé. Claude
+  n'écrit que l'horoscope et le mot du jour (environ 2 centimes l'impression, en cache pour la
+  journée).
+- **Une CLI soignée** : aperçu dans le terminal, progression bloc par bloc, erreurs lisibles.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/shots/desktop-compose-dark.png">
+    <img src="docs/shots/desktop-compose-light.png" alt="Le composeur de tickets de l'interface web, avec l'aperçu" width="860">
+  </picture>
+</p>
+
+## Démarrage rapide
+
+```sh
+cargo run --release -- --preview print examples/complet.json   # aperçu dans le terminal, sans imprimante
+cargo run --release -- user add Camille                        # un compte pour l'interface web
+cargo run --release -- --device /dev/usb/lp0 serve             # interface sur http://localhost:8080
+```
+
+Pas encore d'imprimante ? `scripts/demo.sh` imprime le ticket complet dans un
+[émulateur](#tester-sans-imprimante-émulateur) et en donne une image PNG.
+
+## L'horoscope, en quatre tons
+
+Rédigé chaque jour par Claude, sur un thème tiré au hasard. Extraits authentiques :
+
+| Ton | Signe | Extrait |
+| --- | --- | --- |
+| `serieux` | Scorpion | « Une conversation franche dissipera un malentendu qui pesait depuis plusieurs jours. » |
+| `farfelu` | Gémeaux | « Un pigeon particulièrement élégant pourrait vous saluer d'un hochement de tête : rendez-lui la politesse, il est très influent dans le quartier. » |
+| `vachard` | Vierge | « Votre partenaire rêve d'un dîner romantique. Rien de plus sensuel qu'une balance de cuisine posée entre deux bougies. » |
+| `insultant` | Lion | « Tes baskets neuves, encore raides comme un notaire, se demandent ce qu'elles ont fait au bon Dieu pour tomber sur une feignasse pareille. » |
 
 ## Utilisation
 
@@ -8,7 +80,7 @@ Impression sur une Epson TM-T88V (ESC/POS, USB) depuis un Raspberry Pi, en Rust 
 printr print examples/matin.json    # ticket composé de blocs (voir plus bas)
 cat ticket.json | printr print      # idem, depuis l'entrée standard
 printr --preview print ticket.json  # aperçu dans le terminal, sans imprimer
-printr --refresh print ticket.json  # régénère actualités, soleil, horoscopes et mot du jour
+printr --refresh print ticket.json  # régénère ce qui est en cache : soleil, horoscopes, mot du jour
 printr -q print ticket.json         # silencieux, n'affiche que les erreurs
 printr test                         # ticket de test (styles, accents, QR code)
 printr text "Salut !"               # texte libre, puis coupe
@@ -106,6 +178,14 @@ mêmes résultats, sans nouvel appel. `--refresh` force une nouvelle génératio
 
 `printr serve` sert une interface web pensée pour le téléphone comme pour l'ordinateur :
 
+<p align="center">
+  <img src="docs/shots/mobile-home.png" alt="Accueil : les tickets de la famille" width="250">
+  &nbsp;
+  <img src="docs/shots/mobile-preview.png" alt="Aperçu d'un ticket avant impression" width="250">
+  &nbsp;
+  <img src="docs/shots/mobile-message.png" alt="Petit mot avec une photo" width="250">
+</p>
+
 - **Composer** : ajouter, régler et réordonner des blocs, avec l'aperçu du ticket en direct.
   Les blocs Claude (horoscope, mot du jour) n'appellent pas l'API en aperçu : ils ne coûtent
   qu'à l'impression.
@@ -187,6 +267,16 @@ Les blocs Claude demandent `ANTHROPIC_API_KEY` dans l'environnement.
 cd emulator && uvx emupos run                # terminal 1
 cargo run -- --tcp 127.0.0.1:9100 test       # terminal 2
 # → emulator/receipts/*.png et *.txt
+```
+
+## Site et illustrations
+
+Le site vitrine vit dans [`docs/`](docs/) (GitHub Pages, branche `master`, dossier `/docs`).
+Ses illustrations sont générées avec des données fictives uniquement :
+
+```sh
+docs/demo/photo-session.sh                              # captures de l'appli + tickets de l'émulateur
+uv run --with pillow python docs/brand/make-assets.py   # déclinaisons du logo et icônes de l'appli
 ```
 
 ## Compiler pour le Raspberry Pi
