@@ -228,7 +228,17 @@ const BLOCKS = [
     summary: (b) => b.location,
   },
   {
-    type: 'horoscope', label: 'Horoscope', emoji: '🔮', group: G.daily, desc: 'Sérieux, farfelu… ou insultant', ai: true,
+    type: 'barnum', label: 'Horoscope', emoji: '🌟', group: G.daily, desc: 'Le vrai ciel du jour, hors ligne et gratuit',
+    defaults: { sign: 'lion', sky: false },
+    fields: [
+      { key: 'sign', label: 'Signe', kind: 'select', options: SIGNS },
+      { key: 'birth_date', label: '… ou date de naissance', kind: 'date', help: 'Si elle est indiquée, Barnum en déduit le signe.' },
+      { key: 'sky', label: 'Afficher le ciel du jour', kind: 'toggle', help: 'La position des planètes, et celles qui sont rétrogrades.' },
+    ],
+    summary: (b) => (b.birth_date ? `Né le ${b.birth_date}` : label(SIGNS, b.sign)),
+  },
+  {
+    type: 'horoscope', label: 'Horoscope Claude', emoji: '🔮', group: G.daily, desc: 'Sérieux, farfelu… ou insultant', ai: true,
     defaults: { sign: 'lion', tone: 'serieux' },
     fields: [
       { key: 'sign', label: 'Signe', kind: 'select', options: SIGNS },
@@ -828,7 +838,7 @@ function SaveSheet({ state, onSave, onClose, focusSchedule }) {
     <div class="section-title" style="margin-top:18px">Impression automatique</div>
     <${ScheduleEditor} schedules=${draft.schedules} onChange=${(schedules) => set({ schedules })} />
     ${ai && draft.schedules.length > 0 && html`<p class="help muted" style="font-size:13px;margin-bottom:0">
-      🔮 Ce ticket utilise Claude : compte environ 2 centimes par impression.</p>`}
+      🔮 Ce ticket utilise Claude : un petit appel payant par impression (le contenu est gardé en cache pour la journée).</p>`}
   </${Sheet}>`;
 }
 

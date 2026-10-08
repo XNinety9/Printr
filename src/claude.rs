@@ -7,7 +7,7 @@ use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
 
 const API_URL: &str = "https://api.anthropic.com/v1/messages";
-const DEFAULT_MODEL: &str = "claude-opus-5-5";
+const DEFAULT_MODEL: &str = "claude-haiku-5-5";
 
 pub struct Claude {
     api_key: String,

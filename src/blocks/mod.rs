@@ -1,6 +1,7 @@
 //! Blocs paramétrables d'un ticket, décrits en JSON.
 
 mod air_quality;
+pub mod barnum;
 mod crypto;
 mod holidays;
 mod horoscope;
@@ -176,6 +177,21 @@ pub enum Block {
     Sun {
         location: String,
     },
+    /// Horoscope hors ligne et gratuit, calculé sur le ciel réel par Barnum.
+    Barnum {
+        /// Signe (en français, accents facultatifs)…
+        #[serde(default)]
+        sign: Option<String>,
+        /// … ou date de naissance, dont Barnum déduit le signe.
+        #[serde(default)]
+        birth_date: Option<NaiveDate>,
+        /// Affiche la position des astres.
+        #[serde(default)]
+        sky: bool,
+        /// Autre série de formules pour le même ciel (`--sel` de Barnum).
+        #[serde(default)]
+        variant: Option<String>,
+    },
     /// Pictogramme dessiné : cœur, étoile, soleil, fleur, sourire.
     Picto {
         shape: picto::Shape,
@@ -303,6 +319,7 @@ impl Block {
             Block::Riddle { .. } => "énigme",
             Block::Workout { .. } => "défi sportif",
             Block::Picto { .. } => "pictogramme",
+            Block::Barnum { .. } => "horoscope Barnum",
             Block::News { .. } => "actualités",
         }
     }
@@ -322,6 +339,9 @@ impl Block {
             Block::News { title, .. } => Some(title.clone()),
             Block::Workout { level, .. } => Some(level.label().to_owned()),
             Block::Picto { shape, .. } => Some(shape.label().to_owned()),
+            Block::Barnum { sign, birth_date, .. } => {
+                birth_date.map(|d| format!("né le {d}")).or_else(|| sign.clone())
+            }
             Block::Image { path, url, upload, .. } => path.as_ref().or(url.as_ref()).or(upload.as_ref()).map(|p| {
                 p.rsplit('/').next().unwrap_or(p).to_owned()
             }),
@@ -417,6 +437,14 @@ impl Block {
             Block::Riddle { kind, number, answer } => doc = riddle::build(ctx.today, *kind, *number, *answer)?,
             Block::Workout { level, number } => doc = workout::build(ctx.today, *level, *number)?,
             Block::Picto { shape, size, count } => doc = picto::build(*shape, *size, *count),
+            Block::Barnum { sign, birth_date, sky, variant } => {
+                let who = match (birth_date, sign) {
+                    (Some(birth), _) => barnum::Who::Birth(*birth),
+                    (None, Some(sign)) => barnum::Who::Sign(sign.clone()),
+                    (None, None) => anyhow::bail!("indiquer `sign` ou `birth_date`"),
+                };
+                doc = barnum::build(who, ctx.today, *sky, variant.as_deref())?;
+            }
             Block::News { title, feeds, count, qr, themes, exclude, max_age_hours } => {
                 let options = news::Options {
                     count: (*count).clamp(1, 5) as usize,

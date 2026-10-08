@@ -193,6 +193,14 @@ pub fn banner(listen: &str, destination: &str, claude: Option<&str>, cache: Opti
         },
     );
     row("cache", cache.map_or_else(|| format!("{WARN}désactivé{WARN:#}"), str::to_owned));
+    row(
+        "barnum",
+        if crate::blocks::barnum::available() {
+            format!("{OK}✓{OK:#} {}", crate::blocks::barnum::command().join(" "))
+        } else {
+            format!("{WARN}✗{WARN:#} introuvable : bloc « Horoscope » indisponible (voir PRINTR_BARNUM)")
+        },
+    );
     row("données", data.to_owned());
     row(
         "comptes",

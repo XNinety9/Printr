@@ -87,7 +87,7 @@ fn generate(claude: &Claude, date: NaiveDate, past: &[String]) -> Result<Word> {
 
     let system = "Tu tiens la rubrique « mot du jour » d'un ticket imprimé sur une petite imprimante \
                   thermique. Texte brut uniquement : ni emoji, ni markdown ; les accents français \
-                  s'impriment correctement, utilise-les normalement.";
+                  s'impriment correctement, utilise-les normalement. Remplis chaque champ du JSON.";
     let prompt = format!(
         "Nous sommes le {}. Choisis un mot français réel, rare ou savoureux, qui commence par la \
          lettre {letter} et mérite d'être connu.\n\

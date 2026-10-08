@@ -77,7 +77,7 @@ fn find_sign(sign: &str) -> Result<(&'static str, &'static str)> {
 }
 
 /// À incrémenter quand les prompts changent, pour ne pas resservir un horoscope en cache.
-const PROMPT_VERSION: u32 = 3;
+const PROMPT_VERSION: u32 = 4;
 
 /// Thèmes tirés au hasard pour que deux horoscopes ne se ressemblent pas.
 const SERIOUS_THEMES: &[&str] = &[
@@ -103,14 +103,14 @@ const INSULTING_THEMES: &[&str] = &[
 struct Horoscope {
     general: String,
     amour: String,
-    travail: String,
+    activites: String,
     forme: String,
     porte_bonheur: String,
 }
 
 impl Horoscope {
     fn is_complete(&self) -> bool {
-        [&self.general, &self.amour, &self.travail, &self.forme, &self.porte_bonheur]
+        [&self.general, &self.amour, &self.activites, &self.forme, &self.porte_bonheur]
             .iter()
             .all(|f| !f.trim().is_empty())
     }
@@ -148,7 +148,7 @@ pub fn build(ctx: &Ctx, sign: &str, tone: Tone) -> Result<Doc> {
     doc.text(period, Style::default().small().center());
     doc.feed(1);
     doc.text(&h.general, Style::default());
-    for (label, text) in [("Amour", &h.amour), ("Travail", &h.travail), ("Forme", &h.forme)] {
+    for (label, text) in [("Amour", &h.amour), ("Activités", &h.activites), ("Forme", &h.forme)] {
         doc.feed(1);
         doc.text(label, Style::default().bold().underline());
         doc.text(text, Style::default());
@@ -198,7 +198,7 @@ fn generate(claude: &Claude, date: NaiveDate, name: &str, tone: Tone) -> Result<
     let system = format!(
         "Tu écris l'horoscope du jour en français pour un ticket imprimé sur une petite imprimante \
          thermique. Texte brut uniquement : ni emoji, ni markdown ; les accents français s'impriment \
-         correctement, utilise-les normalement. Le lecteur peut être n'importe qui, quels que \
+         correctement, utilise-les normalement. Remplis chaque champ du JSON. Le lecteur peut être n'importe qui, quels que \
          soient son âge, son métier ou son mode de vie (étudiant, retraité, artisan, parent, \
          salarié…) : ne suppose aucun métier en particulier, pas de bureau, d'ordinateur, de \
          réunions ni de collègues. Puise dans la vie quotidienne de tout le monde. {tone_instruction}"
@@ -207,8 +207,8 @@ fn generate(claude: &Claude, date: NaiveDate, name: &str, tone: Tone) -> Result<
         "Horoscope du {} pour le signe {name}. Thème d'inspiration du jour : {theme} ; \
          évite les images convenues et surprends-moi.\n\
          - general : 2 à 3 phrases sur la journée.\n\
-         - amour, travail, forme : 1 à 2 phrases chacun ; « travail » désigne les occupations \
-         du jour (travail, études ou activités), sans supposer de métier.\n\
+         - amour, activites, forme : 1 à 2 phrases chacun ; « activites » parle des occupations \
+         du jour (travail, études, tâches ou loisirs), sans supposer de métier.\n\
          - porte_bonheur : un objet, une couleur ou un nombre, en quelques mots.",
         fr::long_date(date)
     );
@@ -217,11 +217,11 @@ fn generate(claude: &Claude, date: NaiveDate, name: &str, tone: Tone) -> Result<
         "properties": {
             "general": { "type": "string" },
             "amour": { "type": "string" },
-            "travail": { "type": "string" },
+            "activites": { "type": "string" },
             "forme": { "type": "string" },
             "porte_bonheur": { "type": "string" },
         },
-        "required": ["general", "amour", "travail", "forme", "porte_bonheur"],
+        "required": ["general", "amour", "activites", "forme", "porte_bonheur"],
         "additionalProperties": false,
     });
     claude.generate(&system, &prompt, schema, "low")

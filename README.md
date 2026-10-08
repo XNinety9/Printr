@@ -41,7 +41,7 @@ Raspberry Pi, qui parle ESC/POS directement à l'imprimante.
 - **Une appli web pour la famille** : comptes, tickets enregistrés et partagés, aperçu en direct,
   planification au format 24 h, historique.
 - **Sobre** : presque tout est calculé localement ou vient d'API gratuites et sans clé. Claude
-  n'écrit que l'horoscope et le mot du jour (environ 2 centimes l'impression, en cache pour la
+  n'écrit que l'horoscope et le mot du jour (un petit appel à Claude Haiku, en cache pour la
   journée).
 - **Une CLI soignée** : aperçu dans le terminal, progression bloc par bloc, erreurs lisibles.
 
@@ -127,6 +127,7 @@ Un paramètre inconnu est une erreur, pour repérer les fautes de frappe.
 | `image` | `path` ou `url`, `dither` (true) | Réduite à 512 px |
 | `qr` | `data`, `size` (6), `caption` | |
 | `weather` | `location`, `days` (1, max 7) | [Open-Meteo](https://open-meteo.com), sans clé. `location` : ville ou `"lat,lon"` |
+| `barnum` | `sign` ou `birth_date` (`AAAA-MM-JJ`), `sky` (false), `variant` | Horoscope hors ligne et gratuit, calculé sur le vrai ciel par [Barnum](https://github.com/XNinety9/Barnum) : jauges par domaine, conseil, et en option la position des planètes |
 | `horoscope` | `sign`, `tone` (`serieux`/`farfelu`/`vachard`/`insultant`) | Généré par Claude, sur un thème tiré au hasard. Signe en français ou en anglais |
 | `saint` | — | Calendrier local, hors ligne |
 | `todo` | `items`, `title` (« À faire ») | Cases à cocher |
@@ -166,8 +167,12 @@ reçoivent un QR code, deux par ligne. `PRINTR_DEBUG=1` affiche le classement co
   "themes": ["climat", "sciences", "santé"], "exclude": ["football"] }
 ```
 
+Le bloc `barnum` appelle [Barnum](https://github.com/XNinety9/Barnum) en ligne de commande :
+`barnum` s'il est installé, sinon la commande donnée dans `PRINTR_BARNUM`, par exemple
+`PRINTR_BARNUM="python3 /opt/barnum/main.py"` (Barnum ne dépend que de Python 3.10).
+
 Les blocs `horoscope` et `word_of_the_day` utilisent l'API Claude : définir `ANTHROPIC_API_KEY`
-(et optionnellement `PRINTR_CLAUDE_MODEL`, `claude-opus-5-5` par défaut).
+(et optionnellement `PRINTR_CLAUDE_MODEL`, `claude-haiku-5-5` par défaut).
 
 Les contenus dépendant d'une date sont **mis en cache** : réimprimer le même ticket redonne les
 mêmes résultats, sans nouvel appel. `--refresh` force une nouvelle génération. Le cache vit dans
