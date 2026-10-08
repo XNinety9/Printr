@@ -124,11 +124,13 @@ pub fn generate(seed: u64, difficulty: Difficulty) -> (Grid, Grid) {
 
 const CELL: i64 = 54;
 const SCALE: i64 = 5;
+/// Blanc sous la grille, pour décoller le numéro.
+const BOTTOM_GAP: i64 = 10;
 
 fn render(grid: &Grid) -> image::GrayImage {
     let size = CELL * 9;
     let (ox, oy) = ((512 - size) / 2, 3);
-    let mut img = draw::canvas((size + 6) as u32);
+    let mut img = draw::canvas((size + 6 + BOTTOM_GAP) as u32);
     for k in 0..=9 {
         let thick = if k % 3 == 0 { 5 } else { 2 };
         let pos = k * CELL - thick / 2;

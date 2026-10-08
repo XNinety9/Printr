@@ -185,7 +185,15 @@ impl Doc {
     /// Envoie le document à l'imprimante (sans l'imprimer : appeler `print`/`print_cut`).
     pub fn render<D: Driver>(&self, printer: &mut Printer<D>) -> Result<()> {
         let mut current: Option<Style> = None;
+        let mut text_area = false;
         for op in &self.ops {
+            // Les lignes de texte occupent 504 points (42 × 12, 56 × 9) : zone d'impression
+            // centrée pour elles, pleine largeur pour les images et QR codes.
+            let wants_text_area = matches!(op, Op::Line { .. });
+            if wants_text_area != text_area {
+                set_print_area(printer, wants_text_area)?;
+                text_area = wants_text_area;
+            }
             match op {
                 Op::Line { text, style } => {
                     if current != Some(*style) {
@@ -210,6 +218,9 @@ impl Doc {
                     printer.feeds(*n)?;
                 }
             }
+        }
+        if text_area {
+            set_print_area(printer, false)?;
         }
         apply_style(printer, &Style::default())?;
         Ok(())
@@ -370,6 +381,22 @@ fn styled_line(text: &str, style: &Style) -> (String, usize) {
         shown
     };
     (format!("{}{ansi}{shown}{ansi:#}", " ".repeat(margin + pad)), margin + pad + len)
+}
+
+/// Largeur occupée par une ligne de texte, en points (identique en police A et B).
+const TEXT_WIDTH: u32 = COLUMNS_A as u32 * 12;
+
+/// `GS L` + `GS W` : zone d'impression centrée de `TEXT_WIDTH` points, ou toute la largeur.
+fn set_print_area<D: Driver>(printer: &mut Printer<D>, text: bool) -> Result<()> {
+    let (left, width) = if text {
+        ((raster::PRINT_WIDTH - TEXT_WIDTH) / 2, TEXT_WIDTH)
+    } else {
+        (0, raster::PRINT_WIDTH)
+    };
+    let [l0, l1, ..] = left.to_le_bytes();
+    let [w0, w1, ..] = width.to_le_bytes();
+    printer.custom(&[0x1d, b'L', l0, l1, 0x1d, b'W', w0, w1])?;
+    Ok(())
 }
 
 fn apply_style<D: Driver>(printer: &mut Printer<D>, style: &Style) -> Result<()> {
