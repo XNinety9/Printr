@@ -625,6 +625,8 @@ function PhotoField({ value, onChange }) {
   const [format, setFormat] = useState('portrait');
   const [view, setView] = useState({ zoom: 1, cx: 0.5, cy: 0.5 }); // zoom 1 : la photo couvre le cadre
   const [busy, setBusy] = useState(false);
+  // Le cadrage se fait dans une fenêtre à part : dans la page, le doigt doit faire défiler.
+  const [editing, setEditing] = useState(false);
   const pick = async (file) => {
     if (!file) return;
     try {
@@ -633,6 +635,7 @@ function PhotoField({ value, onChange }) {
       setFormat(w > h * 1.15 ? 'paysage' : h > w * 1.15 ? 'portrait' : 'carre');
       setView({ zoom: 1, cx: 0.5, cy: 0.5 });
       setPhoto({ source, url: URL.createObjectURL(file), w, h });
+      setEditing(true);
     } catch (e) { toast(e.message, 'error'); }
   };
   const remove = () => { setPhoto(null); onChange(null); if (input.current) input.current.value = ''; };
@@ -669,19 +672,27 @@ function PhotoField({ value, onChange }) {
       </div></div>`;
   }
   return html`<div class="photo-crop">${chooser}
-    <${Cropper} photo=${photo} ratio=${ratio} view=${view} onView=${setView} busy=${busy} />
-    <div class="photo-tools">
-      <${Segmented} options=${PHOTO_FORMATS.map(([v, t]) => [v, t])} value=${format}
-        onChange=${(f) => { setFormat(f); setView({ zoom: 1, cx: 0.5, cy: 0.5 }); }} />
-      <label class="zoom"><${Icon} name="search" size=${16} />
-        <input type="range" min="1" max=${MAX_ZOOM} step="0.01" value=${view.zoom} aria-label="Zoom"
-          onInput=${(e) => setView((v) => clampView(photo, ratio, { ...v, zoom: Number(e.target.value) }))} /></label>
-    </div>
-    <p class="help muted">Glisse pour déplacer, pince ou fais défiler pour zoomer. Le ticket imprime exactement le cadre, en noir et blanc.</p>
+    <button type="button" class="cropper-open" aria-label="Cadrer la photo" onClick=${() => setEditing(true)}>
+      <${Cropper} photo=${photo} ratio=${ratio} view=${view} busy=${busy} /></button>
     <div class="photo-actions">
-      <button type="button" class="btn secondary small" onClick=${() => input.current.click()}><${Icon} name="camera" size=${16} /> Changer de photo</button>
+      <button type="button" class="btn secondary small" onClick=${() => setEditing(true)}><${Icon} name="sliders" size=${16} /> Cadrer</button>
+      <button type="button" class="btn ghost small" onClick=${() => input.current.click()}><${Icon} name="camera" size=${16} /> Changer de photo</button>
       <button type="button" class="btn ghost small" onClick=${remove}><${Icon} name="x" size=${16} /> Retirer</button>
     </div>
+    ${editing && html`<${Sheet} title="Cadrer la photo" onClose=${() => setEditing(false)}
+      footer=${html`<button type="button" class="btn primary block" onClick=${() => setEditing(false)}><${Icon} name="check" /> Valider le cadrage</button>`}>
+      <div class="photo-editor">
+        <${Cropper} photo=${photo} ratio=${ratio} view=${view} onView=${setView} busy=${busy} interactive />
+        <div class="photo-tools">
+          <${Segmented} options=${PHOTO_FORMATS.map(([v, t]) => [v, t])} value=${format}
+            onChange=${(f) => { setFormat(f); setView({ zoom: 1, cx: 0.5, cy: 0.5 }); }} />
+          <label class="zoom"><${Icon} name="search" size=${16} />
+            <input type="range" min="1" max=${MAX_ZOOM} step="0.01" value=${view.zoom} aria-label="Zoom"
+              onInput=${(e) => setView((v) => clampView(photo, ratio, { ...v, zoom: Number(e.target.value) }))} /></label>
+        </div>
+        <p class="help muted">Glisse pour déplacer, pince ou fais défiler pour zoomer. Le ticket imprime exactement le cadre, en noir et blanc.</p>
+      </div>
+    </${Sheet}>`}
   </div>`;
 }
 
@@ -701,7 +712,8 @@ function clampView(photo, ratio, view) {
   return { zoom, cx: clamp(view.cx, w / 2, photo.w), cy: clamp(view.cy, h / 2, photo.h) };
 }
 
-function Cropper({ photo, ratio, view, onView, busy }) {
+// Cadre de la photo : simple aperçu dans la page, ou cadrage au doigt (`interactive`).
+function Cropper({ photo, ratio, view, onView, busy, interactive = false }) {
   const frame = useRef();
   const pointers = useRef(new Map());
   const gesture = useRef(null);
@@ -762,14 +774,17 @@ function Cropper({ photo, ratio, view, onView, busy }) {
     onView((v) => move(v, 0, 0, Math.exp(-e.deltaY * 0.0015), { x: e.clientX, y: e.clientY }));
   };
   useEffect(() => {
+    if (!interactive) return undefined;
     // Écouteur non passif : la molette zoome au lieu de faire défiler la page.
     const el = frame.current;
     el.addEventListener('wheel', wheel, { passive: false });
     return () => el.removeEventListener('wheel', wheel);
   });
 
-  return html`<div class="cropper" ref=${frame} style=${{ aspectRatio: String(ratio) }}
-    onPointerDown=${down} onPointerMove=${moveEvt} onPointerUp=${up} onPointerCancel=${up}>
+  const gestures = interactive ? { onPointerDown: down, onPointerMove: moveEvt, onPointerUp: up, onPointerCancel: up } : {};
+  // Le format prime : sur un écran bas, c'est la largeur qui s'adapte à la hauteur permise.
+  const size = { aspectRatio: String(ratio), width: `min(100%, calc(${interactive ? 58 : 70}dvh * ${ratio}))` };
+  return html`<div class="cropper ${interactive ? 'interactive' : ''}" ref=${frame} style=${size} ...${gestures}>
     ${width > 0 && html`<img src=${photo.url} alt="Photo à cadrer" draggable="false"
       style=${{ width: `${photo.w * scale}px`, height: `${photo.h * scale}px`, left: `${-crop.x * scale}px`, top: `${-crop.y * scale}px` }} />`}
     <div class="cropper-grid" aria-hidden="true"></div>
