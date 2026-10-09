@@ -1425,7 +1425,7 @@ function Toasts() {
 }
 
 // Mon compte : la famille (ajouter, retirer), mon mot de passe, la déconnexion.
-function AccountSheet({ me, users, reloadUsers, onLogout, onClose }) {
+function AccountSheet({ me, users, version, reloadUsers, onLogout, onClose }) {
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [mine, setMine] = useState('');
@@ -1470,6 +1470,7 @@ function AccountSheet({ me, users, reloadUsers, onLogout, onClose }) {
     </form>
 
     <button class="btn danger block" style="margin-top:22px" onClick=${onLogout}><${Icon} name="logout" /> Se déconnecter</button>
+    ${version && html`<p class="version">printr ${version}</p>`}
     ${confirm && html`<${Confirm} ...${confirm} onClose=${() => setConfirm(null)} />`}
   </${Sheet}>`;
 }
@@ -1486,6 +1487,7 @@ const ROUTES = [...NAV, { hash: '#/courses', title: 'Liste de courses' }];
 function App() {
   const [me, setMe] = useState(undefined);
   const [users, setUsers] = useState([]);
+  const [version, setVersion] = useState(null);
   const [presets, setPresets] = useState(null);
   const [composer, setComposer] = useState(() => store.get('printr.draft', null) || emptyComposer());
   const [scrolled, setScrolled] = useState(false);
@@ -1503,6 +1505,7 @@ function App() {
     if (!me) return;
     loadPresets();
     loadUsers();
+    api('GET', '/api/status').then((s) => setVersion(s.version)).catch(() => {});
   }, [me]);
   useEffect(() => {
     const onScroll = () => setScrolled(scrollY > 4);
@@ -1532,6 +1535,7 @@ function App() {
         onClick=${n.hash === '#/compose' ? (e) => { if (route.hash !== '#/compose') { e.preventDefault(); openComposer(store.get('printr.draft', null) || emptyComposer()); } } : undefined}>
         <${Icon} name=${n.icon} />${n.label}</a>`)}
       <div class="spacer"></div>
+      ${version && html`<div class="version">printr ${version}</div>`}
       <div class="account-row">
         <button type="button" class="navlink account" onClick=${() => setMenu(true)}><${Avatar} user=${me} />
           <span class="grow"><strong>${me.name}</strong><span class="muted">Mon compte</span></span></button>
@@ -1539,7 +1543,9 @@ function App() {
     </nav>
     <main class="main">
       <header class="topbar ${scrolled ? 'scrolled' : ''}">
-        <h1>${title}</h1>
+        ${route.hash === '#/'
+          ? html`<h1 class="home-title"><img src="/mark.png" alt="" />${title}${version && html`<span class="version">${version}</span>`}</h1>`
+          : html`<h1>${title}</h1>`}
         ${route.hash === '#/compose' && composer.id && html`<button class="btn ghost small" onClick=${() => openComposer(emptyComposer())}><${Icon} name="plus" size=${16} /> Nouveau</button>`}
         <button class="me" aria-label="Mon compte" title="Mon compte" onClick=${() => setMenu(true)}><${Avatar} user=${me} /><span>Mon compte</span></button>
       </header>
@@ -1548,7 +1554,7 @@ function App() {
     <nav class="tabbar" aria-label="Navigation">
       ${NAV.map((n) => html`<a class="tab ${n.hash === route.hash ? 'active' : ''}" href=${n.hash}><${Icon} name=${n.icon} />${n.label}</a>`)}
     </nav>
-    ${menu && html`<${AccountSheet} me=${me} users=${users} reloadUsers=${loadUsers} onLogout=${logout} onClose=${() => setMenu(false)} />`}
+    ${menu && html`<${AccountSheet} me=${me} users=${users} version=${version} reloadUsers=${loadUsers} onLogout=${logout} onClose=${() => setMenu(false)} />`}
     <${Toasts} />
   </div>`;
 }

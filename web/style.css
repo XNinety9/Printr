@@ -618,3 +618,12 @@ select.input { appearance: none; padding-right: 38px;
 .photo-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .photo-saved img { width: 100%; max-height: 70vh; object-fit: contain; border-radius: var(--radius); background: var(--surface-2); filter: grayscale(1) contrast(1.15); }
 .photo-crop .help { margin: 0; font-size: 12.5px; }
+
+/* Numéro de version : barre latérale (ordinateur) et bas de « Mon compte ». */
+.version { font-size: 12px; color: var(--muted); text-align: center; font-variant-numeric: tabular-nums; margin: 6px 0 2px; }
+
+/* Accueil sur téléphone : logo, titre et version (sur ordinateur, la barre latérale les montre). */
+.topbar h1.home-title { display: flex; align-items: center; gap: 8px; }
+.topbar h1.home-title img { width: 30px; height: 30px; object-fit: contain; flex-shrink: 0; }
+.topbar h1.home-title .version { margin: 3px 0 0; font-size: 12px; font-weight: 600; letter-spacing: 0; align-self: center; }
+@media (min-width: 900px) { .topbar h1.home-title img, .topbar h1.home-title .version { display: none; } }
