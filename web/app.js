@@ -65,32 +65,36 @@ const store = {
   del(key) { try { localStorage.removeItem(key); } catch { /* idem */ } },
 };
 
-// Réduit une photo dans le navigateur avant l'envoi : rapide même en 4G.
-async function resizeImage(file, max = 1024) {
-  let source;
+// Ouvre une photo, orientée comme sur le téléphone (EXIF).
+async function loadPhoto(file) {
   try {
-    source = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    return await createImageBitmap(file, { imageOrientation: 'from-image' });
   } catch {
-    source = await new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => resolve(img);
       img.onerror = () => reject(new Error('Image illisible'));
       img.src = URL.createObjectURL(file);
     });
   }
-  const scale = Math.min(1, max / source.width);
+}
+
+// Découpe la zone cadrée d'une photo et la réduit avant l'envoi : rapide même en 4G. Une petite
+// zone (fort zoom) est agrandie à la largeur du papier : le cadre remplit toujours le ticket.
+const PAPER_DOTS = 512;
+function cropPhoto(source, crop, max = 1024) {
+  const scale = Math.max(PAPER_DOTS, Math.min(max, crop.w)) / crop.w;
   const canvas = document.createElement('canvas');
-  canvas.width = Math.round(source.width * scale);
-  canvas.height = Math.round(source.height * scale);
+  canvas.width = Math.round(crop.w * scale);
+  canvas.height = Math.round(crop.h * scale);
   const ctx = canvas.getContext('2d');
   ctx.fillStyle = '#fff';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+  ctx.drawImage(source, crop.x, crop.y, crop.w, crop.h, 0, 0, canvas.width, canvas.height);
   return new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9));
 }
 
-async function uploadPhoto(file) {
-  const blob = await resizeImage(file);
+async function uploadBlob(blob) {
   const { id } = await api('POST', '/api/images', blob);
   return id;
 }
@@ -611,30 +615,165 @@ function BinsEdit({ value, onChange }) {
   </div>`;
 }
 
+// Formats du cadre (largeur / hauteur) : le ticket imprime exactement la zone cadrée.
+const PHOTO_FORMATS = [['portrait', 'Portrait', 3 / 4], ['carre', 'Carré', 1], ['paysage', 'Paysage', 4 / 3]];
+const MAX_ZOOM = 5;
+
 function PhotoField({ value, onChange }) {
   const input = useRef();
+  const [photo, setPhoto] = useState(null); // { source, url, w, h }
+  const [format, setFormat] = useState('portrait');
+  const [view, setView] = useState({ zoom: 1, cx: 0.5, cy: 0.5 }); // zoom 1 : la photo couvre le cadre
   const [busy, setBusy] = useState(false);
-  const [local, setLocal] = useState(null);
   const pick = async (file) => {
     if (!file) return;
-    setLocal(URL.createObjectURL(file));
-    setBusy(true);
     try {
-      onChange(await uploadPhoto(file));
-    } catch (e) {
-      toast(e.message, 'error');
-      setLocal(null);
-    } finally {
-      setBusy(false);
-    }
+      const source = await loadPhoto(file);
+      const w = source.width, h = source.height;
+      setFormat(w > h * 1.15 ? 'paysage' : h > w * 1.15 ? 'portrait' : 'carre');
+      setView({ zoom: 1, cx: 0.5, cy: 0.5 });
+      setPhoto({ source, url: URL.createObjectURL(file), w, h });
+    } catch (e) { toast(e.message, 'error'); }
   };
-  const src = local || (value ? `/api/images/${value}` : null);
-  return html`<div class="photo-drop ${src ? 'has-photo' : ''}" onClick=${() => !src && input.current.click()} role="button" tabindex="0">
-    <input ref=${input} type="file" accept="image/*" hidden onChange=${(e) => pick(e.target.files[0])} />
-    ${src ? html`<img src=${src} alt="Photo choisie" />` : html`<div><div class="big-emoji">📷</div><strong>Prendre ou choisir une photo</strong></div>`}
-    ${busy && html`<div style="position:absolute;inset:0;display:grid;place-items:center;background:rgb(0 0 0/35%);color:#fff"><${Spinner} /></div>`}
-    ${src && !busy && html`<button type="button" class="iconbtn remove" aria-label="Retirer la photo"
-      onClick=${(e) => { e.stopPropagation(); setLocal(null); onChange(null); }}><${Icon} name="x" /></button>`}
+  const remove = () => { setPhoto(null); onChange(null); if (input.current) input.current.value = ''; };
+  const ratio = PHOTO_FORMATS.find(([v]) => v === format)[2];
+
+  // Envoie la zone cadrée une fois le geste terminé ; seul le dernier envoi compte.
+  const sent = useRef(0);
+  useEffect(() => {
+    if (!photo) return;
+    const n = ++sent.current;
+    const timer = setTimeout(async () => {
+      setBusy(true);
+      try {
+        const id = await uploadBlob(await cropPhoto(photo.source, cropArea(photo, ratio, view)));
+        if (n === sent.current) onChange(id);
+      } catch (e) { toast(e.message, 'error'); } finally { if (n === sent.current) setBusy(false); }
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [photo, ratio, view.zoom, view.cx, view.cy]);
+
+  const chooser = html`<input ref=${input} type="file" accept="image/*" hidden onChange=${(e) => pick(e.target.files[0])} />`;
+  if (!photo && !value) {
+    return html`<div class="photo-drop" onClick=${() => input.current.click()} role="button" tabindex="0"
+      onKeyDown=${(e) => (e.key === 'Enter' || e.key === ' ') && input.current.click()}>${chooser}
+      <div><div class="big-emoji">📷</div><strong>Prendre ou choisir une photo</strong></div></div>`;
+  }
+  // Photo déjà enregistrée (ticket rouvert) : elle est déjà cadrée, on la montre telle quelle.
+  if (!photo) {
+    return html`<div class="photo-saved">${chooser}
+      <img src=${`/api/images/${value}`} alt="Photo choisie" />
+      <div class="photo-actions">
+        <button type="button" class="btn secondary small" onClick=${() => input.current.click()}><${Icon} name="camera" size=${16} /> Changer de photo</button>
+        <button type="button" class="btn ghost small" onClick=${remove}><${Icon} name="x" size=${16} /> Retirer</button>
+      </div></div>`;
+  }
+  return html`<div class="photo-crop">${chooser}
+    <${Cropper} photo=${photo} ratio=${ratio} view=${view} onView=${setView} busy=${busy} />
+    <div class="photo-tools">
+      <${Segmented} options=${PHOTO_FORMATS.map(([v, t]) => [v, t])} value=${format}
+        onChange=${(f) => { setFormat(f); setView({ zoom: 1, cx: 0.5, cy: 0.5 }); }} />
+      <label class="zoom"><${Icon} name="search" size=${16} />
+        <input type="range" min="1" max=${MAX_ZOOM} step="0.01" value=${view.zoom} aria-label="Zoom"
+          onInput=${(e) => setView((v) => clampView(photo, ratio, { ...v, zoom: Number(e.target.value) }))} /></label>
+    </div>
+    <p class="help muted">Glisse pour déplacer, pince ou fais défiler pour zoomer. Le ticket imprime exactement le cadre, en noir et blanc.</p>
+    <div class="photo-actions">
+      <button type="button" class="btn secondary small" onClick=${() => input.current.click()}><${Icon} name="camera" size=${16} /> Changer de photo</button>
+      <button type="button" class="btn ghost small" onClick=${remove}><${Icon} name="x" size=${16} /> Retirer</button>
+    </div>
+  </div>`;
+}
+
+// Zone de la photo (en pixels de la photo) visible dans un cadre de rapport `ratio`.
+function cropArea(photo, ratio, { zoom, cx, cy }) {
+  // À zoom 1, la plus grande zone de ce rapport qui tient dans la photo.
+  const fullW = Math.min(photo.w, photo.h * ratio);
+  const w = fullW / zoom, h = w / ratio;
+  return { x: cx * photo.w - w / 2, y: cy * photo.h - h / 2, w, h };
+}
+
+// Garde le zoom dans ses bornes et le cadre entièrement dans la photo.
+function clampView(photo, ratio, view) {
+  const zoom = Math.min(MAX_ZOOM, Math.max(1, view.zoom));
+  const { w, h } = cropArea(photo, ratio, { ...view, zoom });
+  const clamp = (c, half, size) => Math.min(1 - half / size, Math.max(half / size, c));
+  return { zoom, cx: clamp(view.cx, w / 2, photo.w), cy: clamp(view.cy, h / 2, photo.h) };
+}
+
+function Cropper({ photo, ratio, view, onView, busy }) {
+  const frame = useRef();
+  const pointers = useRef(new Map());
+  const gesture = useRef(null);
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    const observer = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
+    observer.observe(frame.current);
+    return () => observer.disconnect();
+  }, []);
+
+  const crop = cropArea(photo, ratio, view);
+  const scale = width / crop.w; // pixels à l'écran par pixel de la photo
+  // Déplace la vue d'un décalage à l'écran (dx, dy) et zoome d'un facteur autour d'un point.
+  const move = (v, dx, dy, factor = 1, at = null) => {
+    let { zoom, cx, cy } = v;
+    const area = cropArea(photo, ratio, v);
+    const s = width / area.w;
+    cx -= dx / s / photo.w;
+    cy -= dy / s / photo.h;
+    if (factor !== 1 && at) {
+      const rect = frame.current.getBoundingClientRect();
+      // Le point de la photo sous le doigt reste sous le doigt.
+      const px = area.x + (at.x - rect.left) / s, py = area.y + (at.y - rect.top) / s;
+      const next = Math.min(MAX_ZOOM, Math.max(1, zoom * factor));
+      const k = zoom / next;
+      cx = (px + (cx * photo.w - px) * k) / photo.w;
+      cy = (py + (cy * photo.h - py) * k) / photo.h;
+      zoom = next;
+    }
+    return clampView(photo, ratio, { zoom, cx, cy });
+  };
+  const snapshot = () => {
+    const pts = [...pointers.current.values()];
+    const mid = { x: pts.reduce((a, p) => a + p.x, 0) / pts.length, y: pts.reduce((a, p) => a + p.y, 0) / pts.length };
+    const dist = pts.length > 1 ? Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y) : 0;
+    return { mid, dist };
+  };
+  const down = (e) => {
+    // La capture garde le geste même si le doigt sort du cadre ; simple confort.
+    try { frame.current.setPointerCapture(e.pointerId); } catch { /* pointeur déjà relâché */ }
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    gesture.current = snapshot();
+  };
+  const moveEvt = (e) => {
+    if (!pointers.current.has(e.pointerId)) return;
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const prev = gesture.current, now = snapshot();
+    const factor = prev.dist && now.dist ? now.dist / prev.dist : 1;
+    onView((v) => move(v, now.mid.x - prev.mid.x, now.mid.y - prev.mid.y, factor, now.mid));
+    gesture.current = now;
+  };
+  const up = (e) => {
+    pointers.current.delete(e.pointerId);
+    gesture.current = pointers.current.size ? snapshot() : null;
+  };
+  const wheel = (e) => {
+    e.preventDefault();
+    onView((v) => move(v, 0, 0, Math.exp(-e.deltaY * 0.0015), { x: e.clientX, y: e.clientY }));
+  };
+  useEffect(() => {
+    // Écouteur non passif : la molette zoome au lieu de faire défiler la page.
+    const el = frame.current;
+    el.addEventListener('wheel', wheel, { passive: false });
+    return () => el.removeEventListener('wheel', wheel);
+  });
+
+  return html`<div class="cropper" ref=${frame} style=${{ aspectRatio: String(ratio) }}
+    onPointerDown=${down} onPointerMove=${moveEvt} onPointerUp=${up} onPointerCancel=${up}>
+    ${width > 0 && html`<img src=${photo.url} alt="Photo à cadrer" draggable="false"
+      style=${{ width: `${photo.w * scale}px`, height: `${photo.h * scale}px`, left: `${-crop.x * scale}px`, top: `${-crop.y * scale}px` }} />`}
+    <div class="cropper-grid" aria-hidden="true"></div>
+    ${busy && html`<div class="cropper-busy"><${Spinner} /></div>`}
   </div>`;
 }
 
