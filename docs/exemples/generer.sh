@@ -14,6 +14,9 @@ trap 'stop_emulator; kill $(jobs -p) 2>/dev/null; rm -rf "$DEMO"' EXIT
 cargo build --release -q
 BIN=target/release/printr
 export PRINTR_DATA_DIR="$DEMO/data" PRINTR_CACHE_DIR="$DEMO/cache" PRINTR_GLITCH=0
+# Mots fléchés : dictionnaire et définitions gardés d'une fois sur l'autre (pas de nouvel appel
+# à Claude pour une grille déjà définie).
+export CROSSWORDS_CACHE="${CROSSWORDS_CACHE:-$HOME/.cache/crosswords}"
 mkdir -p "$PRINTR_DATA_DIR"
 
 # Données fictives : une liste de courses et un mois d'impressions.

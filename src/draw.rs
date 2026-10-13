@@ -60,14 +60,18 @@ pub fn digit(img: &mut GrayImage, d: u8, x: i64, y: i64, scale: i64) {
 
 /// Dessine un nombre entier (chiffres de 5×7 séparés d'une colonne), coin haut-gauche en (x, y).
 pub fn number(img: &mut GrayImage, n: u32, x: i64, y: i64, scale: i64) {
+    number_ink(img, n, x, y, scale, BLACK);
+}
+
+/// Comme `number`, dans la couleur `ink` (blanc sur une case noire, par exemple).
+pub fn number_ink(img: &mut GrayImage, n: u32, x: i64, y: i64, scale: i64, ink: Luma<u8>) {
     for (i, d) in n.to_string().bytes().enumerate() {
         let x = x + i as i64 * (DIGIT_W + 1) * scale;
-        let d = d - b'0';
-        if d == 0 {
-            glyph(img, &ZERO, x, y, scale, BLACK);
-        } else {
-            digit(img, d, x, y, scale);
-        }
+        let rows = match d - b'0' {
+            0 => &ZERO,
+            d => &DIGITS[(d - 1) as usize],
+        };
+        glyph(img, rows, x, y, scale, ink);
     }
 }
 

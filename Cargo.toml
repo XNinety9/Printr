@@ -12,6 +12,7 @@ base64 = "0.23.1"
 chrono = { version = "0.4.45", features = ["serde"] }
 chrono-tz = "0.10.4"
 clap = { version = "4.6.7", features = ["derive", "env"] }
+crosswords = { git = "https://github.com/XNinety9/CrossWords", tag = "v1.0.0", version = "1.0.0" }
 escpos = { version = "0.20.0", features = ["graphics"] }
 feed-rs = "3.0.0"
 image = "0.25"

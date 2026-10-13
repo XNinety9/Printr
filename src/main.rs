@@ -252,6 +252,14 @@ fn load_system_env() {
 
 fn main() -> ExitCode {
     load_system_env();
+    // CrossWords (mots fléchés) range son dictionnaire et ses définitions dans le cache de printr,
+    // seul dossier où le service a le droit d'écrire.
+    if std::env::var_os("CROSSWORDS_CACHE").is_none()
+        && let Some(cache) = cache::Cache::open()
+    {
+        // SAFETY : au tout début de `main`, avant le moindre fil d'exécution.
+        unsafe { std::env::set_var("CROSSWORDS_CACHE", cache.dir().join("crosswords")) };
+    }
     match run(parse_cli()) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {

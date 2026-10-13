@@ -3,6 +3,7 @@
 mod agenda;
 mod air_quality;
 mod anagram;
+mod arrow_word;
 pub mod barnum;
 mod bins;
 mod cipher;
@@ -383,6 +384,19 @@ pub enum Block {
         #[serde(default)]
         month: Option<String>,
     },
+    /// Mots fléchés (CrossWords), définitions rédigées par Claude à l'impression.
+    #[serde(alias = "mots_fleches", alias = "fleches")]
+    ArrowWord {
+        #[serde(default)]
+        size: arrow_word::Size,
+        /// 1 (facile) à 4 (très difficile) ; Claude Opus rédige les niveaux 3 et 4.
+        #[serde(default = "two")]
+        level: u8,
+        #[serde(default)]
+        seed: Option<u64>,
+        #[serde(default)]
+        solution: bool,
+    },
     /// Mandala à colorier.
     #[serde(alias = "coloriage")]
     Coloring {
@@ -496,6 +510,7 @@ impl Block {
             Block::Agenda { .. } => "agenda",
             Block::MonthlyReport { .. } => "bilan du mois",
             Block::Coloring { .. } => "coloriage",
+            Block::ArrowWord { .. } => "mots fléchés",
             Block::Title { .. } => "titre",
             Block::Text { .. } => "texte",
             Block::Glitch { .. } => "glitch",
@@ -552,6 +567,12 @@ impl Block {
             Block::Agenda { title, .. } => title.clone(),
             Block::MonthlyReport { month, .. } => month.clone(),
             Block::Nonogram { number, .. } => number.map(|n| format!("n° {n}")),
+            Block::ArrowWord { size, level, solution, .. } => Some(format!(
+                "{}, grille {}{}",
+                arrow_word::level_label(*level),
+                size.label(),
+                if *solution { ", solution" } else { "" }
+            )),
             Block::Countdown { label, .. } => Some(label.clone()),
             Block::Crypto { coins, .. } => Some(coins.join(", ")),
             Block::Sun { location } => Some(location.clone()),
@@ -698,6 +719,10 @@ impl Block {
             Block::Agenda { calendars, days, title } => doc = agenda::build(ctx, calendars, *days, title.as_deref())?,
             Block::MonthlyReport { month } => doc = monthly::build(month.as_deref(), ctx.today)?,
             Block::Coloring { seed } => doc = coloring::build(*seed),
+            Block::ArrowWord { size, level, seed, solution } => {
+                let options = arrow_word::Options { size: *size, level: *level, seed: *seed, solution: *solution };
+                doc = arrow_word::build(ctx, &options)?;
+            }
             Block::News { title, feeds, count, qr, themes, exclude, max_age_hours } => {
                 let options = news::Options {
                     count: (*count).clamp(1, 5) as usize,

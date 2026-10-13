@@ -333,6 +333,18 @@ const BLOCKS = [
     summary: (b) => `${b.width} × ${b.height}`,
   },
   {
+    type: 'arrow_word', label: 'Mots fléchés', emoji: '✍️', group: G.fun, desc: 'Une grille de mots fléchés, définitions par Claude', ai: true,
+    defaults: { level: 2, size: 'moyen' },
+    fields: [
+      { key: 'level', label: 'Niveau', kind: 'segmented', options: [[1, 'Facile'], [2, 'Moyen'], [3, 'Difficile'], [4, 'Expert']],
+        help: 'Niveaux 3 et 4 : définitions plus fines, rédigées par un modèle plus cher (une dizaine de centimes par grille neuve).' },
+      { key: 'size', label: 'Taille', kind: 'segmented', options: [['petit', 'Petite'], ['moyen', 'Moyenne'], ['grand', 'Grande']] },
+      { key: 'seed', label: 'Numéro de grille', kind: 'number', optional: true, help: 'Laisse vide pour une nouvelle grille.' },
+      { key: 'solution', label: 'Imprimer la solution de cette grille', kind: 'toggle', help: 'Même numéro, même taille et même niveau.' },
+    ],
+    summary: (b) => `${({ 1: 'Facile', 2: 'Moyen', 3: 'Difficile', 4: 'Expert' })[b.level] || ''} · ${({ petit: 'petite', moyen: 'moyenne', grand: 'grande' })[b.size] || ''} grille`,
+  },
+  {
     type: 'nonogram', label: 'Logimage', emoji: '🖍️', group: G.fun, desc: 'Noircir des cases pour révéler un dessin',
     defaults: {},
     fields: [

@@ -36,9 +36,9 @@ sur un Raspberry Pi, qui parle ESC/POS directement à l'imprimante.
 </p>
 
 - **40 blocs** : météo, agenda, horoscope (sérieux, farfelu, vachard ou franchement insultant),
-  mot du jour, sudoku, logimage, mots mêlés, petit bac, coloriage, énigmes à réponse imprimée à
-  l'envers, défi sportif, liste de courses, poubelles, Wi-Fi invités, bons à offrir, bilan du
-  mois façon ticket de caisse, actualités par flux RSS, photos…
+  mot du jour, mots fléchés, sudoku, logimage, mots mêlés, petit bac, coloriage, énigmes à
+  réponse imprimée à l'envers, défi sportif, liste de courses, poubelles, Wi-Fi invités, bons à
+  offrir, bilan du mois façon ticket de caisse, actualités par flux RSS, photos…
 - **Une appli web pour la famille** : comptes, tickets enregistrés et partagés, aperçu en direct,
   planification au format 24 h, historique.
 - **Sobre** : presque tout est calculé localement ou vient d'API gratuites et sans clé. Claude
@@ -136,6 +136,7 @@ Un paramètre inconnu est une erreur, pour repérer les fautes de frappe.
 | `todo` | `items`, `title` (« À faire ») | Cases à cocher |
 | `sudoku` | `difficulty` (`facile`/`moyen`/`difficile`), `seed`, `solution` | Le n° imprimé est la graine : même `seed` + `"solution": true` imprime la solution |
 | `word_search` (ou `mots_meles`, `mots_caches`, `mots_en_grille`) | `difficulty` (`facile`/`moyen`/`difficile`), `theme`, `words`, `seed`, `solution` | Mots mêlés en français. `theme` : `animaux`, `fruits_legumes`, `cuisine`, `nature`, `sport`, `metiers`, `maison`, `voyage`, `musique`, `ecole`, `developpement`, `devops`, `reseaux`, `ia` (tiré du n° si absent) ; ou ses propres mots dans `words`. Facile : 10×10, 8 mots, → ↓ ; moyen : 12×12, 12 mots, + diagonales ; difficile : 14×14, 16 mots, dans tous les sens. Même n° + `"solution": true` imprime la solution |
+| `arrow_word` (ou `mots_fleches`) | `level` (1 à 4, défaut 2), `size` (`petit`/`moyen`/`grand` : 7×9, 9×11, 11×13), `seed`, `solution` | Mots fléchés générés par [CrossWords](https://github.com/XNinety9/CrossWords) : grille à numéros et définitions en dessous, rédigées par Claude à l'impression. Même n°, taille et niveau + `"solution": true` imprime la solution |
 | `maze` | `width` (12), `height` (16), `seed` | |
 | `word_of_the_day` | — | Choisi par Claude, sans répéter les 60 derniers mots |
 | `quote` | — | Citation du jour, liste locale |
@@ -211,6 +212,15 @@ De temps en temps (une impression sur 20), la machine glisse dans le ticket un m
 sans en-tête, comme du bruit imprimé : c'est le **glitch**. `PRINTR_GLITCH` règle la fréquence
 (`PRINTR_GLITCH=5` pour une sur cinq, `0` pour jamais) ; `{ "type": "glitch" }` en force un.
 Il n'apparaît jamais dans les aperçus.
+
+Le bloc `arrow_word` s'appuie sur la bibliothèque [CrossWords](https://github.com/XNinety9/CrossWords)
+(Apache 2.0, © 2026 Pierre, [XNinety9](https://github.com/XNinety9) ; voir [`NOTICE`](NOTICE)).
+Au premier usage, elle télécharge sa liste de mots avec `curl` (une trentaine de secondes, une
+seule fois) dans le cache de printr.
+Les définitions viennent de son cache (`crosswords/definitions.txt`), complété à l'impression
+par Claude pour les mots inconnus : moins d'un centime par grille neuve aux niveaux 1 et 2
+(Claude Haiku), une dizaine aux niveaux 3 et 4 (Claude Opus). L'aperçu n'appelle jamais Claude,
+et un mot que Claude n'a pas su définir n'est pas redemandé : sa longueur est imprimée.
 
 Les blocs `horoscope` et `word_of_the_day` utilisent l'API Claude : définir `ANTHROPIC_API_KEY`
 (et optionnellement `PRINTR_CLAUDE_MODEL`, `claude-haiku-5-5` par défaut).
