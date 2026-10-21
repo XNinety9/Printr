@@ -245,17 +245,27 @@ fn client_id() -> String {
     if host.is_empty() { "printr".to_owned() } else { format!("printr-{host}") }
 }
 
+fn url() -> Option<String> {
+    std::env::var("PRINTR_MQTT_URL").ok().filter(|u| !u.trim().is_empty())
+}
+
+/// Préfixe des sujets (`PRINTR_MQTT_PREFIX`, `printr` par défaut), si MQTT est configuré : l'appli
+/// web s'en sert pour écrire l'action Home Assistant qui publie un ticket.
+pub fn prefix() -> Option<String> {
+    url()?;
+    Some(clean_prefix(std::env::var("PRINTR_MQTT_PREFIX").ok().as_deref()))
+}
+
+fn clean_prefix(setting: Option<&str>) -> String {
+    setting.map(|p| p.trim().trim_matches('/')).filter(|p| !p.is_empty()).unwrap_or("printr").to_owned()
+}
+
 /// Lance le client MQTT si `PRINTR_MQTT_URL` est défini. Une adresse invalide est signalée, sans
 /// empêcher le serveur de tourner.
 pub fn spawn(app: Arc<App>) {
-    let Some(url) = std::env::var("PRINTR_MQTT_URL").ok().filter(|u| !u.trim().is_empty()) else {
+    let (Some(url), Some(prefix)) = (url(), prefix()) else {
         return;
     };
-    let prefix = std::env::var("PRINTR_MQTT_PREFIX")
-        .ok()
-        .map(|p| p.trim().trim_matches('/').to_owned())
-        .filter(|p| !p.is_empty())
-        .unwrap_or_else(|| "printr".to_owned());
     let options = match parse_url(&url).and_then(|broker| options(&broker, &prefix)) {
         Ok(options) => options,
         Err(e) => {
@@ -472,6 +482,13 @@ fn discover(app: &App, client: &Client, prefix: &str, discovery: &str, events: &
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn prefix_is_trimmed_with_a_default() {
+        assert_eq!(clean_prefix(None), "printr");
+        assert_eq!(clean_prefix(Some("  ")), "printr");
+        assert_eq!(clean_prefix(Some("/maison/printr/ ")), "maison/printr");
+    }
 
     #[test]
     fn broker_url() {

@@ -165,6 +165,7 @@ const ICONS = {
   send: '<path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
   spark: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/>',
+  'file-edit': '<path d="M10 21H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h8l5 5v2"/><path d="M14 3v5h5M8 12h6M8 16h3"/><path d="m18.5 13 2.5 2.5-6 6H12.5V19z"/>',
   scissors: '<circle cx="6" cy="7" r="3"/><circle cx="6" cy="17" r="3"/><path d="M8.6 8.5 21 16.5M8.6 15.5 21 7.5"/>',
 };
 
@@ -758,6 +759,47 @@ function cleanBlock(data) {
 }
 
 const toTicket = (state) => ({ cut: state.cut, spacing: Number(state.spacing), blocks: state.blocks.map((b) => cleanBlock(b.data)) });
+
+// YAML d'un ticket, pour Home Assistant. Une chaîne reste nue si rien ne peut la faire lire
+// autrement : sinon entre apostrophes (guillemets JSON s'il y a des caractères de contrôle), pour
+// « yes », « on », les nombres, les dates (2026-12-25 deviendrait une date), « : » ou « # ».
+const YAML_PLAIN = /^[\p{L}_][^\n:#]*$/u;
+const YAML_RESERVED = /^(true|false|yes|no|on|off|y|n|null|~)$/i;
+const isMap = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+
+function yamlScalar(v, indent) {
+  if (v === null || v === undefined) return 'null';
+  if (typeof v !== 'string') return String(v);
+  // Texte sur plusieurs lignes : bloc littéral, lignes gardées telles quelles.
+  if (v.includes('\n') && !/^\s/.test(v) && !v.includes('\r')) {
+    const chomp = v.endsWith('\n\n') ? '+' : v.endsWith('\n') ? '' : '-';
+    const lines = v.replace(/\n$/, '').split('\n');
+    return `|${chomp}\n${lines.map((l) => (l ? indent + l : '')).join('\n')}`;
+  }
+  if (YAML_PLAIN.test(v) && !/[\x00-\x1f\x7f]|\s$/.test(v) && !YAML_RESERVED.test(v)) return v;
+  return /[\x00-\x08\x0a-\x1f\x7f]/.test(v) ? JSON.stringify(v) : `'${v.replaceAll("'", "''")}'`;
+}
+
+// Valeur qui suit « clé: » ou « - » : sur la même ligne, ou en dessous, indentée de `indent`.
+function yamlNode(v, indent) {
+  if (Array.isArray(v)) return v.length ? `\n${v.map((x) => `${indent}-${yamlItem(x, `${indent}  `)}`).join('\n')}` : ' []';
+  if (isMap(v)) return Object.keys(v).length ? `\n${yamlMap(v, indent)}` : ' {}';
+  return ` ${yamlScalar(v, indent)}`;
+}
+const yamlMap = (obj, indent) =>
+  Object.entries(obj).map(([k, v]) => `${indent}${yamlScalar(k, indent)}:${yamlNode(v, `${indent}  `)}`).join('\n');
+// Élément de liste : un objet commence sur la ligne du tiret.
+const yamlItem = (v, indent) => (isMap(v) && Object.keys(v).length ? ` ${yamlMap(v, indent).slice(indent.length)}` : yamlNode(v, indent));
+
+// Action de l'intégration Printr pour Home Assistant, ou action MQTT standard qui publie le ticket
+// sur le sujet d'impression (`prefix` : PRINTR_MQTT_PREFIX du serveur).
+const haYaml = (ticket, label) =>
+  `${yamlMap({ action: 'printr.print_ticket', data: { ...(label ? { label } : {}), ticket } }, '')}\n`;
+const mqttYaml = (ticket, prefix) =>
+  `${yamlMap({ action: 'mqtt.publish', data: { topic: `${prefix}/print`, payload: JSON.stringify(ticket) } }, '')}\n`;
+
+// Réglages du serveur utiles à l'appli, relus avec /api/status.
+const SERVER = { mqtt: null };
 const usesAi = (blocks) => blocks.some((b) => BLOCK[b.type || b.data?.type]?.ai);
 
 function blockSummary(data) {
@@ -1755,11 +1797,67 @@ function SaveSheet({ state, onSave, onClose, focusSchedule }) {
   </${Sheet}>`;
 }
 
-function Composer({ initial, onSaved }) {
+// Presse-papiers : l'API moderne n'existe qu'en HTTPS ou sur localhost, et l'appli est souvent
+// servie en HTTP sur le réseau local ; repli par le texte sélectionné dans la zone `area`, aussi
+// quand le navigateur refuse l'accès au presse-papiers.
+async function copyText(text, area) {
+  try {
+    if (window.isSecureContext && navigator.clipboard) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch { /* refusé : repli ci-dessous */ }
+  area.focus();
+  area.select();
+  return document.execCommand('copy');
+}
+
+// Configuration du ticket composé, à copier : en YAML, l'action Home Assistant (intégration Printr,
+// ou MQTT quand le serveur y est relié) ; en JSON, le ticket tel que le prennent l'API, MQTT et
+// `printr print`. Le dernier format choisi est gardé.
+function TicketConfigSheet({ ticket, label, onClose }) {
+  const [format, setFormatState] = useState(() => store.get('printr.config.format', 'yaml'));
+  const setFormat = (f) => { setFormatState(f); store.set('printr.config.format', f); };
+  const [via, setVia] = useState('integration');
+  const mqtt = format === 'yaml' && via === 'mqtt' && SERVER.mqtt;
+  const text = useMemo(() => {
+    if (format === 'json') return `${JSON.stringify(ticket, null, 2)}\n`;
+    return mqtt ? mqttYaml(ticket, mqtt) : haYaml(ticket, label);
+  }, [format, ticket, label, mqtt]);
+  const area = useRef(null);
+  const copy = async () => {
+    if (await copyText(text, area.current)) return toast(T('Configuration copiée', 'Configuration copied'), 'ok', '📋');
+    area.current.select();
+    toast(T('Copie impossible : le texte est sélectionné, copie-le à la main', 'Could not copy: the text is selected, copy it by hand'), 'error');
+  };
+  const help = format === 'json'
+    ? T('Le ticket en JSON, tel que le prennent l’API HTTP (/print), MQTT (printr/print) et printr print ticket.json.',
+      'The ticket as JSON, as taken by the HTTP API (/print), MQTT (printr/print) and printr print ticket.json.')
+    : `${mqtt
+      ? T(`L’action mqtt.publish de Home Assistant, qui publie le ticket sur ${mqtt}/print : rien d’autre à installer que l’intégration MQTT.`,
+        `Home Assistant’s mqtt.publish action, publishing the ticket on ${mqtt}/print: nothing to install but the MQTT integration.`)
+      : T('L’action printr.print_ticket de l’intégration Printr pour Home Assistant.', 'The printr.print_ticket action of the Printr integration for Home Assistant.')
+    } ${T('À coller dans une automatisation ou un script, en édition YAML.', 'Paste it into an automation or a script, in YAML mode.')}`;
+  return html`<${Sheet} title=${T('Configuration du ticket', 'Ticket configuration')} wide onClose=${onClose} footer=${html`
+    <button class="btn secondary" onClick=${onClose}>${T('Fermer', 'Close')}</button>
+    <button class="btn primary grow" onClick=${copy}><${Icon} name="copy" /> ${T('Copier', 'Copy')}</button>`}>
+    <div class="config-switches">
+      <${Segmented} options=${[['yaml', 'YAML'], ['json', 'JSON']]} value=${format} onChange=${setFormat} />
+      ${format === 'yaml' && SERVER.mqtt && html`<${Segmented} options=${[['integration', T('Intégration Printr', 'Printr integration')], ['mqtt', 'MQTT']]}
+        value=${via} onChange=${setVia} />`}
+    </div>
+    <p class="muted">${help}</p>
+    <textarea class="input code" ref=${area} readonly spellcheck=${false} aria-label=${format.toUpperCase()}
+      rows=${Math.min(18, text.split('\n').length)} value=${text}></textarea>
+  </${Sheet}>`;
+}
+
+function Composer({ initial, onSaved, admin }) {
   const [state, setState] = useState(initial);
   // Catalogue ouvert : `{ at }` = position d'insertion (à la fin si absente).
   const [catalog, setCatalog] = useState(null);
   const [saveSheet, setSaveSheet] = useState(null);
+  const [configSheet, setConfigSheet] = useState(false);
   const [mobilePreview, setMobilePreview] = useState(false);
   const [printing, setPrinting] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -1846,6 +1944,8 @@ function Composer({ initial, onSaved }) {
           <${Switch} label=${T('Couper le papier à la fin', 'Cut the paper at the end')} checked=${state.cut} onChange=${(cut) => setState((s) => ({ ...s, cut }))} />
           <div class="spacing-row"><span class="label">${T('Espace entre les blocs', 'Space between blocks')}</span>
             <${Segmented} options=${[[0, T('Aucun', 'None')], [1, T('1 ligne', '1 line')], [2, T('2 lignes', '2 lines')]]} value=${Number(state.spacing)} onChange=${(spacing) => setState((s) => ({ ...s, spacing }))} /></div>
+          ${admin && html`<button class="btn ghost small show-config" disabled=${!state.blocks.length} onClick=${() => setConfigSheet(true)}>
+            <${Icon} name="file-edit" size=${16} /> ${T('Afficher la configuration du ticket', 'Show the ticket configuration')}</button>`}
         </div>
         <div class="actionbar">
           <button class="btn ghost preview-fab" aria-label=${T('Aperçu', 'Preview')} onClick=${() => setMobilePreview(true)}><${Icon} name="eye" /><span class="lbl">${T('Aperçu', 'Preview')}</span></button>
@@ -1856,6 +1956,7 @@ function Composer({ initial, onSaved }) {
       <aside class="preview-col"><${Paper} preview=${preview} loading=${loading} /><${PaperMeta} preview=${preview} /></aside>
     </div>
     ${catalog && html`<${Catalog} onPick=${(type) => add(type, catalog.at)} onClose=${() => setCatalog(null)} />`}
+    ${configSheet && html`<${TicketConfigSheet} ticket=${ticket} label=${state.name} onClose=${() => setConfigSheet(false)} />`}
     ${saveSheet && html`<${SaveSheet} state=${state} focusSchedule=${saveSheet.focusSchedule} onSave=${persist} onClose=${() => setSaveSheet(null)} />`}
     ${mobilePreview && html`<${Sheet} title=${T('Aperçu', 'Preview')} onClose=${() => setMobilePreview(false)} footer=${html`
       <button class="btn primary grow" disabled=${printing} onClick=${print}>${printing ? html`<${Spinner} />` : html`<${Icon} name="printer" />`} ${T('Imprimer', 'Print')}</button>`}>
@@ -2259,6 +2360,7 @@ function App() {
       setVersion(s.version); setUpdate(s.update || null);
       CATALOG.hidden = s.hidden_blocks || [];
       CATALOG.claude = !!s.claude;
+      SERVER.mqtt = s.mqtt_prefix || null;
       setPrinter((before) => {
         const status = s.printer_status || (s.printer_ready === false ? 'missing' : 'ready');
         const now = { ready: status === 'ready', status, queued: s.queued || 0, paper: s.paper || null };
@@ -2292,7 +2394,7 @@ function App() {
     : route.title;
 
   let page;
-  if (route.hash === '#/compose') page = html`<${Composer} initial=${composer} onSaved=${loadPresets} />`;
+  if (route.hash === '#/compose') page = html`<${Composer} initial=${composer} onSaved=${loadPresets} admin=${me.admin} />`;
   else if (route.hash === '#/message') page = html`<${Message} me=${me} onSaved=${loadPresets} />`;
   else if (route.hash === '#/history') page = html`<${History} users=${users} me=${me} />`;
   else if (route.hash === '#/courses') page = html`<${Shopping} users=${users} />`;

@@ -412,6 +412,12 @@ So an automation can print a ticket when the doorbell rings, or warn the phone w
 Discovery uses the `homeassistant` prefix; `PRINTR_MQTT_DISCOVERY` changes it (or turns it `off`).
 Two Printr on the same broker need different `PRINTR_MQTT_PREFIX` values: each one is its own device.
 
+**A ticket from the app in an automation**: in the composer, “Show the ticket configuration” (admin only) gives
+the ticket as YAML, ready to paste into an automation or a script (YAML mode), or as JSON for the HTTP API,
+MQTT and `printr print`. In YAML, two forms: the `mqtt.publish` action publishing the ticket on
+`printr/print`, offered when Printr is connected to MQTT, or the `printr.print_ticket` action of the
+[Printr integration](https://github.com/Matteo-Penaud/printr-ha-integration).
+
 ### TLS certificates
 
 `mqtt://` (no TLS) works with any broker on your network. `mqtts://` checks the broker's certificate:

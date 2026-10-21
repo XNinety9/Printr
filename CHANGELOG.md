@@ -16,6 +16,11 @@ Koenig…
   the systemd service. The container sees the host's `/dev` (opening only the printer), so a printer
   turned off and on again, or plugged in after startup, is still found. Both files ship in the release
   archives, next to the binary.
+- **Show the ticket configuration**, in the composer (admin only): the ticket as YAML for Home Assistant, ready to paste
+  into an automation or a script — the `mqtt.publish` action on `printr/print` when Printr is connected to
+  MQTT, or the `printr.print_ticket` action of the Printr integration — or as JSON for the HTTP API, MQTT
+  and `printr print`. Copying also works over plain HTTP on the local
+  network, where browsers refuse the clipboard API. `/api/status` gives the topic prefix (`mqtt_prefix`).
 
 ## [1.10.0] “Koenig” - 2026-10-21
 

@@ -1141,6 +1141,7 @@ fn handle(app: &App, request: &mut Request) -> Reply {
                 "claude": claude.as_ref().map(|c| c.model().to_owned()),
                 "claude_backend": claude.as_ref().map(|c| c.backend()),
                 "version": env!("CARGO_PKG_VERSION"),
+                "mqtt_prefix": crate::mqtt::prefix(),
                 "update": *app.latest.lock().unwrap_or_else(|e| e.into_inner()),
             }))
         }
