@@ -73,6 +73,16 @@ Tout le reste est dans le **[guide](https://xninety9.github.io/Printr/guide.html
 - [Tester sans imprimante](https://xninety9.github.io/Printr/guide.html#tester-sans-imprimante-émulateur)
 - [Contribuer](CONTRIBUTING.fr.md) · [Journal des versions](CHANGELOG.md) (en anglais)
 
+## Les étoiles sur GitHub
+
+<a href="https://www.star-history.com/?repos=xninety9%2Fprintr&type=date&legend=top-left">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=xninety9/printr&type=date&theme=dark&legend=top-left">
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=xninety9/printr&type=date&legend=top-left">
+    <img alt="Courbe des étoiles de Printr sur GitHub" src="https://api.star-history.com/chart?repos=xninety9/printr&type=date&legend=top-left">
+  </picture>
+</a>
+
 ## Licence
 
 Printr est distribué sous [licence Apache 2.0](LICENSE) : vous pouvez le réutiliser, le modifier et le

@@ -75,6 +75,16 @@ Everything else is in the **[guide](https://xninety9.github.io/Printr/guide.en.h
 - [Testing without a printer](https://xninety9.github.io/Printr/guide.en.html#testing-without-a-printer-emulator)
 - [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
 
+## Star history
+
+<a href="https://www.star-history.com/?repos=xninety9%2Fprintr&type=date&legend=top-left">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=xninety9/printr&type=date&theme=dark&legend=top-left">
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=xninety9/printr&type=date&legend=top-left">
+    <img alt="Star history chart of Printr on GitHub" src="https://api.star-history.com/chart?repos=xninety9/printr&type=date&legend=top-left">
+  </picture>
+</a>
+
 ## License
 
 Printr is licensed under the [Apache License 2.0](LICENSE): you can reuse, modify and redistribute it,
