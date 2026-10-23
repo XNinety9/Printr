@@ -410,8 +410,9 @@ configurer :
 - **un bouton par ticket partagé**, ajouté, renommé ou retiré au fil des tickets.
 
 Une automatisation peut ainsi imprimer un ticket quand on sonne, ou prévenir le téléphone quand le
-papier baisse. La découverte utilise le préfixe `homeassistant` ; `PRINTR_MQTT_DISCOVERY` le change
-(ou la coupe avec `off`). Deux Printr sur un même broker doivent avoir des `PRINTR_MQTT_PREFIX`
+papier baisse. La découverte utilise le préfixe `homeassistant` ; `PRINTR_MQTT_DISCOVERY` le change,
+ou la coupe avec `off` : Printr retire alors l'appareil qu'il avait annoncé, qui ne reste pas à côté d'une
+autre intégration. Deux Printr sur un même broker doivent avoir des `PRINTR_MQTT_PREFIX`
 différents : chacun est son propre appareil.
 
 **Un ticket de l'appli dans une automatisation** : dans le composeur, « Afficher la configuration du

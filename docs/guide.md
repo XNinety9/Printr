@@ -409,7 +409,8 @@ Printr shows up by itself in Home Assistant as a **Printr** device (MQTT discove
 - **one button per shared ticket**, added, renamed or removed as the tickets change.
 
 So an automation can print a ticket when the doorbell rings, or warn the phone when the paper runs low.
-Discovery uses the `homeassistant` prefix; `PRINTR_MQTT_DISCOVERY` changes it (or turns it `off`).
+Discovery uses the `homeassistant` prefix; `PRINTR_MQTT_DISCOVERY` changes it, or turns it `off`: Printr
+then removes the device it had announced, so it does not linger next to another integration.
 Two Printr on the same broker need different `PRINTR_MQTT_PREFIX` values: each one is its own device.
 
 **A ticket from the app in an automation**: in the composer, “Show the ticket configuration” (admin only) gives

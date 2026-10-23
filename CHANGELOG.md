@@ -22,6 +22,10 @@ Koenig…
   and `printr print`. Copying also works over plain HTTP on the local
   network, where browsers refuse the clipboard API. `/api/status` gives the topic prefix (`mqtt_prefix`).
 
+### Changed
+- MQTT: with Home Assistant discovery turned off (`PRINTR_MQTT_DISCOVERY=off`), Printr now removes the
+  device it had announced before, instead of leaving a ghost device next to another integration.
+
 ### Security
 - `ctutils` 0.4.5, used by `argon2` for the account passwords: constant-time comparisons could compile
   to branches (RUSTSEC-2026-0385).

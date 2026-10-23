@@ -10,12 +10,15 @@ use serde_json::{Value, json};
 
 use crate::i18n::t;
 
+/// Préfixe de découverte de Home Assistant, par défaut.
+pub const DEFAULT_PREFIX: &str = "homeassistant";
+
 /// Le préfixe de découverte, ou `None` si elle est désactivée.
 pub fn discovery_prefix() -> Option<String> {
     let value = std::env::var("PRINTR_MQTT_DISCOVERY").unwrap_or_default();
     let value = value.trim().trim_matches('/');
     match value {
-        "" => Some("homeassistant".to_owned()),
+        "" => Some(DEFAULT_PREFIX.to_owned()),
         "off" | "false" | "0" | "no" | "non" => None,
         other => Some(other.to_owned()),
     }
@@ -42,6 +45,13 @@ pub fn config_topic(discovery: &str, component: &str, node: &str, object: &str) 
 /// Sujet de configuration du bouton d'un ticket partagé.
 pub fn preset_topic(discovery: &str, node: &str, id: &str) -> String {
     config_topic(discovery, "button", node, &format!("preset_{}", node_id(id)))
+}
+
+/// Le sujet est-il la configuration d'une entité de cet appareil (`<découverte>/<type>/<nœud>/<objet>/config`) ?
+pub fn is_own_config(discovery: &str, node: &str, topic: &str) -> bool {
+    let Some(rest) = topic.strip_prefix(discovery).and_then(|r| r.strip_prefix('/')) else { return false };
+    let parts: Vec<&str> = rest.split('/').collect();
+    parts.len() == 4 && parts[1] == node && parts[3] == "config"
 }
 
 /// L'identifiant d'un ticket partagé d'après le sujet de son bouton, pour retirer ceux qui ne le
@@ -241,6 +251,15 @@ mod tests {
             config_topic("homeassistant", "sensor", "printr", "paper"),
             "homeassistant/sensor/printr/paper/config"
         );
+    }
+
+    #[test]
+    fn own_configs_are_recognised() {
+        assert!(is_own_config("homeassistant", "printr", "homeassistant/sensor/printr/paper/config"));
+        assert!(is_own_config("homeassistant", "printr", "homeassistant/button/printr/preset_a1/config"));
+        assert!(!is_own_config("homeassistant", "printr", "homeassistant/sensor/autre/paper/config"));
+        assert!(!is_own_config("homeassistant", "printr", "homeassistant/status"));
+        assert!(!is_own_config("homeassistant", "printr", "printr/status"));
     }
 
     #[test]
