@@ -109,6 +109,7 @@ an error, so typos get caught.
 | `maze` | `width` (12), `height` (16), `seed` | |
 | `word_of_the_day` | — | Picked by Claude, without repeating the last 60 words |
 | `quote` | — | Quote of the day, from a local list |
+| `fortune` | `cow` (false), `source` (`builtin`, or `system` for the `fortune` command), `seed` | A fortune-cookie line, offline; `cow` makes the cowsay cow say it. `system` needs `fortune-mod` on the server |
 | `holidays` | `zone` (`metropole`/`alsace-moselle`), `count` (1) | Computed locally, checked against calendrier.api.gouv.fr |
 | `countdown` | `label`, `date` (`YYYY-MM-DD`) | "J-79 before: Christmas" |
 | `birthdays` (or `anniversaires`) | `list` (one per line: `Leo, 03/12/2014`, year optional), `upcoming` (3) | "Happy birthday Leo!" with the age on the day, then a countdown to the next ones. Month first in English, day first in French, ISO dates everywhere |
@@ -398,26 +399,6 @@ the history), and the queue when the printer is away. MQTT has no token: **anyon
 can print**, so restrict access on the broker (accounts, ACL). Messages sent while Printr is
 disconnected are not kept: a morning brief does not come out in the evening.
 
-### Home Assistant
-
-With the [MQTT integration](https://www.home-assistant.io/integrations/mqtt/) set up on the same broker,
-Printr shows up by itself in Home Assistant as a **Printr** device (MQTT discovery), nothing to configure:
-
-- **sensors**: printer status (`ready`, `cover_open`, `paper_out`, `missing`), problem, paper left (%
-  and meters), paper almost out, queued tickets, last ticket;
-- a **New roll** button, and a **Print a text** field;
-- **one button per shared ticket**, added, renamed or removed as the tickets change.
-
-So an automation can print a ticket when the doorbell rings, or warn the phone when the paper runs low.
-Discovery uses the `homeassistant` prefix; `PRINTR_MQTT_DISCOVERY` changes it (or turns it `off`).
-Two Printr on the same broker need different `PRINTR_MQTT_PREFIX` values: each one is its own device.
-
-**A ticket from the app in an automation**: in the composer, “Show the ticket configuration” (admin only) gives
-the ticket as YAML, ready to paste into an automation or a script (YAML mode), or as JSON for the HTTP API,
-MQTT and `printr print`. In YAML, two forms: the `mqtt.publish` action publishing the ticket on
-`printr/print`, offered when Printr is connected to MQTT, or the `printr.print_ticket` action of the
-[Printr integration](https://github.com/Matteo-Penaud/printr-ha-integration).
-
 ### TLS certificates
 
 `mqtt://` (no TLS) works with any broker on your network. `mqtts://` checks the broker's certificate:
@@ -452,6 +433,106 @@ addition to the public ones.
 
 Printr reads the file at startup, so restart the service after changing it. The file must be readable by
 the `printr` user.
+
+## Home Assistant
+
+Two ways to bring Printr into Home Assistant. **Pick one**: both create a Printr device.
+
+| | Printr integration | MQTT discovery |
+| --- | --- | --- |
+| Needs | the [integration by Matteo Penaud](https://github.com/Matteo-Penaud/printr-ha-integration) and the script token | an MQTT broker and Home Assistant's MQTT integration |
+| Printing | `printr.print_ticket`, `print_text`, `print_todo`, `print_states` actions; `notify.send_message` | a button per shared ticket, a "Print a text" field, `mqtt.publish` |
+| In Home Assistant | last print, tickets today, print failure, update available, the shopping list as a to-do list | printer status, paper left, paper almost out, queued tickets, last ticket, New roll button |
+
+The integration talks to the HTTP API: set a token (`PRINTR_TOKEN` in `/etc/printr.env`), then add the
+integration in *Settings → Devices & services* with the server's address and that token. If Printr is
+also connected to MQTT for other uses, set `PRINTR_MQTT_DISCOVERY=off`, or Home Assistant gets a
+second Printr device.
+
+### With MQTT (discovery)
+
+With the [MQTT integration](https://www.home-assistant.io/integrations/mqtt/) set up on the same broker,
+Printr shows up by itself in Home Assistant as a **Printr** device (MQTT discovery), nothing to configure:
+
+- **sensors**: printer status (`ready`, `cover_open`, `paper_out`, `missing`), problem, paper left (%
+  and meters), paper almost out, queued tickets, last ticket;
+- a **New roll** button, and a **Print a text** field;
+- **one button per shared ticket**, added, renamed or removed as the tickets change.
+
+Discovery uses the `homeassistant` prefix; `PRINTR_MQTT_DISCOVERY` changes it, or turns it `off`: Printr
+then removes the device it had announced, so it does not linger next to another integration.
+Two Printr on the same broker need different `PRINTR_MQTT_PREFIX` values: each one is its own device.
+
+**A ticket from the app in an automation**: in the composer, “Show the ticket configuration” (admin only)
+gives the ticket as YAML, ready to paste into an automation or a script (YAML mode), or as JSON for the
+HTTP API, MQTT and `printr print`. In YAML, two forms: the `printr.print_ticket` action of the
+integration, or the `mqtt.publish` action publishing the ticket on `printr/print`, offered when Printr
+is connected to MQTT.
+
+### Automation examples
+
+Entity names below are examples: the exact ones are in *Settings → Entities*.
+
+**Someone rang the doorbell** (integration):
+
+```yaml
+triggers:
+  - trigger: state
+    entity_id: binary_sensor.doorbell
+    to: "on"
+actions:
+  - action: notify.send_message
+    target:
+      entity_id: notify.printr_ticket
+    data:
+      title: Doorbell
+      message: "Someone rang at {{ now().strftime('%H:%M') }}"
+```
+
+**The washing machine is done** (MQTT, no integration needed):
+
+```yaml
+triggers:
+  - trigger: numeric_state
+    entity_id: sensor.washing_machine_power
+    below: 3
+    for: "00:05:00"
+actions:
+  - action: mqtt.publish
+    data:
+      topic: printr/print
+      payload: "The washing machine is done!"
+```
+
+**This morning's house** (integration): outdoor temperature, yesterday's energy and the alarm, on one
+ticket.
+
+```yaml
+actions:
+  - action: printr.print_states
+    data:
+      title: This morning
+      entity_id:
+        - sensor.outdoor_temperature
+        - sensor.energy_yesterday
+        - alarm_control_panel.home
+```
+
+**Paper almost out, tell the phone** (MQTT discovery):
+
+```yaml
+triggers:
+  - trigger: state
+    entity_id: binary_sensor.printr_paper_almost_out
+    to: "on"
+actions:
+  - action: notify.mobile_app_my_phone
+    data:
+      message: "Printr is almost out of paper."
+```
+
+Other ideas: a parcel delivered, a reminder to take a medicine, or a personal note for whoever walks
+past the hallway tablet first in the morning (face recognition, then `print_ticket` with their name).
 
 ## Security
 

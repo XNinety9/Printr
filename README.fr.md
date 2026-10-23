@@ -22,7 +22,7 @@
 </p>
 
 Printr transforme une imprimante à tickets **Epson TM-T88V** en gadget familial. On compose un
-ticket à partir de **55 blocs** (météo, horoscope, sudoku, mots mêlés, énigmes, actualités,
+ticket à partir de **56 blocs** (météo, horoscope, sudoku, mots mêlés, énigmes, actualités,
 photos…), on l'imprime depuis son téléphone, on le **planifie** pour 7 h 30 en semaine, ou on
 envoie un **petit mot avec une photo** à ceux qui sont restés à la maison. Un seul binaire Rust,
 sur un Raspberry Pi, qui parle ESC/POS directement à l'imprimante.
@@ -35,14 +35,14 @@ sur un Raspberry Pi, qui parle ESC/POS directement à l'imprimante.
   <img src="docs/tickets/petit-mot.png" alt="Petit mot avec une photo" width="240">
 </p>
 
-- **55 blocs** : météo et comment s'habiller, ciel du soir, horoscope en quatre tons, recettes,
+- **56 blocs** : météo et comment s'habiller, ciel du soir, horoscope en quatre tons, recettes,
   histoire du soir, anniversaires, tâches ménagères, mots croisés, sudoku, kakuro, échecs, coloriage,
   liste de courses, actualités, photos…
 - **Une appli web pour la famille** : comptes, tickets enregistrés et partagés, aperçu en direct,
   planification, historique.
 - **Ne perd aucun ticket** : imprimante éteinte, capot ouvert ou plus de papier ? Le ticket attend, et
   l'appli dit pourquoi.
-- **S'intègre à la maison** : Home Assistant (découverte automatique), MQTT, Node-RED, API HTTP.
+- **S'intègre à la maison** : Home Assistant (intégration ou découverte automatique), MQTT, Node-RED, API HTTP.
 - **Sobre** : presque tout est calculé localement ou vient d'API gratuites. Claude n'écrit que ce qui
   demande une plume, par de petits appels à Claude Haiku, toujours mis en cache.
 
@@ -68,7 +68,7 @@ Tout le reste est dans le **[guide](https://xninety9.github.io/Printr/guide.html
 - [Les blocs et les tickets JSON](https://xninety9.github.io/Printr/guide.html#tickets-json), avec
   [un exemple de chaque bloc](https://xninety9.github.io/Printr/blocs.html)
 - [L'appli web](https://xninety9.github.io/Printr/guide.html#interface-web) et l'[API HTTP](https://xninety9.github.io/Printr/guide.html#serveur-http)
-- [MQTT](https://xninety9.github.io/Printr/guide.html#mqtt) et [Node-RED](https://xninety9.github.io/Printr/guide.html#node-red)
+- [Home Assistant](https://xninety9.github.io/Printr/guide.html#home-assistant), [MQTT](https://xninety9.github.io/Printr/guide.html#mqtt) et [Node-RED](https://xninety9.github.io/Printr/guide.html#node-red)
 - [L'installation](https://xninety9.github.io/Printr/guide.html#installation) et la [sécurité](https://xninety9.github.io/Printr/guide.html#sécurité)
 - [Tester sans imprimante](https://xninety9.github.io/Printr/guide.html#tester-sans-imprimante-émulateur)
 - [Contribuer](CONTRIBUTING.fr.md) · [Journal des versions](CHANGELOG.md) (en anglais)

@@ -6,25 +6,48 @@ each one is a `vX.Y.Z` tag on GitHub, which the server checks to tell the admin 
 Each minor version is named after a pioneer of printing, in alphabetical order (patch releases keep the
 name): Aldus Manutius, Giambattista Bodoni, William Caslon, the Didot family, Robert Estienne,
 Pierre-Simon Fournier, Johannes Gutenberg, Richard Hoe, Frederic Ives, Nicolas Jenson, Friedrich
-Koenig…
+Koenig, Tolbert Lanston…
 
 ## [Unreleased]
+
+## [1.11.0] “Lanston” - 2026-10-23
 
 ### Added
 - **Printr in a container**: `deploy/Dockerfile` and `deploy/compose.yaml` run the server next to Home
   Assistant & co (`docker compose up -d --build`), with Barnum, an unprivileged user and the safeguards of
   the systemd service. The container sees the host's `/dev` (opening only the printer), so a printer
   turned off and on again, or plugged in after startup, is still found. Both files ship in the release
-  archives, next to the binary.
+  archives, next to the binary (#20, by Matteo Penaud).
 - **Show the ticket configuration**, in the composer (admin only): the ticket as YAML for Home Assistant, ready to paste
   into an automation or a script — the `mqtt.publish` action on `printr/print` when Printr is connected to
   MQTT, or the `printr.print_ticket` action of the Printr integration — or as JSON for the HTTP API, MQTT
   and `printr print`. Copying also works over plain HTTP on the local
-  network, where browsers refuse the clipboard API. `/api/status` gives the topic prefix (`mqtt_prefix`).
+  network, where browsers refuse the clipboard API. `/api/status` gives the topic prefix (`mqtt_prefix`)
+  (#21, by Matteo Penaud).
+- **Fortune** (`fortune`): a fortune-cookie line (saying, proverb, silly prediction), offline, in French
+  or English; `cow` makes the cowsay cow say it, in the printer's font. `source: system` uses the real
+  `fortune` command of the server instead (`fortune-mod` package), run from its standard locations only,
+  without a shell, with a time and length limit.
+
+### Changed
+- MQTT: with Home Assistant discovery turned off (`PRINTR_MQTT_DISCOVERY=off`), Printr now removes the
+  device it had announced before, instead of leaving a ghost device next to another integration.
+- Guide: a **Home Assistant** section of its own, with the two ways in (the
+  [Printr integration](https://github.com/Matteo-Penaud/printr-ha-integration) by Matteo Penaud, or MQTT
+  discovery) and how to pick one, plus ready-to-paste automations (doorbell, washing machine, the
+  morning's sensors, paper almost out).
+- Blocks page: each block's example JSON is always shown, with the values each choice field accepts
+  (read from the code, in the page's language); every block now has an English example.
+- Guide: the same photo printed with each dithering algorithm; a **Paper** section (prefer phenol-free
+  rolls: BPA is banned in thermal paper in the EU, but often replaced by BPS); questions and printer
+  feedback now go to GitHub Discussions. README: star history chart.
+- `SECURITY.md`: how to report a vulnerability privately. Printr is enrolled for Anthropic's OSS Scanner
+  (`.oss-scanner/`: build image and threat model).
 
 ### Security
 - `ctutils` 0.4.5, used by `argon2` for the account passwords: constant-time comparisons could compile
   to branches (RUSTSEC-2026-0385).
+- tokio 1.54.1 (1.54.0 was yanked).
 
 ## [1.10.0] “Koenig” - 2026-10-21
 
@@ -283,7 +306,8 @@ First release.
 - One-command installation on a Raspberry Pi, no sudo needed afterwards.
 - Windows development with a dev container and a printing relay.
 
-[Unreleased]: https://github.com/XNinety9/Printr/compare/v1.10.0...HEAD
+[Unreleased]: https://github.com/XNinety9/Printr/compare/v1.11.0...HEAD
+[1.11.0]: https://github.com/XNinety9/Printr/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/XNinety9/Printr/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/XNinety9/Printr/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/XNinety9/Printr/compare/v1.7.0...v1.8.0

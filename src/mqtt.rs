@@ -331,6 +331,29 @@ fn connect(app: Arc<App>, options: MqttOptions, prefix: String) {
         (discovery, events)
     });
     let node = crate::hass::node_id(&prefix);
+    // Découverte coupée : on efface ce qu'une découverte passée a laissé, retenu, sur le broker, sinon
+    // Home Assistant garderait un appareil fantôme (à côté de celui de l'intégration Printr, par exemple).
+    let cleanup = discovery.is_none().then(|| {
+        let (forget, topics) = mpsc::channel::<String>();
+        let client = client.clone();
+        std::thread::spawn(move || {
+            let mut announced = false;
+            for topic in topics {
+                if !announced {
+                    eprintln!(
+                        "{}",
+                        crate::i18n::t(
+                            "MQTT : découverte coupée, retrait de l'appareil Home Assistant",
+                            "MQTT: discovery off, removing the Home Assistant device"
+                        )
+                    );
+                    announced = true;
+                }
+                let _ = client.publish(topic, "", PublishOptions::at_least_once().retained());
+            }
+        });
+        forget
+    });
 
     // L'état, à chaque changement et au moins toutes les cinq minutes.
     {
@@ -374,6 +397,9 @@ fn connect(app: Arc<App>, options: MqttOptions, prefix: String) {
                     let _ = client.try_subscribe(format!("{discovery}/status"), QoS::AtLeastOnce);
                     let _ = client.try_subscribe(format!("{discovery}/button/{node}/+/config"), QoS::AtLeastOnce);
                     let _ = events.send(Discover::All);
+                } else {
+                    let discovery = crate::hass::DEFAULT_PREFIX;
+                    let _ = client.try_subscribe(format!("{discovery}/+/{node}/+/config"), QoS::AtLeastOnce);
                 }
                 let _ = client.try_publish(
                     format!("{prefix}/availability"),
@@ -401,6 +427,14 @@ fn connect(app: Arc<App>, options: MqttOptions, prefix: String) {
                             && !message.payload.is_empty()
                         {
                             let _ = events.send(Discover::Stale(id.to_owned()));
+                        }
+                    }
+                    // Configuration d'une ancienne découverte, retenue : à effacer.
+                    None if crate::hass::is_own_config(crate::hass::DEFAULT_PREFIX, &node, &topic) => {
+                        if let Some(forget) = &cleanup
+                            && !message.payload.is_empty()
+                        {
+                            let _ = forget.send(topic);
                         }
                     }
                     _ => {

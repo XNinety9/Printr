@@ -1630,7 +1630,7 @@ dependencies = [
 
 [[package]]
 name = "printr"
-version = "1.10.0"
+version = "1.11.0"
 dependencies = [
  "anstream",
  "anstyle",

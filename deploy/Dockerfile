@@ -1,4 +1,4 @@
-# Printr en conteneur (Docker, Podman), à lancer avec compose.yaml : voir le README, « En conteneur ».
+# Printr en conteneur (Docker, Podman), à lancer avec compose.yaml : voir le guide (docs/guide.fr.md), « En conteneur (Docker) ».
 # Le binaire `printr` doit être à côté de ce fichier : celui d'une archive de release (déjà là une
 # fois l'archive décompressée), ou un binaire compilé pour la machine (cross, scripts/deploy.sh).
 FROM debian:bookworm-slim

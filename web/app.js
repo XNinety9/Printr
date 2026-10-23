@@ -329,6 +329,16 @@ const BLOCKS = [
   { type: 'word_of_the_day', label: T('Mot du jour', 'Word of the day'), emoji: '📖', group: G.daily, desc: T('Un mot rare et sa définition', 'A rare word and its definition'), ai: true, defaults: {}, fields: [] },
   { type: 'saint', label: T('Saint du jour', 'Name day'), emoji: '😇', group: G.daily, desc: T('La fête du jour', 'The French name-day calendar'), defaults: {}, fields: [] },
   { type: 'quote', label: T('Citation', 'Quote'), emoji: '💬', group: G.daily, desc: T('Une citation française célèbre', 'A famous quote'), defaults: {}, fields: [] },
+  {
+    type: 'fortune', label: 'Fortune', emoji: '🥠', group: G.daily, desc: T('Un petit papier façon biscuit chinois, dit par une vache si on veut', 'A fortune-cookie line, said by a cow if you like'),
+    defaults: { source: 'builtin', cow: true },
+    fields: [
+      { key: 'cow', label: T('Une vache le dit (cowsay)', 'A cow says it (cowsay)'), kind: 'toggle' },
+      { key: 'source', label: T('Les phrases', 'Lines'), kind: 'segmented', options: [['builtin', T('Celles de Printr', 'Printr’s')], ['system', T('La commande fortune', 'The fortune command')]], help: T('La commande fortune doit être installée sur le serveur (paquet fortune-mod).', 'The fortune command must be installed on the server (fortune-mod package).') },
+      { key: 'seed', label: T('Numéro', 'Number'), kind: 'number', optional: true, help: T('Laisse vide pour une phrase au hasard.', 'Leave empty for a random line.') },
+    ],
+    summary: (b) => (b.cow ? T('Dit par une vache', 'Said by a cow') : T('Au hasard', 'Random')),
+  },
   { type: 'moon', label: T('Lune', 'Moon'), emoji: '🌙', group: G.daily, desc: T('Phase et prochaines lunes', 'Phase and upcoming moons'), defaults: {}, fields: [] },
   {
     type: 'sun', label: T('Soleil', 'Sun'), emoji: '🌅', group: G.daily, desc: T('Lever, coucher, durée du jour', 'Sunrise, sunset, length of day'),
@@ -1399,6 +1409,7 @@ function Home({ me, presets, reload, openComposer }) {
 
 // Ticket d'exemple de chaque bloc (celui du site, intégré au binaire), montré au clic sur l'œil.
 const EXAMPLE = {
+  fortune: 'fortune',
   hashi: 'hashi',
   takuzu: 'takuzu',
   kakuro: 'kakuro',
@@ -1418,6 +1429,7 @@ const exampleUrl = (type) => EXAMPLE[type] && `/exemples/${EN ? 'en/' : ''}${EXA
 
 // Mots-clés de recherche, dans les deux langues, en plus du nom et de la description.
 const KEYWORDS = {
+  fortune: 'fortune cowsay vache cow biscuit cookie chinois proverbe proverb maxime blague joke hasard random',
   hashi: 'hashi ponts bridges iles islands relier connect logique logic casse-tete puzzle',
   takuzu: 'takuzu binairo binaire binary 0 1 zero un one grille grid logique logic casse-tete puzzle',
   kakuro: 'kakuro sommes sums chiffres digits mots croises crossword nombres numbers casse-tete puzzle',
@@ -1449,13 +1461,13 @@ const KEYWORDS = {
 };
 
 // Étiquettes des blocs, pour les filtres du catalogue et la recherche (« Claude » vient de `ai`).
-const KIDS = ['story', 'picto', 'riddle', 'workout', 'word_search', 'maze', 'nonogram', 'petit_bac', 'mental_math', 'anagram', 'cipher', 'coloring'];
+const KIDS = ['fortune', 'story', 'picto', 'riddle', 'workout', 'word_search', 'maze', 'nonogram', 'petit_bac', 'mental_math', 'anagram', 'cipher', 'coloring'];
 const TOGETHER = ['riddle', 'workout', 'petit_bac', 'anagram'];
 // Ni réseau ni Claude : tout est calculé sur place, gratuitement.
 const OFFLINE = [
   'title', 'text', 'date', 'separator', 'feed', 'image', 'qr', 'picto', 'barnum', 'saint', 'quote', 'moon', 'holidays', 'countdown',
   'riddle', 'workout', 'sudoku', 'word_search', 'train_tracks', 'maze', 'nonogram', 'petit_bac', 'mental_math', 'anagram', 'cipher',
-  'coloring', 'coupon', 'todo', 'shopping', 'bins', 'wifi', 'monthly_report', 'chores', 'birthdays', 'kakuro', 'takuzu', 'hashi',
+  'coloring', 'coupon', 'todo', 'shopping', 'bins', 'wifi', 'monthly_report', 'chores', 'birthdays', 'kakuro', 'takuzu', 'hashi', 'fortune',
 ];
 const FILTERS = [
   { id: 'kids', emoji: '🧒', label: T('Pour les enfants', 'For kids'), words: 'enfants enfant kids children', test: (b) => KIDS.includes(b.type) },

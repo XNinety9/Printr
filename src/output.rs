@@ -277,6 +277,18 @@ mod tests {
         let _ = std::fs::remove_file(path);
     }
 
+    /// Un texte qui contient une commande ESC/POS (ici, ouvrir le tiroir-caisse) l'imprime en clair au
+    /// mieux, sans jamais l'envoyer à l'imprimante.
+    #[test]
+    fn commands_hidden_in_text_are_not_sent() {
+        let mut doc = Doc::new();
+        doc.text("avant\x1bp\x00\x19\x19après", Style::default());
+        doc.line("\x1d\x56\x00coupe", Style::default());
+        let bytes = render(&doc, false).unwrap();
+        assert!(!bytes.windows(2).any(|w| w == [0x1b, b'p']), "ESC p transmis");
+        assert!(!bytes.windows(3).any(|w| w == [0x1d, 0x56, 0x00]), "GS V transmis");
+    }
+
     #[test]
     fn cut_op_cuts_mid_ticket_without_doubling_the_final_cut() {
         let cuts = |doc: &Doc, cut| render(doc, cut).unwrap().windows(2).filter(|w| *w == [0x1d, 0x56]).count();
