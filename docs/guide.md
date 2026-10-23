@@ -600,7 +600,7 @@ what worked and what didn't: this table will grow with your feedback.
 
 ### Paper
 
-Printr uses ordinary **80 mm thermal paper** rolls; a 70 mm wide roll is about 70 m long. Most thermal
+Printr uses ordinary **80 mm thermal paper** rolls; a roll 70 mm in diameter holds about 70 m. Most thermal
 paper relies on a chemical developer that reacts to heat: often **BPA** (bisphenol A), banned in
 thermal paper in the European Union since January 2020, and more and more **BPS**, its replacement,
 which is not banned and raises the same questions. Since this paper ends up in everyone's hands,
