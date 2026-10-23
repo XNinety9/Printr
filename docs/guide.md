@@ -595,8 +595,18 @@ Three ways to reach the printer:
 - **File**: `--dump` writes the ESC/POS bytes, to test without a printer (see the
   [emulator](#testing-without-a-printer-emulator)).
 
-Tried Printr on another printer? Tell us in an [issue](https://github.com/XNinety9/Printr/issues), with
+Tried Printr on another printer? Tell us in the [discussions](https://github.com/XNinety9/Printr/discussions), with
 what worked and what didn't: this table will grow with your feedback.
+
+### Paper
+
+Printr uses ordinary **80 mm thermal paper** rolls; a 70 mm wide roll is about 70 m long. Most thermal
+paper relies on a chemical developer that reacts to heat: often **BPA** (bisphenol A), banned in
+thermal paper in the European Union since January 2020, and more and more **BPS**, its replacement,
+which is not banned and raises the same questions. Since this paper ends up in everyone's hands,
+including children's, prefer rolls labelled **"phenol-free"**, or BPA- and BPS-free: they cost a
+little more, which hardly matters at the scale of a family. Thermal paper does not go in the paper
+recycling bin in most places.
 
 ## Installation
 

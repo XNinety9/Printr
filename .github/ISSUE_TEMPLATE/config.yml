@@ -1,5 +1,8 @@
 blank_issues_enabled: true
 contact_links:
+  - name: Questions, printers and ideas
+    url: https://github.com/XNinety9/Printr/discussions
+    about: Ask a question, share your setup or tell us which printer you tried Printr on.
   - name: Website and documentation
     url: https://xninety9.github.io/Printr/
     about: Every block with the ticket it prints, and the full guide.

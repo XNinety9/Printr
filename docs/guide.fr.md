@@ -597,9 +597,20 @@ Trois façons de joindre l'imprimante :
 - **Fichier** : `--dump` écrit les octets ESC/POS, pour tester sans imprimante (voir
   l'[émulateur](#tester-sans-imprimante-émulateur)).
 
-Vous avez essayé Printr sur une autre imprimante ? Dites-le dans une
-[issue](https://github.com/XNinety9/Printr/issues), avec ce qui a marché ou non : ce tableau
+Vous avez essayé Printr sur une autre imprimante ? Dites-le dans les
+[discussions](https://github.com/XNinety9/Printr/discussions), avec ce qui a marché ou non : ce tableau
 s'enrichira de vos retours.
+
+### Papier
+
+Printr utilise des rouleaux ordinaires de **papier thermique de 80 mm** ; un rouleau de 70 mm de
+diamètre fait environ 70 m. La plupart des papiers thermiques contiennent un révélateur chimique qui
+réagit à la chaleur : souvent du **BPA** (bisphénol A), interdit dans le papier thermique dans l'Union
+européenne depuis janvier 2020, et de plus en plus du **BPS**, son remplaçant, qui n'est pas interdit
+et pose les mêmes questions. Comme ce papier passe entre toutes les mains, y compris celles des
+enfants, préférez les rouleaux **« sans phénol »**, ou sans BPA ni BPS : ils coûtent un peu plus cher,
+ce qui ne compte guère à l'échelle d'une famille. En général, le papier thermique ne va pas au recyclage du
+papier.
 
 ## Installation
 
