@@ -43,7 +43,7 @@ const STYLES: Styles = Styles::styled()
 
 /// Nom de la version mineure en cours : un pionnier de l'imprimerie, par ordre alphabétique (voir
 /// le CHANGELOG). À changer à chaque nouvelle version mineure, en même temps que le CHANGELOG.
-const CODENAME: &str = "Koenig";
+const CODENAME: &str = "Lanston";
 
 /// Imprime des tickets sur une Epson TM-T88V (ESC/POS).
 #[derive(Parser)]
