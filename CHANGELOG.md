@@ -22,6 +22,10 @@ Koenig…
   and `printr print`. Copying also works over plain HTTP on the local
   network, where browsers refuse the clipboard API. `/api/status` gives the topic prefix (`mqtt_prefix`).
 
+### Security
+- `ctutils` 0.4.5, used by `argon2` for the account passwords: constant-time comparisons could compile
+  to branches (RUSTSEC-2026-0385).
+
 ## [1.10.0] “Koenig” - 2026-10-21
 
 ### Added
