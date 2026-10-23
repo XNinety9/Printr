@@ -162,6 +162,16 @@
     }
    },
    {
+    "id": "fortune",
+    "emoji": "🥠",
+    "fr": "Fortune",
+    "en": "Fortune",
+    "description": {
+     "fr": "Un petit papier façon biscuit chinois (maxime, proverbe, prédiction farfelue), dit par la vache de cowsay si on veut ; ou la vraie commande fortune du serveur.",
+     "en": "A fortune-cookie line (saying, proverb, silly prediction), said by the cowsay cow if you like; or the real fortune command of the server."
+    }
+   },
+   {
     "id": "lune",
     "emoji": "🌙",
     "fr": "Lune",

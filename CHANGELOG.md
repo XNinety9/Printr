@@ -21,6 +21,10 @@ Koenig…
   MQTT, or the `printr.print_ticket` action of the Printr integration — or as JSON for the HTTP API, MQTT
   and `printr print`. Copying also works over plain HTTP on the local
   network, where browsers refuse the clipboard API. `/api/status` gives the topic prefix (`mqtt_prefix`).
+- **Fortune** (`fortune`): a fortune-cookie line (saying, proverb, silly prediction), offline, in French
+  or English; `cow` makes the cowsay cow say it, in the printer's font. `source: system` uses the real
+  `fortune` command of the server instead (`fortune-mod` package), run from its standard locations only,
+  without a shell, with a time and length limit.
 
 ### Changed
 - MQTT: with Home Assistant discovery turned off (`PRINTR_MQTT_DISCOVERY=off`), Printr now removes the

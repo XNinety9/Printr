@@ -108,6 +108,7 @@ Un paramètre inconnu est une erreur, pour repérer les fautes de frappe.
 | `maze` | `width` (12), `height` (16), `seed` | |
 | `word_of_the_day` | — | Choisi par Claude, sans répéter les 60 derniers mots |
 | `quote` | — | Citation du jour, liste locale |
+| `fortune` | `cow` (ou `vache`, false), `source` (`builtin`, ou `system` pour la commande `fortune`), `seed` | Un petit papier façon biscuit chinois, hors ligne ; `cow` le fait dire par la vache de cowsay. `system` demande `fortune-mod` sur le serveur |
 | `holidays` | `zone` (`metropole`/`alsace-moselle`), `count` (1) | Calcul local, vérifié contre calendrier.api.gouv.fr |
 | `countdown` | `label`, `date` (`AAAA-MM-JJ`) | « J-79 avant : Noël » |
 | `birthdays` (ou `anniversaires`) | `list` (une ligne par personne : `Léo, 12/03/2014`, année facultative), `upcoming` (3) | « Joyeux anniversaire Léo ! » avec l'âge le jour J, puis le compte à rebours des suivants. Jour d'abord en français, mois d'abord en anglais, date ISO partout |

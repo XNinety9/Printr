@@ -109,6 +109,7 @@ an error, so typos get caught.
 | `maze` | `width` (12), `height` (16), `seed` | |
 | `word_of_the_day` | — | Picked by Claude, without repeating the last 60 words |
 | `quote` | — | Quote of the day, from a local list |
+| `fortune` | `cow` (false), `source` (`builtin`, or `system` for the `fortune` command), `seed` | A fortune-cookie line, offline; `cow` makes the cowsay cow say it. `system` needs `fortune-mod` on the server |
 | `holidays` | `zone` (`metropole`/`alsace-moselle`), `count` (1) | Computed locally, checked against calendrier.api.gouv.fr |
 | `countdown` | `label`, `date` (`YYYY-MM-DD`) | "J-79 before: Christmas" |
 | `birthdays` (or `anniversaires`) | `list` (one per line: `Leo, 03/12/2014`, year optional), `upcoming` (3) | "Happy birthday Leo!" with the age on the day, then a countdown to the next ones. Month first in English, day first in French, ISO dates everywhere |

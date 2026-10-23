@@ -14,6 +14,7 @@ mod coloring;
 mod coupon;
 mod crossword;
 mod crypto;
+mod fortune;
 mod glitch;
 mod hashi;
 mod holidays;
@@ -273,6 +274,15 @@ pub enum Block {
         location: String,
     },
     Quote {},
+    /// Un petit papier façon biscuit chinois (`fortune`), dit par une vache en option (`cowsay`).
+    Fortune {
+        #[serde(default)]
+        source: fortune::Source,
+        #[serde(default, alias = "vache")]
+        cow: bool,
+        #[serde(default)]
+        seed: Option<u64>,
+    },
     Crypto {
         #[serde(default = "default_coins")]
         coins: Vec<String>,
@@ -723,6 +733,7 @@ impl Block {
             Block::OnThisDay { .. } => i18n::t("éphéméride", "on this day"),
             Block::AirQuality { .. } => i18n::t("qualité de l'air", "air quality"),
             Block::Quote {} => i18n::t("citation", "quote"),
+            Block::Fortune { .. } => "fortune",
             Block::Crypto { .. } => "crypto",
             Block::Sun { .. } => i18n::t("lever/coucher du soleil", "sunrise/sunset"),
             Block::Riddle { .. } => i18n::t("énigme", "riddle"),
@@ -923,6 +934,7 @@ impl Block {
             Block::OnThisDay { count } => doc = on_this_day::build(&ctx.http, ctx.today, *count)?,
             Block::AirQuality { location } => doc = air_quality::build(&ctx.http, location)?,
             Block::Quote {} => doc = quote::build(ctx.today),
+            Block::Fortune { source, cow, seed } => doc = fortune::build(*source, *cow, *seed)?,
             Block::Crypto { coins, currency } => doc = crypto::build(&ctx.http, coins, currency)?,
             Block::Sun { location } => doc = sun::build(ctx, location)?,
             Block::Riddle { kind, number, answer } => doc = riddle::build(ctx.today, *kind, *number, *answer)?,

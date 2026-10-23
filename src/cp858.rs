@@ -63,7 +63,14 @@ pub fn encode(text: &str) -> Vec<u8> {
 pub fn normalize(text: &str) -> String {
     let mut s = String::with_capacity(text.len());
     for c in text.chars() {
-        if c.is_ascii() || HIGH.contains(&c) {
+        // Aucun caractère de contrôle ne doit atteindre l'imprimante : ESC (0x1B) ou GS (0x1D)
+        // y ouvriraient des commandes ESC/POS glissées dans un texte (API, MQTT, flux RSS…). Seul
+        // le retour à la ligne reste, pour découper les paragraphes.
+        if c == '\t' {
+            s.push(' ');
+        } else if c.is_control() && c != '\n' {
+            continue;
+        } else if c.is_ascii() || HIGH.contains(&c) {
             s.push(c);
         } else if let Some(t) = transliterate(c) {
             s.push_str(t);
@@ -77,6 +84,12 @@ pub fn normalize(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn control_characters_never_reach_the_printer() {
+        assert_eq!(normalize("a\x1b@b\x1dVc\x07\r"), "a@bVc");
+        assert_eq!(normalize("un\tdeux\ntrois\u{7f}\u{9b}"), "un deux\ntrois");
+    }
 
     #[test]
     fn ascii_and_accents() {
