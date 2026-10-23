@@ -29,6 +29,10 @@ Koenig…
 ### Changed
 - MQTT: with Home Assistant discovery turned off (`PRINTR_MQTT_DISCOVERY=off`), Printr now removes the
   device it had announced before, instead of leaving a ghost device next to another integration.
+- Guide: a **Home Assistant** section of its own, with the two ways in (the
+  [Printr integration](https://github.com/Matteo-Penaud/printr-ha-integration) by Matteo Penaud, or MQTT
+  discovery) and how to pick one, plus ready-to-paste automations (doorbell, washing machine, the
+  morning's sensors, paper almost out).
 
 ### Security
 - `ctutils` 0.4.5, used by `argon2` for the account passwords: constant-time comparisons could compile

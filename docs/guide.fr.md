@@ -399,29 +399,6 @@ n'a pas de jeton : **tout client autorisé sur le broker peut imprimer**, c'est 
 restreint l'accès (comptes, ACL). Les messages envoyés pendant que Printr est déconnecté ne sont pas
 gardés : un brief du matin ne sort pas le soir.
 
-### Home Assistant
-
-Avec l'[intégration MQTT](https://www.home-assistant.io/integrations/mqtt/) branchée sur le même broker,
-Printr apparaît tout seul dans Home Assistant comme un appareil **Printr** (découverte MQTT), sans rien
-configurer :
-
-- des **capteurs** : état de l'imprimante (`ready`, `cover_open`, `paper_out`, `missing`), problème,
-  papier restant (% et mètres), papier presque fini, tickets en attente, dernier ticket ;
-- un bouton **Nouveau rouleau**, et un champ **Imprimer un texte** ;
-- **un bouton par ticket partagé**, ajouté, renommé ou retiré au fil des tickets.
-
-Une automatisation peut ainsi imprimer un ticket quand on sonne, ou prévenir le téléphone quand le
-papier baisse. La découverte utilise le préfixe `homeassistant` ; `PRINTR_MQTT_DISCOVERY` le change,
-ou la coupe avec `off` : Printr retire alors l'appareil qu'il avait annoncé, qui ne reste pas à côté d'une
-autre intégration. Deux Printr sur un même broker doivent avoir des `PRINTR_MQTT_PREFIX`
-différents : chacun est son propre appareil.
-
-**Un ticket de l'appli dans une automatisation** : dans le composeur, « Afficher la configuration du
-ticket » (administrateur seulement) donne le ticket en YAML, prêt à coller dans une automatisation ou un script (édition en
-YAML), ou en JSON pour l'API HTTP, MQTT et `printr print`. En YAML, deux formes : l'action
-`mqtt.publish` qui publie le ticket sur `printr/print`, proposée quand Printr est relié à MQTT, ou
-l'action `printr.print_ticket` de l'[intégration Printr](https://github.com/Matteo-Penaud/printr-ha-integration).
-
 ### Certificats TLS
 
 `mqtt://` (sans TLS) fonctionne avec n'importe quel broker de ton réseau. `mqtts://` vérifie le
@@ -456,6 +433,110 @@ accepte seulement ce certificat en plus des publics.
 
 Printr lit le fichier au démarrage : redémarre le service après un changement. Le fichier doit être
 lisible par l'utilisateur `printr`.
+
+## Home Assistant
+
+Deux façons de faire entrer Printr dans Home Assistant. **Choisissez-en une** : chacune crée un appareil
+Printr.
+
+| | Intégration Printr | Découverte MQTT |
+| --- | --- | --- |
+| Il faut | l'[intégration de Matteo Penaud](https://github.com/Matteo-Penaud/printr-ha-integration) et le jeton des scripts | un broker MQTT et l'intégration MQTT de Home Assistant |
+| Pour imprimer | les actions `printr.print_ticket`, `print_text`, `print_todo`, `print_states` ; `notify.send_message` | un bouton par ticket partagé, un champ « Imprimer un texte », `mqtt.publish` |
+| Dans Home Assistant | dernière impression, tickets du jour, échec d'impression, mise à jour disponible, la liste de courses en liste de tâches | état de l'imprimante, papier restant, papier presque fini, tickets en attente, dernier ticket, bouton Nouveau rouleau |
+
+L'intégration passe par l'API HTTP : définissez un jeton (`PRINTR_TOKEN` dans `/etc/printr.env`), puis
+ajoutez l'intégration dans *Paramètres → Appareils et services* avec l'adresse du serveur et ce jeton.
+Si Printr est aussi relié à MQTT pour d'autres usages, mettez `PRINTR_MQTT_DISCOVERY=off`, sinon Home
+Assistant voit un deuxième appareil Printr.
+
+### Avec MQTT (découverte)
+
+Avec l'[intégration MQTT](https://www.home-assistant.io/integrations/mqtt/) branchée sur le même broker,
+Printr apparaît tout seul dans Home Assistant comme un appareil **Printr** (découverte MQTT), sans rien
+configurer :
+
+- des **capteurs** : état de l'imprimante (`ready`, `cover_open`, `paper_out`, `missing`), problème,
+  papier restant (% et mètres), papier presque fini, tickets en attente, dernier ticket ;
+- un bouton **Nouveau rouleau**, et un champ **Imprimer un texte** ;
+- **un bouton par ticket partagé**, ajouté, renommé ou retiré au fil des tickets.
+
+La découverte utilise le préfixe `homeassistant` ; `PRINTR_MQTT_DISCOVERY` le change,
+ou la coupe avec `off` : Printr retire alors l'appareil qu'il avait annoncé, qui ne reste pas à côté d'une
+autre intégration. Deux Printr sur un même broker doivent avoir des `PRINTR_MQTT_PREFIX`
+différents : chacun est son propre appareil.
+
+**Un ticket de l'appli dans une automatisation** : dans le composeur, « Afficher la configuration du
+ticket » (administrateur) donne le ticket en YAML, prêt à coller dans une automatisation ou un script
+(mode YAML), ou en JSON pour l'API HTTP, MQTT et `printr print`. En YAML, deux formes : l'action
+`printr.print_ticket` de l'intégration, ou l'action `mqtt.publish` qui publie le ticket sur
+`printr/print`, proposée quand Printr est relié à MQTT.
+
+### Exemples d'automatisations
+
+Les noms d'entités ci-dessous sont des exemples : les vrais sont dans *Paramètres → Entités*.
+
+**On a sonné** (intégration) :
+
+```yaml
+triggers:
+  - trigger: state
+    entity_id: binary_sensor.sonnette
+    to: "on"
+actions:
+  - action: notify.send_message
+    target:
+      entity_id: notify.printr_ticket
+    data:
+      title: Sonnette
+      message: "On a sonné à {{ now().strftime('%H:%M') }}"
+```
+
+**Le lave-linge a fini** (MQTT, sans intégration) :
+
+```yaml
+triggers:
+  - trigger: numeric_state
+    entity_id: sensor.puissance_lave_linge
+    below: 3
+    for: "00:05:00"
+actions:
+  - action: mqtt.publish
+    data:
+      topic: printr/print
+      payload: "Le lave-linge a fini !"
+```
+
+**La maison ce matin** (intégration) : la température dehors, la consommation d'hier et l'alarme, sur un
+seul ticket.
+
+```yaml
+actions:
+  - action: printr.print_states
+    data:
+      title: Ce matin
+      entity_id:
+        - sensor.temperature_exterieure
+        - sensor.consommation_hier
+        - alarm_control_panel.maison
+```
+
+**Papier presque fini, prévenir le téléphone** (découverte MQTT) :
+
+```yaml
+triggers:
+  - trigger: state
+    entity_id: binary_sensor.printr_papier_presque_fini
+    to: "on"
+actions:
+  - action: notify.mobile_app_mon_telephone
+    data:
+      message: "Printr n'a presque plus de papier."
+```
+
+Autres idées : un colis livré, un rappel de médicament, ou un mot personnalisé pour la première personne
+qui passe le matin devant la tablette du couloir (reconnaissance faciale, puis `print_ticket` avec son
+prénom).
 
 ## Sécurité
 

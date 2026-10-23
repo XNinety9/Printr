@@ -1,4 +1,4 @@
-# Printr en conteneur, à côté de Home Assistant & co : voir le README, « En conteneur ».
+# Printr en conteneur, à côté de Home Assistant & co : voir le guide (docs/guide.fr.md), « En conteneur (Docker) ».
 #   cp printr.env.example printr.env               # puis le régler : clé Claude, MQTT…
 #   docker compose up -d --build
 #   docker compose exec printr printr user add Prénom
