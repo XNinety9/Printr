@@ -13,9 +13,31 @@ use serde_json::{Value, json};
 
 use crate::i18n::t;
 
-const API_URL: &str = "https://api.anthropic.com/v1/messages";
+const DEFAULT_API_URL: &str = "https://api.anthropic.com/v1/messages";
 const DEFAULT_MODEL: &str = "claude-haiku-5-5";
-const TIMEOUT: Duration = Duration::from_secs(120);
+
+/// URL des messages : `ANTHROPIC_BASE_URL` (compatible Claude Code) ou Anthropic par défaut.
+fn api_url() -> String {
+    match std::env::var("ANTHROPIC_BASE_URL").ok().filter(|u| !u.trim().is_empty()) {
+        Some(mut u) => {
+            u = u.trim().trim_end_matches('/').to_owned();
+            if !u.ends_with("/v1/messages") {
+                u.push_str("/v1/messages");
+            }
+            u
+        }
+        None => DEFAULT_API_URL.to_owned(),
+    }
+}
+
+/// Délai d'un appel Claude : `PRINTR_CLAUDE_TIMEOUT_SECS` (défaut 120).
+fn api_timeout() -> Duration {
+    std::env::var("PRINTR_CLAUDE_TIMEOUT_SECS")
+        .ok()
+        .and_then(|s| s.trim().parse::<u64>().ok())
+        .map(Duration::from_secs)
+        .unwrap_or(Duration::from_secs(120))
+}
 
 /// Une seule CLI à la fois : chaque appel lance un processus Node complet, gourmand en mémoire.
 static CLI_LOCK: Mutex<()> = Mutex::new(());
@@ -93,7 +115,7 @@ impl Claude {
             },
             "messages": [{ "role": "user", "content": prompt }],
         });
-        let mut request = agent.post(API_URL).header("x-api-key", api_key).header("anthropic-version", "2023-06-01");
+        let mut request = agent.post(api_url()).header("x-api-key", api_key).header("anthropic-version", "2023-06-01");
         // Relance automatique sur un autre modèle si le modèle principal refuse la requête.
         if supports_default_fallbacks(&self.model) {
             body["fallbacks"] = json!("default");
@@ -181,7 +203,7 @@ impl Claude {
             if let Some(status) = child.try_wait()? {
                 break status;
             }
-            if start.elapsed() > TIMEOUT {
+            if start.elapsed() > api_timeout() {
                 let _ = child.kill();
                 let _ = child.wait();
                 bail!("{}", t("la CLI Claude ne répond pas", "the Claude CLI is not responding"));
@@ -214,7 +236,7 @@ impl Claude {
 }
 
 fn api_agent() -> ureq::Agent {
-    ureq::Agent::config_builder().timeout_global(Some(TIMEOUT)).http_status_as_error(false).build().into()
+    ureq::Agent::config_builder().timeout_global(Some(api_timeout())).http_status_as_error(false).build().into()
 }
 
 fn cli_program() -> String {
@@ -245,4 +267,43 @@ pub fn missing() -> &'static str {
         "Claude indisponible : définis ANTHROPIC_API_KEY ou installe la CLI Claude",
         "Claude unavailable: set ANTHROPIC_API_KEY or install the Claude CLI",
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn api_url_resolution() {
+        unsafe { std::env::remove_var("ANTHROPIC_BASE_URL") };
+        assert_eq!(api_url(), DEFAULT_API_URL);
+
+        unsafe { std::env::set_var("ANTHROPIC_BASE_URL", "http://127.0.0.1:8000") };
+        assert_eq!(api_url(), "http://127.0.0.1:8000/v1/messages");
+
+        unsafe { std::env::set_var("ANTHROPIC_BASE_URL", "http://127.0.0.1:8000/") };
+        assert_eq!(api_url(), "http://127.0.0.1:8000/v1/messages");
+
+        unsafe { std::env::set_var("ANTHROPIC_BASE_URL", "http://127.0.0.1:8000/v1/messages") };
+        assert_eq!(api_url(), "http://127.0.0.1:8000/v1/messages");
+
+        unsafe { std::env::set_var("ANTHROPIC_BASE_URL", "   ") };
+        assert_eq!(api_url(), DEFAULT_API_URL);
+
+        unsafe { std::env::remove_var("ANTHROPIC_BASE_URL") };
+    }
+
+    #[test]
+    fn api_timeout_resolution() {
+        unsafe { std::env::remove_var("PRINTR_CLAUDE_TIMEOUT_SECS") };
+        assert_eq!(api_timeout(), Duration::from_secs(120));
+
+        unsafe { std::env::set_var("PRINTR_CLAUDE_TIMEOUT_SECS", "600") };
+        assert_eq!(api_timeout(), Duration::from_secs(600));
+
+        unsafe { std::env::set_var("PRINTR_CLAUDE_TIMEOUT_SECS", "soon") };
+        assert_eq!(api_timeout(), Duration::from_secs(120));
+
+        unsafe { std::env::remove_var("PRINTR_CLAUDE_TIMEOUT_SECS") };
+    }
 }

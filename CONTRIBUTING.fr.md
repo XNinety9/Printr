@@ -23,6 +23,7 @@ Quelques variables d'environnement utiles :
 | Variable | Rôle |
 | --- | --- |
 | `ANTHROPIC_API_KEY` | Blocs Claude (`horoscope`, `word_of_the_day`) ; sans elle, la CLI Claude Code est utilisée si elle est installée (`PRINTR_CLAUDE_BACKEND`, `PRINTR_CLAUDE_CLI`). Facultative : sans elle, ces blocs affichent une erreur et le reste du ticket sort normalement. `--preview` n'appelle jamais Claude (les blocs Claude affichent un texte d'attente) ; ajoute `--claude` pour avoir le vrai texte. |
+| `ANTHROPIC_BASE_URL` | Dirige le chemin API Claude vers un autre point de terminaison — tout serveur compatible Claude, y compris un serveur d'inférence local. Modèle local lent : augmenter `PRINTR_CLAUDE_TIMEOUT_SECS`. |
 | `PRINTR_BARNUM` | Commande de [Barnum](https://github.com/XNinety9/Barnum) pour le bloc `barnum`, par exemple `python3 ../Barnum/main.py`. |
 | `PRINTR_DATA_DIR` | Comptes, presets et historique de l'interface web. Utilise un dossier jetable pour tes essais. |
 | `PRINTR_GLITCH` | Fréquence des glitchs (une impression sur N, 20 par défaut, 0 : jamais). |
