@@ -1,5 +1,8 @@
 //! Encodage du texte en page de code PC858 (CP850 + €), sélectionnée par `ESC t 19`.
 //!
+//! Certaines imprimantes (clones chinois, p. ex. MUNBYN 047P) n'ont pas la page 19 : `PRINTR_CODEPAGE=850`
+//! sélectionne alors PC850 (`ESC t 2`), identique à PC858 sauf le `€`, imprimé « EUR ».
+//!
 //! La table de la crate `escpos` contient des erreurs (`-` mappé sur 0xF0, `¿`/`®` décalés,
 //! `Ò` absent) et envoie les caractères inconnus en UTF-8 brut : on encode donc nous-mêmes.
 
@@ -16,9 +19,17 @@ const HIGH: [char; 128] = [
     '\u{AD}', '±', '‗', '¾', '¶', '§', '÷', '¸', '°', '¨', '·', '¹', '³', '²', '■', '\u{A0}',
 ];
 
+/// Page de code de l'imprimante : PC858 (défaut), ou PC850 avec `PRINTR_CODEPAGE=850` (ou `2`) pour
+/// les imprimantes qui n'ont pas la page 19. PC850 n'a pas le `€` (0xD5 y est un `ı`).
+pub fn is_pc850() -> bool {
+    static PC850: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *PC850.get_or_init(|| matches!(std::env::var("PRINTR_CODEPAGE").as_deref().map(str::trim), Ok("850" | "2")))
+}
+
 /// Remplacements pour les caractères courants absents de la page.
-fn transliterate(c: char) -> Option<&'static str> {
+fn transliterate(c: char, pc850: bool) -> Option<&'static str> {
     Some(match c {
+        '€' if pc850 => "EUR",
         '‘' | '’' | '‚' | '′' => "'",
         '“' | '”' | '„' | '″' => "\"",
         '–' | '—' | '−' | '‐' => "-",
@@ -35,17 +46,17 @@ fn transliterate(c: char) -> Option<&'static str> {
     })
 }
 
-fn encode_char(c: char, out: &mut Vec<u8>) {
+fn encode_char(c: char, pc850: bool, out: &mut Vec<u8>) {
     if c.is_ascii() {
         if c == '\t' {
             out.push(b' ');
         } else if !c.is_ascii_control() {
             out.push(c as u8);
         }
-    } else if let Some(i) = HIGH.iter().position(|&h| h == c) {
+    } else if let Some(i) = HIGH.iter().position(|&h| h == c).filter(|_| !(pc850 && c == '€')) {
         out.push(0x80 + i as u8);
-    } else if let Some(s) = transliterate(c) {
-        s.chars().for_each(|c| encode_char(c, out));
+    } else if let Some(s) = transliterate(c, pc850) {
+        s.chars().for_each(|c| encode_char(c, pc850, out));
     } else {
         out.push(b'?');
     }
@@ -53,14 +64,22 @@ fn encode_char(c: char, out: &mut Vec<u8>) {
 
 /// Encode une chaîne en PC858 ; les caractères non représentables deviennent `?`.
 pub fn encode(text: &str) -> Vec<u8> {
+    encode_for(text, is_pc850())
+}
+
+fn encode_for(text: &str, pc850: bool) -> Vec<u8> {
     let mut out = Vec::with_capacity(text.len());
-    text.chars().for_each(|c| encode_char(c, &mut out));
+    text.chars().for_each(|c| encode_char(c, pc850, &mut out));
     out
 }
 
 /// Remplace les caractères non imprimables par leur équivalent, pour que la largeur
 /// calculée au moment du retour à la ligne corresponde à ce qui sera imprimé.
 pub fn normalize(text: &str) -> String {
+    normalize_for(text, is_pc850())
+}
+
+fn normalize_for(text: &str, pc850: bool) -> String {
     let mut s = String::with_capacity(text.len());
     for c in text.chars() {
         // Aucun caractère de contrôle ne doit atteindre l'imprimante : ESC (0x1B) ou GS (0x1D)
@@ -70,9 +89,9 @@ pub fn normalize(text: &str) -> String {
             s.push(' ');
         } else if c.is_control() && c != '\n' {
             continue;
-        } else if c.is_ascii() || HIGH.contains(&c) {
+        } else if c.is_ascii() || (HIGH.contains(&c) && !(pc850 && c == '€')) {
             s.push(c);
-        } else if let Some(t) = transliterate(c) {
+        } else if let Some(t) = transliterate(c, pc850) {
             s.push_str(t);
         } else {
             s.push('?');
@@ -96,6 +115,18 @@ mod tests {
         assert_eq!(encode("a-b"), b"a-b");
         assert_eq!(encode("é€°"), vec![0x82, 0xD5, 0xF8]);
         assert_eq!(encode("Ò¿®"), vec![0xE3, 0xA8, 0xA9]);
+    }
+
+    #[test]
+    fn pc850_has_no_euro_sign() {
+        // PC858 : « € » est l'octet 0xD5 ; PC850 : cet octet est un « ı », on écrit donc « EUR ».
+        assert_eq!(encode_for("5€", false), vec![b'5', 0xD5]);
+        assert_eq!(encode_for("5€", true), b"5EUR");
+        assert_eq!(normalize_for("5€", false), "5€");
+        assert_eq!(normalize_for("5€", true), "5EUR");
+        // Les accents français sont les mêmes dans les deux pages.
+        assert_eq!(encode_for("arrêté à bientôt", true), encode_for("arrêté à bientôt", false));
+        assert!(!encode_for("é€\u{2019}", true).contains(&0xD5));
     }
 
     #[test]
