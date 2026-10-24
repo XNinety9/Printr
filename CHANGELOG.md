@@ -10,6 +10,12 @@ Koenig, Tolbert Lanston…
 
 ## [Unreleased]
 
+### Added
+- **Claude blocks on any compatible endpoint**: `ANTHROPIC_BASE_URL` points the API path at
+  another Messages API endpoint (a local inference server, for instance), and
+  `PRINTR_CLAUDE_TIMEOUT_SECS` sets the call timeout (120 s by default) for slower local models
+  (#25, by salazr).
+
 ## [1.11.0] “Lanston” - 2026-10-23
 
 ### Added
