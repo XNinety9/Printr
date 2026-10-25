@@ -12,7 +12,8 @@ Koenig, Tolbert Lanston…
 
 ### Added
 - **`PRINTR_CODEPAGE=850`** for printers that lack the PC858 code page (`ESC t 19`), such as some MUNBYN clones, where
-  accented letters were missing from tickets: Printr then selects PC850 (`ESC t 2`) and prints `€` as `EUR`.
+  accented letters were missing from tickets: Printr then selects PC850 (`ESC t 2`) and prints `€` as `EUR`
+  (#31, by Fabwiss).
 
 ## [1.11.0] “Lanston” - 2026-10-23
 
