@@ -3,11 +3,14 @@
 //! imprime un ticket pour s'y connecter. Depuis le téléphone, on choisit le Wi-Fi de la maison ;
 //! Printr le rejoint et imprime l'adresse de l'appli (ou, en cas d'échec, rouvre le point d'accès).
 //!
+//! Un Wi-Fi déjà connu mais absent (coupure de courant : le Pi redémarre avant la box) laisse plus
+//! de temps au démarrage, puis est retenté régulièrement pendant que le point d'accès est ouvert.
+//!
 //! Tout passe par NetworkManager (`nmcli`), lancé sans shell, chaque valeur dans son propre argument.
 
 use std::process::Command;
 use std::sync::{Arc, Mutex, OnceLock};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use anyhow::{Result, bail};
 use rand::seq::IndexedRandom;
@@ -21,8 +24,13 @@ use crate::server::App;
 const HOTSPOT: &str = "printr-hotspot";
 /// Adresse de la machine sur son point d'accès (mode « partagé » de NetworkManager).
 pub const HOTSPOT_ADDRESS: &str = "10.42.0.1";
-/// Le temps laissé au réseau pour apparaître au démarrage, avant d'ouvrir le point d'accès.
+/// Le temps laissé au réseau pour apparaître au démarrage, avant d'ouvrir le point d'accès : plus
+/// long quand un Wi-Fi est déjà connu (la box redémarre peut-être, elle aussi).
 const BOOT_WAIT: Duration = Duration::from_secs(60);
+const BOOT_WAIT_KNOWN: Duration = Duration::from_secs(300);
+/// Point d'accès ouvert alors qu'un Wi-Fi est connu : on le retente à ce rythme, sauf si quelqu'un
+/// est en train de configurer depuis son téléphone.
+const RETRY_EVERY: Duration = Duration::from_secs(300);
 /// Lettres du mot de passe : sans les caractères qu'on confond sur un ticket (l, 1, o, 0).
 const PASSWORD_LETTERS: &[u8] = b"abcdefghjkmnpqrstuvwxyz23456789";
 
@@ -48,6 +56,8 @@ enum State {
 static STATE: Mutex<State> = Mutex::new(State::Off);
 /// Le serveur (pour imprimer) et son port, fixés au démarrage.
 static SERVER: OnceLock<(Arc<App>, u16)> = OnceLock::new();
+/// Dernière visite de la page de configuration.
+static LAST_SEEN: Mutex<Option<Instant>> = Mutex::new(None);
 
 fn state() -> std::sync::MutexGuard<'static, State> {
     STATE.lock().unwrap_or_else(|e| e.into_inner())
@@ -79,6 +89,7 @@ pub fn portal_redirect(host: Option<&str>) -> Option<String> {
 
 /// Ce que montre l'appli pendant la configuration (rien hors de ce mode).
 pub fn describe() -> Option<serde_json::Value> {
+    *LAST_SEEN.lock().unwrap_or_else(|e| e.into_inner()) = Some(Instant::now());
     match &*state() {
         State::Off => None,
         State::Hotspot { ssid, networks, error, .. } => {
@@ -132,6 +143,21 @@ fn devices() -> Result<(Option<String>, bool)> {
         }
     }
     Ok((wifi, online))
+}
+
+/// Les Wi-Fi déjà enregistrés dans NetworkManager (hors point d'accès).
+fn parse_saved(text: &str) -> Vec<String> {
+    text.lines()
+        .map(terse_fields)
+        .filter_map(|f| match f.as_slice() {
+            [name, kind] if kind == "802-11-wireless" && name != HOTSPOT => Some(name.clone()),
+            _ => None,
+        })
+        .collect()
+}
+
+fn saved_wifi() -> Vec<String> {
+    nmcli(&["-t", "-f", "NAME,TYPE", "connection", "show"]).map(|text| parse_saved(&text)).unwrap_or_default()
 }
 
 /// Les réseaux à portée, du plus fort au plus faible, une fois chacun.
@@ -273,6 +299,59 @@ fn print_soon(app: &App, doc: &Doc) {
     eprintln!("{}", t("ticket de configuration Wi-Fi non imprimé", "Wi-Fi setup ticket not printed"));
 }
 
+/// Connecté : le point d'accès disparaît, et un ticket donne l'adresse de l'appli.
+fn joined(app: &App, port: u16, ssid: &str) {
+    let _ = nmcli(&["connection", "delete", HOTSPOT]);
+    *state() = State::Off;
+    eprintln!("{}", tr!("connecté à « {ssid} »", "connected to “{ssid}”"));
+    // Le temps d'obtenir une adresse.
+    let mut ip = None;
+    for _ in 0..20 {
+        ip = crate::detect::local_ipv4();
+        if ip.is_some() {
+            break;
+        }
+        std::thread::sleep(Duration::from_secs(1));
+    }
+    let mut urls = Vec::new();
+    if let Some(ip) = ip {
+        urls.push(app_url(&ip.to_string(), port));
+    }
+    if let Some(host) =
+        std::fs::read_to_string("/etc/hostname").ok().map(|h| h.trim().to_owned()).filter(|h| !h.is_empty())
+    {
+        urls.push(app_url(&format!("{host}.local"), port));
+    }
+    print_soon(app, &joined_ticket(ssid, &urls));
+}
+
+/// Point d'accès ouvert alors qu'un Wi-Fi est connu : on le retente de temps en temps, tant que
+/// personne n'utilise la page de configuration.
+fn retry_known(app: &App, port: u16, ifname: &str, known: &[String]) {
+    loop {
+        std::thread::sleep(RETRY_EVERY);
+        let (ssid, password) = match &*state() {
+            State::Hotspot { ssid, password, .. } => (ssid.clone(), password.clone()),
+            _ => return, // connecté depuis l'appli
+        };
+        let recent = LAST_SEEN.lock().unwrap_or_else(|e| e.into_inner()).is_some_and(|t| t.elapsed() < RETRY_EVERY);
+        if recent {
+            continue;
+        }
+        let _ = nmcli(&["connection", "down", HOTSPOT]);
+        if let Some(name) =
+            known.iter().find(|name| nmcli(&["--wait", "30", "connection", "up", "id", name.as_str()]).is_ok())
+        {
+            joined(app, port, name);
+            return;
+        }
+        // Toujours rien : le point d'accès revient, avec le même nom et le même mot de passe.
+        if let Err(e) = open_hotspot(ifname, &ssid, &password) {
+            eprintln!("{}", tr!("point d'accès impossible : {e}", "cannot open the hotspot: {e}"));
+        }
+    }
+}
+
 /// Au démarrage, en arrière-plan : attend le réseau, sinon ouvre le point d'accès.
 pub fn spawn(app: Arc<App>, port: u16) {
     if !enabled() {
@@ -280,19 +359,21 @@ pub fn spawn(app: Arc<App>, port: u16) {
     }
     let _ = SERVER.set((Arc::clone(&app), port));
     std::thread::spawn(move || {
-        let start = std::time::Instant::now();
+        let start = Instant::now();
+        let known = saved_wifi();
+        let wait = if known.is_empty() { BOOT_WAIT } else { BOOT_WAIT_KNOWN };
         let ifname = loop {
             match devices() {
                 Ok((_, true)) => return, // déjà en ligne
-                Ok((Some(ifname), false)) if start.elapsed() >= BOOT_WAIT => break ifname,
-                Ok((None, false)) if start.elapsed() >= BOOT_WAIT => {
+                Ok((Some(ifname), false)) if start.elapsed() >= wait => break ifname,
+                Ok((None, false)) if start.elapsed() >= wait => {
                     eprintln!(
                         "{}",
                         t("pas de réseau, et pas de Wi-Fi pour le configurer", "no network, and no Wi-Fi to set it up")
                     );
                     return;
                 }
-                Err(e) if start.elapsed() >= BOOT_WAIT => {
+                Err(e) if start.elapsed() >= wait => {
                     eprintln!("{}", tr!("NetworkManager injoignable : {e}", "NetworkManager unreachable: {e}"));
                     return;
                 }
@@ -308,8 +389,18 @@ pub fn spawn(app: Arc<App>, port: u16) {
             return;
         }
         eprintln!("{}", tr!("point d'accès « {ssid} » ouvert", "hotspot “{ssid}” open"));
-        *state() = State::Hotspot { ssid: ssid.clone(), password: password.clone(), networks, error: None };
-        print_soon(&app, &hotspot_ticket(&ssid, &password, port, None));
+        // Un Wi-Fi connu mais introuvable : on le dit, et on le retente en arrière-plan.
+        let error = known.first().map(|name| {
+            tr!(
+                "Printr ne trouve pas le Wi-Fi « {name} ». Il réessaie toutes les 5 minutes ; pour en choisir un autre :",
+                "Printr can't find the “{name}” Wi-Fi. It tries again every 5 minutes; to pick another one:"
+            )
+        });
+        *state() = State::Hotspot { ssid: ssid.clone(), password: password.clone(), networks, error: error.clone() };
+        print_soon(&app, &hotspot_ticket(&ssid, &password, port, error.as_deref()));
+        if !known.is_empty() {
+            retry_known(&app, port, &ifname, &known);
+        }
     });
 }
 
@@ -334,30 +425,7 @@ pub fn join(wanted: String, key: String) -> Result<()> {
         }
         args.extend(["ifname", ifname.as_str()]);
         match nmcli(&args) {
-            Ok(_) => {
-                let _ = nmcli(&["connection", "delete", HOTSPOT]);
-                *state() = State::Off;
-                eprintln!("{}", tr!("connecté à « {wanted} »", "connected to “{wanted}”"));
-                // Le temps d'obtenir une adresse.
-                let mut ip = None;
-                for _ in 0..20 {
-                    ip = crate::detect::local_ipv4();
-                    if ip.is_some() {
-                        break;
-                    }
-                    std::thread::sleep(Duration::from_secs(1));
-                }
-                let mut urls = Vec::new();
-                if let Some(host) =
-                    std::fs::read_to_string("/etc/hostname").ok().map(|h| h.trim().to_owned()).filter(|h| !h.is_empty())
-                {
-                    urls.push(app_url(&format!("{host}.local"), port));
-                }
-                if let Some(ip) = ip {
-                    urls.insert(0, app_url(&ip.to_string(), port));
-                }
-                print_soon(&app, &joined_ticket(&wanted, &urls));
-            }
+            Ok(_) => joined(&app, port, &wanted),
             Err(e) => {
                 eprintln!("{}", tr!("connexion à « {wanted} » impossible : {e}", "cannot connect to “{wanted}”: {e}"));
                 // NetworkManager garde un profil pour ce réseau : on l'enlève, pour réessayer proprement.
@@ -398,6 +466,13 @@ mod tests {
         let found = parse_scan(text);
         let names: Vec<_> = found.iter().map(|n| (n.ssid.as_str(), n.signal, n.secure)).collect();
         assert_eq!(names, vec![("Maison", 75, true), ("Café", 60, false), ("Voisin", 60, true)]);
+    }
+
+    #[test]
+    fn saved_networks_leave_out_the_hotspot() {
+        let text =
+            "Maison:802-11-wireless\nprintr-hotspot:802-11-wireless\nWired connection 1:802-3-ethernet\nlo:loopback\n";
+        assert_eq!(parse_saved(text), vec!["Maison"]);
     }
 
     #[test]
