@@ -2245,6 +2245,119 @@ function HiddenBlocksSheet({ onClose }) {
   </${Sheet}>`;
 }
 
+// Réglages du serveur (administrateur) : ce que fixe /etc/printr.env reste en lecture seule.
+const LOCKED_HINT = T('Fixé dans /etc/printr.env', 'Set in /etc/printr.env');
+const randomToken = () => [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, '0')).join('');
+
+function SettingSecret({ s, label, help, value, onChange, generate }) {
+  const [editing, setEditing] = useState(false);
+  let body;
+  if (s.locked) body = html`<div class="setting-state"><span class="chip">${LOCKED_HINT}</span></div>`;
+  else if (value === '' && s.set) body = html`<div class="setting-state"><span class="muted">${T('Sera effacé', 'Will be cleared')}</span>
+    <button type="button" class="btn ghost small" onClick=${() => onChange(undefined)}>${T('Annuler', 'Undo')}</button></div>`;
+  else if (generate && value) body = html`<div class="setting-new-token"><code>${value}</code><span class="muted">${T(
+    'Copie-le maintenant : Printr ne le montrera plus.', 'Copy it now: Printr won’t show it again.')}</span>
+    <button type="button" class="btn ghost small" onClick=${() => onChange(undefined)}>${T('Annuler', 'Undo')}</button></div>`;
+  else if (editing || !s.set) body = html`<div class="setting-state">
+    <input class="input" type="password" autocomplete="off" value=${value || ''} onInput=${(e) => onChange(e.target.value.trim() || undefined)} />
+    ${generate && html`<button type="button" class="btn secondary small" onClick=${() => onChange(randomToken())}>${T('Générer', 'Generate')}</button>`}</div>`;
+  else body = html`<div class="setting-state"><span class="setting-set">✓ ${T('Défini', 'Set')}</span>
+    <button type="button" class="btn ghost small" onClick=${() => (generate ? onChange(randomToken()) : setEditing(true))}>${T('Remplacer', 'Replace')}</button>
+    <button type="button" class="btn ghost small" onClick=${() => onChange('')}>${T('Effacer', 'Clear')}</button></div>`;
+  return html`<${Field} label=${label} help=${help}>${body}</${Field}>`;
+}
+
+function SettingsSheet({ onClose }) {
+  const [settings, setSettings] = useState(null);
+  const [restart, setRestart] = useState(true);
+  const [draft, setDraft] = useState({});
+  const [printer, setPrinter] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [restarting, setRestarting] = useState(false);
+  useEffect(() => {
+    api('GET', '/api/settings').then((r) => {
+      setSettings(Object.fromEntries(r.settings.map((x) => [x.key, x])));
+      setRestart(r.restart);
+    }).catch((e) => { toast(e.message, 'error'); onClose(); });
+  }, []);
+  if (!settings) return html`<${Sheet} title=${T('Réglages', 'Settings')} onClose=${onClose}><div class="boot"><${Spinner} /></div></${Sheet}>`;
+
+  const set = (key, value) => setDraft((d) => {
+    const next = { ...d };
+    if (value === undefined) delete next[key]; else next[key] = value;
+    return next;
+  });
+  const cur = (key) => draft[key] ?? settings[key]?.value ?? '';
+  const lang = cur('PRINTR_LANG') || (EN ? 'en' : 'fr');
+  // Ce qui change vraiment : un secret touché, ou une valeur différente de celle en vigueur.
+  const changes = Object.fromEntries(Object.entries(draft).filter(([k, v]) =>
+    !settings[k]?.locked && (settings[k]?.value === null && settings[k]?.set ? true : (settings[k]?.value ?? '') !== v)));
+  const count = Object.keys(changes).length;
+
+  const text = (key, label, help, placeholder, type = 'text') => html`<${Field} label=${label} help=${help}>
+    <input class="input" type=${type} placeholder=${placeholder} value=${cur(key)} disabled=${settings[key].locked}
+      inputmode=${type === 'number' ? 'numeric' : undefined} onInput=${(e) => set(key, e.target.value)} />
+    ${settings[key].locked && html`<span class="chip setting-lock">${LOCKED_HINT}</span>`}</${Field}>`;
+  const secret = (key, label, help, generate) => html`<${SettingSecret} s=${settings[key]} label=${label} help=${help}
+    value=${draft[key]} generate=${generate} onChange=${(v) => set(key, v)} />`;
+  const choice = (key, title, options) => html`<${Field} label=${title}>
+    ${settings[key].locked ? html`<span class="chip setting-lock">${LOCKED_HINT} : ${label(options, cur(key))}</span>`
+      : html`<${Segmented} options=${options} value=${key === 'PRINTR_LANG' ? lang : cur(key)} onChange=${(v) => set(key, v)} />`}</${Field}>`;
+  const toggle = (key, text, help) => settings[key].locked
+    ? html`<${Field} label=${text}><span class="chip setting-lock">${LOCKED_HINT}</span></${Field}>`
+    : html`<${Switch} label=${text} help=${help} checked=${!['off', 'false', '0', 'no', 'non'].includes(cur(key))}
+      onChange=${(on) => set(key, on ? '' : 'off')} />`;
+
+  const target = cur('PRINTR_TCP') || cur('PRINTR_DEVICE') || '/dev/usb/lp0';
+  const save = async () => {
+    setBusy(true);
+    try {
+      const r = await api('PUT', '/api/settings', { values: changes });
+      if (r.restarting) { setRestarting(true); waitForRestart(); return; }
+      toast(T('Réglages enregistrés : redémarre Printr pour les appliquer.', 'Settings saved: restart Printr to apply them.'), 'warn', '🔁');
+      onClose();
+    } catch (e) { toast(e.message, 'error'); } finally { setBusy(false); }
+  };
+  if (restarting) return html`<${Sheet} title=${T('Réglages', 'Settings')} onClose=${() => {}}><${Restarting} /></${Sheet}>`;
+
+  const printerLocked = settings.PRINTR_DEVICE.locked || settings.PRINTR_TCP.locked;
+  return html`<${Sheet} title=${T('Réglages', 'Settings')} onClose=${onClose} footer=${html`
+    <button class="btn secondary" onClick=${onClose}>${T('Annuler', 'Cancel')}</button>
+    <button class="btn primary grow" disabled=${busy || !count} onClick=${save}><${Icon} name="check" /> ${count
+      ? T(`Enregistrer (${count})`, `Save (${count})`) : T('Enregistrer', 'Save')}</button>`}>
+    <p class="muted" style="margin:0">${restart
+      ? T('Printr redémarre quelques secondes pour appliquer les changements.', 'Printr restarts for a few seconds to apply changes.')
+      : T('Les changements s’appliquent au prochain redémarrage de Printr.', 'Changes apply the next time Printr restarts.')}</p>
+
+    <div class="section-title">${T('Général', 'General')}</div>
+    ${choice('PRINTR_LANG', T('Langue', 'Language'), [['fr', 'Français'], ['en', 'English']])}
+    ${text('PRINTR_CITY', T('Ville', 'City'), T('Météo, qualité de l’air et horaires du soleil, sauf si le bloc en précise une.', 'Weather, air quality and sun times, unless the block sets one.'), T('Ex. Bordeaux', 'E.g. Boston'))}
+
+    <div class="section-title">${T('Imprimante', 'Printer')}</div>
+    ${printerLocked ? html`<${Field} label=${T('Imprimante', 'Printer')}><span class="chip setting-lock">${LOCKED_HINT} : ${target}</span></${Field}>`
+      : printer ? html`<${WizardPrinter} settings=${settings} values=${draft} onValues=${(v) => setDraft((d) => ({ ...d, ...v }))} />`
+      : html`<div class="setting-card paper-card"><span class="big-emoji" aria-hidden="true">${cur('PRINTR_TCP') ? '📡' : '🔌'}</span>
+          <span class="grow"><strong>${target}</strong><span class="muted">${cur('PRINTR_TCP') ? T('Imprimante réseau', 'Network printer') : 'USB'}</span>
+          <button type="button" class="btn secondary small" onClick=${() => setPrinter(true)}>${T('Changer et tester', 'Change and test')}</button></span></div>`}
+    ${choice('PRINTR_CODEPAGE', T('Page de code', 'Code page'), [['', T('PC858 (avec €)', 'PC858 (with €)')], ['850', 'PC850']])}
+
+    <div class="section-title">Claude</div>
+    ${secret('ANTHROPIC_API_KEY', T('Clé d’API Anthropic', 'Anthropic API key'), html`<a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>`)}
+    ${text('PRINTR_CLAUDE_MODEL', T('Modèle', 'Model'), null, 'claude-haiku-5-5')}
+
+    <div class="section-title">Home Assistant · MQTT</div>
+    ${secret('PRINTR_MQTT_URL', T('Adresse du broker', 'Broker address'), T('Ex. mqtt://utilisateur:motdepasse@192.168.1.10:1883', 'E.g. mqtt://user:password@192.168.1.10:1883'))}
+    ${text('PRINTR_MQTT_PREFIX', T('Préfixe des sujets', 'Topic prefix'), null, 'printr')}
+    ${toggle('PRINTR_MQTT_DISCOVERY', T('Découverte automatique', 'Automatic discovery'), T('Printr apparaît tout seul dans Home Assistant.', 'Printr shows up in Home Assistant by itself.'))}
+
+    <div class="section-title">${T('Scripts et limites', 'Scripts and limits')}</div>
+    ${secret('PRINTR_TOKEN', T('Jeton d’API', 'API token'), T('Pour les scripts : « Authorization: Bearer <jeton> ».', 'For scripts: “Authorization: Bearer <token>”.'), true)}
+    ${text('PRINTR_MAX_TICKETS_PER_HOUR', T('Tickets par heure et par compte', 'Tickets per hour and account'), T('0 : sans limite.', '0: no limit.'), '20', 'number')}
+    ${text('PRINTR_QUEUE_HOURS', T('Attente si l’imprimante est absente (heures)', 'Wait when the printer is away (hours)'), null, '12', 'number')}
+    ${toggle('PRINTR_UPDATE_CHECK', T('Signaler les nouvelles versions', 'Report new versions'), T('Une fois par jour, Printr regarde sur GitHub.', 'Once a day, Printr checks GitHub.'))}
+  </${Sheet}>`;
+}
+
 // Mon compte : la famille (ajouter, retirer), mon mot de passe, la déconnexion.
 // Longueur de papier lisible : « 52 m », « 80 cm ».
 const metres = (mm) => (mm >= 1000 ? `${Math.round(mm / 1000)}\u00a0m` : `${Math.round(mm / 10)}\u00a0cm`);
@@ -2288,6 +2401,7 @@ function AccountSheet({ me, users, version, update, paper, reloadUsers, onLogout
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState(null);
   const [picking, setPicking] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const run = async (fn) => { setBusy(true); try { await fn(); } catch (e) { toast(e.message, 'error'); } finally { setBusy(false); } };
   const add = (e) => { e.preventDefault(); run(async () => {
     const { user } = await api('POST', '/api/users', { name, password });
@@ -2334,6 +2448,13 @@ function AccountSheet({ me, users, version, update, paper, reloadUsers, onLogout
       <button class="btn secondary" disabled=${busy || !name.trim() || password.length < 8}><${Icon} name="plus" size=${16} /> ${T('Ajouter', 'Add')}</button>
     </form>
 
+    ${me.admin && html`<div class="section-title">${T('Printr', 'Printr')}</div>
+      <button type="button" class="setting-card" onClick=${() => setSettingsOpen(true)}>
+        <span class="big-emoji" aria-hidden="true">⚙️</span>
+        <span class="grow"><strong>${T('Réglages', 'Settings')}</strong>
+          <span class="muted">${T('Imprimante, langue, ville, Claude, Home Assistant…', 'Printer, language, city, Claude, Home Assistant…')}</span></span>
+        <${Icon} name="sliders" size=${18} /></button>`}
+
     ${me.admin && html`<div class="section-title">${T('Catalogue de la famille', 'The family’s catalog')}</div>
       <button type="button" class="setting-card" onClick=${() => setPicking(true)}>
         <span class="big-emoji" aria-hidden="true">🧩</span>
@@ -2353,6 +2474,7 @@ function AccountSheet({ me, users, version, update, paper, reloadUsers, onLogout
     ${version && html`<p class="version">printr ${version}</p>`}
     ${confirm && html`<${Confirm} ...${confirm} onClose=${() => setConfirm(null)} />`}
     ${picking && html`<${HiddenBlocksSheet} onClose=${() => setPicking(false)} />`}
+    ${settingsOpen && html`<${SettingsSheet} onClose=${() => setSettingsOpen(false)} />`}
   </${Sheet}>`;
 }
 
@@ -2367,14 +2489,15 @@ function WizardPrinter({ settings, values, onValues }) {
   const locked = settings.PRINTR_DEVICE?.locked || settings.PRINTR_TCP?.locked;
   const [found, setFound] = useState(null);
   const [choice, setChoice] = useState(null);
-  const [manual, setManual] = useState('');
+  const [manual, setManual] = useState(settings.PRINTR_TCP?.value || '');
   const [pc850, setPc850] = useState(settings.PRINTR_CODEPAGE?.value === '850');
   const [step, setStep] = useState('pick'); // pick → printing → ask → ok
   const detect = () => {
     setFound(null);
     api('GET', '/api/setup/printers').then((r) => {
       setFound(r);
-      const first = r.usb[0]?.device ? { device: r.usb[0].device } : r.network[0] ? { tcp: r.network[0].tcp } : null;
+      const first = r.usb[0]?.device ? { device: r.usb[0].device } : r.network[0] ? { tcp: r.network[0].tcp }
+        : settings.PRINTR_TCP?.value ? { manual: true } : null;
       setChoice((c) => c || first);
     }).catch((e) => { toast(e.message, 'error'); setFound({ usb: [], network: [] }); });
   };

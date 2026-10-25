@@ -105,6 +105,10 @@ pub fn check(key: &str, value: &str) -> Result<String> {
         bail!("{}", tr!("valeur invalide pour {key}", "invalid value for {key}"));
     }
     match kind {
+        // Un jeton trop court empêcherait le serveur de démarrer (voir `main`).
+        Kind::Secret if key == "PRINTR_TOKEN" && value.chars().count() < 16 => {
+            bail!("{}", t("le jeton doit faire au moins 16 caractères", "the token must be at least 16 characters"));
+        }
         Kind::Text | Kind::Secret => {}
         Kind::Choice(allowed) => {
             if !allowed.contains(&value) {
@@ -181,6 +185,8 @@ mod tests {
         assert!(check("PRINTR_QUEUE_HOURS", "12").is_ok());
         assert!(check("PRINTR_QUEUE_HOURS", "0").is_err());
         assert!(check("ANTHROPIC_API_KEY", "a\nb").is_err());
+        assert!(check("PRINTR_TOKEN", "court").is_err(), "le serveur refuserait de démarrer");
+        assert!(check("PRINTR_TOKEN", "0123456789abcdef").is_ok());
         assert!(check("PRINTR_DATA_DIR", "/tmp").is_err(), "pas modifiable depuis l'appli");
     }
 

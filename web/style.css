@@ -672,6 +672,7 @@ textarea.input.code { font-family: var(--mono); font-size: 13px; line-height: 1.
 .wizard-body { display: grid; gap: 10px; min-height: 120px; }
 .wizard-body p { margin: 0; }
 .wizard-printers { display: grid; gap: 8px; }
+.sheet .wizard-printers { margin-bottom: 12px; }
 .wizard-printers .setting-card.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .wizard-printers > .btn.ghost { justify-self: start; }
 .wizard-searching { display: flex; align-items: center; gap: 10px; padding: 8px 2px; }
@@ -683,6 +684,19 @@ textarea.input.code { font-family: var(--mono); font-size: 13px; line-height: 1.
 .wizard-ask .wizard-actions { margin-top: 0; }
 .wizard-actions .grow { flex: 1; }
 .wizard-skip { display: block; margin: 12px auto 0; }
+
+/* ---------- Réglages (administrateur) ---------- */
+
+.setting-state { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.setting-state .input { flex: 1; min-width: 0; }
+.setting-set { font-weight: 700; color: var(--ok); }
+.setting-lock { display: inline-block; width: fit-content; margin-top: 4px; }
+.sheet .field .input:disabled { opacity: .6; cursor: not-allowed; }
+.sheet .help a { color: var(--accent); font-weight: 700; }
+.setting-new-token .btn { justify-self: start; }
+.setting-new-token { display: grid; gap: 4px; }
+.setting-new-token code { padding: 10px 12px; border-radius: 10px; background: var(--surface-2); font-size: 14px; word-break: break-all; user-select: all; }
+.setting-new-token .muted { font-size: 12.5px; }
 
 /* ---------- Accès à « Mon compte » ---------- */
 
