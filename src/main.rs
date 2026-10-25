@@ -1,5 +1,5 @@
 use std::io::Read;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::time::Instant;
 
@@ -377,7 +377,8 @@ fn main() -> ExitCode {
 }
 
 /// Destination des octets : `--tcp`, `--dump` ou `--device` ; sinon `$PRINTR_TCP` (imprimante
-/// réseau), `$PRINTR_DEVICE`, ou /dev/usb/lp0. Les options l'emportent sur l'environnement.
+/// réseau), `$PRINTR_DEVICE`, ou le lien /dev/tm88 de la règle udev s'il existe, sinon
+/// /dev/usb/lp0. Les options l'emportent sur l'environnement.
 fn target(cli: &Cli) -> Target {
     let env = |name| std::env::var(name).ok().filter(|v| !v.trim().is_empty());
     match (&cli.tcp, &cli.dump, &cli.device) {
@@ -386,7 +387,9 @@ fn target(cli: &Cli) -> Target {
         (_, _, Some(device)) => Target::Device(device.clone()),
         _ => match (env("PRINTR_TCP"), env("PRINTR_DEVICE")) {
             (Some(addr), _) => Target::Tcp(addr),
-            (None, device) => Target::Device(device.map_or_else(|| "/dev/usb/lp0".into(), PathBuf::from)),
+            (None, Some(device)) => Target::Device(device.into()),
+            (None, None) if Path::new("/dev/tm88").exists() => Target::Device("/dev/tm88".into()),
+            (None, None) => Target::Device("/dev/usb/lp0".into()),
         },
     }
 }
