@@ -24,6 +24,7 @@ mod output;
 mod raster;
 mod scheduler;
 mod server;
+mod settings;
 mod store;
 mod ui;
 mod update;
@@ -354,6 +355,8 @@ fn load_system_env() {
 
 fn main() -> ExitCode {
     load_system_env();
+    // Puis les réglages faits dans l'appli, pour ce que le système n'a pas fixé.
+    settings::load(store::data_dir().map(|d| d.join("printr.json")).as_deref());
     // CrossWords (mots fléchés) range son dictionnaire et ses définitions dans le cache de printr,
     // seul dossier où le service a le droit d'écrire.
     if std::env::var_os("CROSSWORDS_CACHE").is_none()

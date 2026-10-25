@@ -734,6 +734,12 @@ fn paper_json(paper: &crate::store::Paper) -> Value {
     })
 }
 
+/// Réglages à enregistrer : nom de variable → valeur (vide : retirer le réglage).
+#[derive(Deserialize)]
+struct SettingsInput {
+    values: std::collections::BTreeMap<String, String>,
+}
+
 /// Blocs à retirer du catalogue (types : « sudoku », « weather »…).
 #[derive(Deserialize)]
 struct HiddenBlocks {
@@ -1143,6 +1149,7 @@ fn handle(app: &App, request: &mut Request) -> Reply {
                 "version": env!("CARGO_PKG_VERSION"),
                 "mqtt_prefix": crate::mqtt::prefix(),
                 "update": *app.latest.lock().unwrap_or_else(|e| e.into_inner()),
+                "city": std::env::var("PRINTR_CITY").ok().filter(|c| !c.trim().is_empty()),
             }))
         }
         (Method::Post, ["api", "paper", "roll"]) => {
@@ -1162,6 +1169,52 @@ fn handle(app: &App, request: &mut Request) -> Reply {
                 }
                 Err(e) => Reply::error(500, format!("{e:#}")),
             }
+        }
+        (Method::Get, ["api", "settings"]) => {
+            if !user_id.as_deref().is_some_and(|me| app.lock_store().is_admin(me)) {
+                return Reply::error(403, t("réservé à l'administrateur", "administrator only"));
+            }
+            Reply::ok(crate::settings::describe())
+        }
+        (Method::Put, ["api", "settings"]) => {
+            let input: SettingsInput = try_reply!(json_body(request));
+            let mut store = app.lock_store();
+            if !user_id.as_deref().is_some_and(|me| store.is_admin(me)) {
+                return Reply::error(403, t("réservé à l'administrateur", "administrator only"));
+            }
+            let mut changes = Vec::new();
+            for (key, value) in &input.values {
+                if crate::settings::is_locked(key) {
+                    return Reply::error(
+                        409,
+                        tr!(
+                            "{key} est fixé par le système (/etc/printr.env)",
+                            "{key} is set by the system (/etc/printr.env)"
+                        ),
+                    );
+                }
+                match crate::settings::check(key, value) {
+                    Ok(value) => changes.push((key.clone(), value)),
+                    Err(e) => return Reply::error(400, format!("{e:#}")),
+                }
+            }
+            for (key, value) in changes {
+                if value.is_empty() {
+                    store.data.settings.remove(&key);
+                } else {
+                    store.data.settings.insert(key, value);
+                }
+            }
+            if let Err(e) = store.save() {
+                return Reply::error(500, format!("{e:#}"));
+            }
+            drop(store);
+            let restarting = crate::settings::restart_supported();
+            if restarting {
+                crate::settings::restart_soon();
+            }
+            Reply::ok(json!({ "ok": true, "restarting": restarting }))
+                .note(tr!("réglages enregistrés par {by}", "settings saved by {by}"))
         }
         (Method::Put, ["api", "settings", "hidden-blocks"]) => {
             let input: HiddenBlocks = try_reply!(json_body(request));
