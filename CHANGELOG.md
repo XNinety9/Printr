@@ -10,6 +10,13 @@ Koenig, Tolbert Lanston…
 
 ## [Unreleased]
 
+## [1.11.1] “Lanston” - 2026-10-25
+
+### Added
+- **`PRINTR_CODEPAGE=850`** for printers that lack the PC858 code page (`ESC t 19`), such as some MUNBYN clones, where
+  accented letters were missing from tickets: Printr then selects PC850 (`ESC t 2`) and prints `€` as `EUR`
+  (#31, by Fabwiss).
+
 ## [1.11.0] “Lanston” - 2026-10-23
 
 ### Added
@@ -306,7 +313,8 @@ First release.
 - One-command installation on a Raspberry Pi, no sudo needed afterwards.
 - Windows development with a dev container and a printing relay.
 
-[Unreleased]: https://github.com/XNinety9/Printr/compare/v1.11.0...HEAD
+[Unreleased]: https://github.com/XNinety9/Printr/compare/v1.11.1...HEAD
+[1.11.1]: https://github.com/XNinety9/Printr/compare/v1.11.0...v1.11.1
 [1.11.0]: https://github.com/XNinety9/Printr/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/XNinety9/Printr/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/XNinety9/Printr/compare/v1.8.0...v1.9.0

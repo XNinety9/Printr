@@ -657,12 +657,13 @@ uv run --with pillow python docs/brand/make-assets.py   # logo variants and app 
 
 Printr speaks **ESC/POS** and lays tickets out for **80 mm paper**: 512 dots wide at 180 dpi, 42
 columns in font A and 56 in font B, images sent as raster (`GS v 0`), the PC858 code page (accents
-and €), and the cutter (`GS V`).
+and €), and the cutter (`GS V`). If accents are missing from prints (some clones lack code page 19), `PRINTR_CODEPAGE=850` selects PC850 (`ESC t 2`): `€` is then printed as “EUR”.
 
 | Printer | Support |
 |---|---|
 | **Epson TM-T88V** (USB) | ✅ Tested every day: the reference printer |
 | Epson TM-T88IV, TM-T88VI, TM-T88VII | 🟡 Should work as is (same commands, same 180 dpi), not tested yet |
+| MUNBYN 047P-USEW (Ethernet) | 🟡 Prints with `PRINTR_CODEPAGE=850` (no PC858 page: accents are missing without it); tested on v1.11.0 |
 | Other 80 mm ESC/POS printers at 203 dpi (Epson TM-T20, TM-m30, most other brands) | 🟡 Should print, slightly narrower and smaller than on a TM-T88; images need raster support |
 | 58 mm printers | ❌ Not supported: tickets are 512 dots wide |
 | Printers without ESC/POS (Star line mode, label printers, CUPS-only) | ❌ Not supported |
