@@ -653,6 +653,37 @@ textarea.input.code { font-family: var(--mono); font-size: 13px; line-height: 1.
 .family-add { display: grid; gap: 8px; margin-top: 10px; }
 @media (min-width: 560px) { .family-add { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; } .family-add:has(> :nth-child(2):last-child) { grid-template-columns: minmax(0, 1fr) auto; } }
 
+/* ---------- Assistant de premier lancement ---------- */
+
+.first-lang { display: flex; justify-content: center; margin: 22px 0 -8px; }
+.restarting { display: grid; justify-items: center; gap: 12px; padding: 32px 0; text-align: center; }
+.wizard { text-align: left; }
+/* En haut de l'écran, pour que les boutons ne sautent pas d'une étape à l'autre. */
+.login:has(> .wizard) { align-items: start; padding-top: max(24px, 6vh); }
+.wizard a { color: var(--accent); font-weight: 700; }
+.wizard h1 { margin: 10px 0 12px; }
+.wizard-steps { display: flex; justify-content: center; gap: 10px; margin: 0 0 18px; padding: 0; list-style: none; }
+.wizard-steps li {
+  display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%;
+  background: var(--surface-2); font-size: 19px; opacity: .45; transition: opacity .2s, box-shadow .2s;
+}
+.wizard-steps li.done { opacity: .8; }
+.wizard-steps li.on { opacity: 1; box-shadow: 0 0 0 2px var(--accent); }
+.wizard-body { display: grid; gap: 10px; min-height: 120px; }
+.wizard-body p { margin: 0; }
+.wizard-printers { display: grid; gap: 8px; }
+.wizard-printers .setting-card.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.wizard-printers > .btn.ghost { justify-self: start; }
+.wizard-searching { display: flex; align-items: center; gap: 10px; padding: 8px 2px; }
+.wizard-ask { display: grid; gap: 8px; padding: 12px 14px; border-radius: 14px; background: var(--accent-soft); }
+.wizard-ask .muted { font-size: 13px; }
+.wizard-ok { font-weight: 700; }
+.wizard-address { font-size: 20px; font-weight: 800; text-align: center; word-break: break-all; padding: 12px; border-radius: 14px; background: var(--surface-2); }
+.wizard-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 18px; }
+.wizard-ask .wizard-actions { margin-top: 0; }
+.wizard-actions .grow { flex: 1; }
+.wizard-skip { display: block; margin: 12px auto 0; }
+
 /* ---------- Accès à « Mon compte » ---------- */
 
 /* Barre latérale (ordinateur) : prénom et « Mon compte », la déconnexion à côté. */
