@@ -29,6 +29,7 @@ mod settings;
 mod store;
 mod ui;
 mod update;
+mod wifi;
 
 use crate::i18n::t;
 use doc::{Doc, Style};

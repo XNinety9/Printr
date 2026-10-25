@@ -684,6 +684,10 @@ textarea.input.code { font-family: var(--mono); font-size: 13px; line-height: 1.
 .wizard-ask .wizard-actions { margin-top: 0; }
 .wizard-actions .grow { flex: 1; }
 .wizard-skip { display: block; margin: 12px auto 0; }
+.wizard .logo { width: 96px; height: 96px; object-fit: contain; margin: 0 auto; }
+.wifi-bars { width: 44px; font-size: 15px; letter-spacing: -1px; color: var(--accent); text-align: center; flex-shrink: 0; }
+.wifi-joining { font-size: 56px; text-align: center; margin-bottom: 8px; }
+.wifi-error { padding: 10px 14px; border-radius: 14px; background: var(--danger); color: #fff; font-weight: 700; }
 
 /* ---------- Réglages (administrateur) ---------- */
 

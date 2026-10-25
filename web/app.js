@@ -2479,6 +2479,64 @@ function AccountSheet({ me, users, version, update, paper, reloadUsers, onLogout
 }
 
 // ============================================================================
+// Première connexion au réseau (image Raspberry Pi) : depuis le point d'accès de Printr
+// ============================================================================
+
+const signalBars = (signal) => (signal >= 70 ? '▂▄▆█' : signal >= 45 ? '▂▄▆' : signal >= 20 ? '▂▄' : '▂');
+
+function WifiSetup({ state }) {
+  const [picked, setPicked] = useState(null); // { ssid, secure } ou { hidden: true }
+  const [ssid, setSsid] = useState('');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [joining, setJoining] = useState(state.joining);
+  const name = picked?.hidden ? ssid.trim() : picked?.ssid;
+  const needsPassword = picked?.hidden || picked?.secure;
+  const submit = async (e) => {
+    e.preventDefault(); setBusy(true);
+    try {
+      await api('POST', '/api/wifi', { ssid: name, password: needsPassword ? password : '' });
+      setJoining(name);
+    } catch (err) { toast(err.message, 'error'); } finally { setBusy(false); }
+  };
+  if (joining) {
+    return html`<div class="login"><div class="login-card wizard">
+      <div class="wifi-joining" aria-hidden="true">📶</div>
+      <h1>${T(`Connexion à « ${joining} »…`, `Joining “${joining}”…`)}</h1>
+      <div class="wizard-body"><p class="muted">${T(
+        'Ton téléphone va perdre le Wi-Fi de Printr : c’est normal. Dans un instant, Printr imprime un ticket avec l’adresse de l’appli.',
+        'Your phone is about to lose Printr’s Wi-Fi: that’s expected. In a moment, Printr prints a ticket with the app’s address.',
+      )}</p><p class="muted">${T(
+        `Si le ticket annonce un échec, reconnecte-toi à « ${state.hotspot || 'Printr'} » et réessaie.`,
+        `If the ticket reports a failure, reconnect to “${state.hotspot || 'Printr'}” and try again.`,
+      )}</p></div></div></div>`;
+  }
+  return html`<div class="login"><form class="login-card wizard" onSubmit=${submit}>
+    <img class="logo" src="/mark.png" alt="" style="display:block" />
+    <h1>${T('Le Wi-Fi de la maison', 'Your home Wi-Fi')}</h1>
+    ${state.error && html`<p class="wifi-error" role="alert">${state.error}</p>`}
+    <div class="wizard-body">
+      <p class="muted">${T('Choisis le réseau que Printr doit rejoindre.', 'Pick the network Printr should join.')}</p>
+      <div class="wizard-printers">
+        ${state.networks.map((n) => html`<button type="button" key=${n.ssid} class="setting-card ${picked?.ssid === n.ssid ? 'on' : ''}"
+          onClick=${() => { setPicked(n); setPassword(''); }}>
+          <span class="wifi-bars" aria-label=${`${n.signal} %`}>${signalBars(n.signal)}</span>
+          <span class="grow"><strong>${n.ssid}</strong><span class="muted">${n.secure ? T('🔒 Protégé', '🔒 Secured') : T('Ouvert', 'Open')}</span></span></button>`)}
+        ${!state.networks.length && html`<p class="muted">${T('Aucun réseau trouvé : tape son nom ci-dessous.', 'No network found: type its name below.')}</p>`}
+        <button type="button" class="setting-card ${picked?.hidden ? 'on' : ''}" onClick=${() => setPicked({ hidden: true })}>
+          <span class="big-emoji" aria-hidden="true">✍️</span>
+          <span class="grow"><strong>${T('Autre réseau', 'Other network')}</strong><span class="muted">${T('Réseau masqué, ou absent de la liste', 'Hidden network, or not listed')}</span></span></button>
+      </div>
+      ${picked?.hidden && html`<input class="input" placeholder=${T('Nom du réseau', 'Network name')} value=${ssid} onInput=${(e) => setSsid(e.target.value)} />`}
+      ${picked && needsPassword && html`<input class="input" type="password" autocomplete="off" placeholder=${T('Mot de passe du Wi-Fi', 'Wi-Fi password')}
+        value=${password} onInput=${(e) => setPassword(e.target.value)} />`}
+    </div>
+    <div class="wizard-actions"><button class="btn primary big block" disabled=${busy || !name || (needsPassword && password.length < 8)}>
+      ${busy ? html`<${Spinner} />` : T('Connecter Printr', 'Connect Printr')}</button></div>
+  </form></div>`;
+}
+
+// ============================================================================
 // Assistant de premier lancement (administrateur)
 // ============================================================================
 
@@ -2663,12 +2721,14 @@ function App() {
   const [scrolled, setScrolled] = useState(false);
   const [menu, setMenu] = useState(false);
   const [wizard, setWizard] = useState(false); // assistant de premier lancement à faire
+  const [wifi, setWifi] = useState(null); // première connexion au réseau en cours
   const hash = useHash();
 
   const loadPresets = useCallback(() => api('GET', '/api/presets').then(setPresets).catch((e) => toast(e.message, 'error')), []);
   const loadUsers = useCallback(() => api('GET', '/api/users').then(setUsers).catch(() => {}), []);
 
   useEffect(() => {
+    api('GET', '/api/wifi').then(setWifi).catch(() => {});
     api('GET', '/api/me').then(({ user }) => setMe(user)).catch(() => setMe(null));
     return bus.on('unauthorized', () => { Object.assign(MY_CATALOG, { favorites: [], recent: [] }); setMe(null); });
   }, []);
@@ -2699,6 +2759,7 @@ function App() {
     return () => removeEventListener('scroll', onScroll);
   }, []);
 
+  if (wifi) return html`<${WifiSetup} state=${wifi} /><${Toasts} />`;
   if (me === undefined) return html`<div class="boot"><${Spinner} /></div><${Toasts} />`;
   if (me === null) return html`<${Login} onLogin=${setMe} /><${Toasts} />`;
   if (wizard) return html`<${Wizard} me=${me} onDone=${() => { setWizard(false); bus.emit('printer'); }} /><${Toasts} />`;

@@ -223,6 +223,13 @@ impl App {
 
     /// Verrouille les données, après les avoir relues si le fichier a changé sur le disque
     /// (compte créé en ligne de commande pendant que le serveur tourne, par exemple).
+    /// Imprime un ticket construit par Printr lui-même (configuration), sans historique.
+    pub fn print_doc(&self, doc: &crate::doc::Doc) -> Result<()> {
+        let bytes = crate::output::render(doc, true)?;
+        let printer = self.printer.lock().unwrap_or_else(|e| e.into_inner());
+        printer.write(&bytes)
+    }
+
     pub fn lock_store(&self) -> std::sync::MutexGuard<'_, Store> {
         let mut store = self.store.lock().unwrap_or_else(|e| e.into_inner());
         if let Err(e) = store.reload_if_changed() {
@@ -719,6 +726,14 @@ struct SetupInput {
     lang: Option<String>,
 }
 
+/// Le Wi-Fi de la maison, choisi pendant la première connexion.
+#[derive(Deserialize)]
+struct WifiInput {
+    ssid: String,
+    #[serde(default)]
+    password: String,
+}
+
 /// Imprimante à essayer depuis l'assistant, avant de l'enregistrer.
 #[derive(Deserialize)]
 struct TestPrint {
@@ -952,6 +967,12 @@ fn handle(app: &App, request: &mut Request) -> Reply {
     let client = guard::client_ip(request.remote_addr().map(|a| a.ip()), header(request, "X-Forwarded-For"));
     let https = header(request, "X-Forwarded-Proto").is_some_and(|p| p.eq_ignore_ascii_case("https"));
 
+    // Pendant la première connexion au réseau, le téléphone est renvoyé vers la page de configuration.
+    if method == Method::Get
+        && let Some(location) = crate::wifi::portal_redirect(header(request, "Host"))
+    {
+        return Reply::json(302, json!({ "ok": false })).header("Location", location);
+    }
     if method == Method::Get {
         if let Some((body, content_type)) = asset(app, path) {
             return Reply { status: 200, content_type, body, headers: Vec::new(), note: String::new() }
@@ -998,6 +1019,26 @@ fn handle(app: &App, request: &mut Request) -> Reply {
                 .note(tr!("connexion de {name}", "login: {name}"));
         }
         // Premier lancement : tant qu'aucun compte n'existe, l'écran d'accueil crée le premier.
+        // Première connexion au réseau : sans compte au départ, depuis le point d'accès de Printr.
+        (Method::Get, ["api", "wifi"]) => {
+            return match crate::wifi::describe() {
+                Some(state) => Reply::ok(state),
+                None => Reply::error(404, t("pas de configuration Wi-Fi en cours", "no Wi-Fi setup in progress")),
+            };
+        }
+        (Method::Post, ["api", "wifi"]) => {
+            if client.is_some_and(crate::net::is_public) {
+                return Reply::error(403, t("réservé au réseau local", "local network only"));
+            }
+            // Sans compte, même sur une installation déjà utilisée (Wi-Fi changé, déménagement) : le
+            // point d'accès est protégé par le mot de passe imprimé sur le ticket, il faut donc avoir
+            // l'imprimante sous la main. Et il n'existe que tant que Printr n'a pas de réseau.
+            let input: WifiInput = try_reply!(json_body(request));
+            return match crate::wifi::join(input.ssid.trim().to_owned(), input.password) {
+                Ok(()) => Reply::ok(json!({ "ok": true })).note(t("connexion au Wi-Fi", "joining the Wi-Fi")),
+                Err(e) => Reply::error(400, format!("{e:#}")),
+            };
+        }
         (Method::Post, ["api", "setup"]) => {
             // Depuis Internet, personne ne doit pouvoir s'approprier une installation vide.
             if client.is_some_and(crate::net::is_public) {
@@ -1670,6 +1711,7 @@ pub fn serve(listen: &str, token: Option<String>, target: Target) -> Result<()> 
 
     crate::scheduler::spawn(Arc::clone(&app));
     crate::mqtt::spawn(Arc::clone(&app));
+    crate::wifi::spawn(Arc::clone(&app), listen.rsplit(':').next().and_then(|p| p.parse().ok()).unwrap_or(8080));
     // L'imprimante est-elle là ? Toutes les 10 secondes ; c'est aussi ce qui vide la file d'attente.
     {
         let app = Arc::clone(&app);

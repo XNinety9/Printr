@@ -37,7 +37,7 @@ pub fn usb() -> Vec<PathBuf> {
 
 /// L'adresse IPv4 de la machine sur le réseau local (celle qui sortirait vers Internet), sans rien
 /// envoyer : une socket UDP « connectée » choisit seulement son adresse.
-fn local_ipv4() -> Option<Ipv4Addr> {
+pub fn local_ipv4() -> Option<Ipv4Addr> {
     let socket = UdpSocket::bind("0.0.0.0:0").ok()?;
     socket.connect("192.0.2.1:9").ok()?; // TEST-NET-1 : aucune donnée n'est envoyée
     match socket.local_addr().ok()?.ip() {
