@@ -14,6 +14,7 @@ mod blocks;
 mod cache;
 mod claude;
 mod cp858;
+mod detect;
 mod doc;
 mod draw;
 mod guard;

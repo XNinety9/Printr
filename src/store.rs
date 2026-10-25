@@ -245,6 +245,10 @@ pub struct Data {
     /// Réglages faits dans l'appli par l'administrateur (voir `settings`), par nom de variable.
     #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
     pub settings: std::collections::BTreeMap<String, String>,
+    /// Assistant de premier lancement à faire : posé à la création du premier compte, retiré quand
+    /// l'administrateur le termine (les installations existantes ne le voient pas).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub wizard_pending: bool,
 }
 
 /// Le rouleau en place, pour estimer le papier qui reste : l'imprimante ne dit « plus de papier »
