@@ -39,3 +39,10 @@ bash image/build.sh --binary path/to/printr --out directory
 
 Docker is required and, on an x86 PC, ARM emulation (`qemu-user-static`). Allow from 20 minutes to
 over an hour. The result: `target/image/printr-X.Y.Z-raspberrypi-arm64.img.xz`.
+
+On GitHub, the `Image` workflow builds it on an ARM runner: the release workflow calls it and attaches the
+image to the release, and it can be run by hand for any branch (the image is then a workflow artifact):
+
+```bash
+gh workflow run image.yml -f ref=version-2.0
+```

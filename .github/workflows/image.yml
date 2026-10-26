@@ -1,0 +1,61 @@
+name: Image
+
+# Image prête à flasher pour Raspberry Pi (voir image/README.md), construite avec pi-gen sur un
+# runner ARM (sans émulation) :
+#   - appelée par la release, qui joint l'image à la release de l'étiquette ;
+#   - à la main pour une branche ou une étiquette, l'image restant un artefact du workflow :
+#     gh workflow run image.yml -f ref=version-2.0
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branche ou étiquette à construire"
+        required: true
+        default: master
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: image-${{ inputs.tag || inputs.ref }}
+
+env:
+  REF: ${{ inputs.tag || inputs.ref }}
+
+jobs:
+  image:
+    name: Image Raspberry Pi
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.REF }}
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249 # stable
+      # Runner ARM : le binaire aarch64 se compile directement (glibc plus ancienne que celle de
+      # Raspberry Pi OS trixie).
+      - run: cargo build --release --locked
+      # pi-gen a besoin d'une dizaine de Go.
+      - name: Place disque
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup || true
+      - name: Image
+        run: bash image/build.sh --binary target/release/printr --out out
+      - name: Publication
+        if: inputs.tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$REF" out/*.img.xz out/*.img.xz.sha256 --clobber --repo "$GITHUB_REPOSITORY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: inputs.tag == ''
+        with:
+          name: printr-image
+          path: out/*.img.xz*
+          retention-days: 7
+          compression-level: 0
