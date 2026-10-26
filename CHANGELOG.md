@@ -10,6 +10,29 @@ Koenig, Tolbert Lanston…
 
 ## [Unreleased]
 
+### Added
+- **Ready-to-flash image for Raspberry Pi** (Pi 3, 4, 5 and Zero 2 W, 64-bit): Raspberry Pi OS Lite with
+  Printr installed, the printer's udev rule, `http://printr.local` on port 80 and Barnum. Write it with
+  Raspberry Pi Imager, plug in the printer, power on. Built with pi-gen (`image/build.sh`).
+- **First network connection without a screen**: on the image, when no network shows up within a minute
+  of boot, Printr opens a `Printr-XXXX` Wi-Fi hotspot and prints a ticket with QR codes to join it and open
+  the setup page (phones open it by themselves, like a hotel Wi-Fi). Pick the home Wi-Fi, type its
+  password: Printr joins it and prints the app's address. On a wrong password it reopens the hotspot
+  and prints why. Uses NetworkManager; enabled by `PRINTR_WIFI_SETUP=1` (the image sets it).
+- **First-run wizard**: after the first account (where the language can now be picked), the admin is
+  guided through finding the printer (USB, or network printers answering on port 9100), printing a test
+  ticket and choosing the code page from how the accents came out, then the city and an optional Claude
+  key.
+- **Settings in the app** (My account → Settings, admin only): printer, language, city, Claude key and
+  model, MQTT, API token, limits and update check. They are saved with the data and applied by a quick
+  automatic restart (under systemd or Docker). Whatever `/etc/printr.env` sets still wins and is shown
+  read-only; secrets are never sent back to the app.
+
+### Changed
+- With no `PRINTR_DEVICE`, Printr uses `/dev/tm88` (the link made by the udev rule) when it exists, then
+  `/dev/usb/lp0`. `printr.env.example` no longer sets `PRINTR_DEVICE`, so new installs can pick the printer
+  in the app; existing `/etc/printr.env` files are left as they are.
+
 ## [1.11.1] “Lanston” - 2026-10-25
 
 ### Added

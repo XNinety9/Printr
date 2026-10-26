@@ -5,7 +5,8 @@ name: Release
 #   - à chaque étiquette vX.Y.Z poussée ;
 #   - à la main pour une ancienne étiquette : gh workflow run release.yml -f tag=v1.4.0
 # Chaque archive contient le binaire et les fichiers d'installation : décompresser, puis
-# `sudo bash install.sh`. SHA256SUMS permet de vérifier ce qu'on a téléchargé.
+# `sudo bash install.sh`. SHA256SUMS permet de vérifier ce qu'on a téléchargé. S'y ajoute l'image
+# prête à flasher pour Raspberry Pi (voir image/README.md).
 on:
   push:
     tags: ["v*.*.*"]
@@ -111,3 +112,28 @@ jobs:
             gh release create "$TAG" --verify-tag --title "Printr $version${name:+ “$name”}" --notes-file notes.md
           fi
           gh release upload "$TAG" dist/*.tar.gz dist/SHA256SUMS --clobber
+
+  image:
+    name: Image Raspberry Pi
+    needs: release
+    # Runner ARM : pi-gen tourne sans émulation.
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: aarch64-unknown-linux-gnu
+          path: dist
+      - name: Image
+        run: |
+          tar -C dist -xzf "dist/printr-$TAG-aarch64-unknown-linux-gnu.tar.gz"
+          bash image/build.sh --binary "dist/printr-$TAG-aarch64-unknown-linux-gnu/printr" --out out
+      - name: Publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$TAG" out/*.img.xz out/*.img.xz.sha256 --clobber

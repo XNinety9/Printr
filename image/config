@@ -1,0 +1,19 @@
+# pi-gen settings for the Printr image (see image/README.md).
+IMG_NAME=printr
+PI_GEN_RELEASE="Printr"
+RELEASE=trixie
+DEPLOY_COMPRESSION=xz
+COMPRESSION_LEVEL=6
+TARGET_HOSTNAME=printr
+LOCALE_DEFAULT=fr_FR.UTF-8
+KEYBOARD_KEYMAP=fr
+KEYBOARD_LAYOUT="French"
+TIMEZONE_DEFAULT=Europe/Paris
+# Without a country, Wi-Fi stays blocked: no hotspot for the first network connection.
+WPA_COUNTRY=FR
+# No user account by default: Raspberry Pi Imager creates one (and enables SSH) when asked to in
+# its customization. Printr itself doesn't need one.
+FIRST_USER_NAME=pi
+ENABLE_SSH=0
+ENABLE_CLOUD_INIT=1
+STAGE_LIST="stage0 stage1 stage2 stage-printr"

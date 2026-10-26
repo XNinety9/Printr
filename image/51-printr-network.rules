@@ -1,0 +1,8 @@
+// First network connection: the printr service (and only it) drives NetworkManager, to open its
+// hotspot and join the Wi-Fi picked in the app.
+polkit.addRule(function (action, subject) {
+    if (action.id.indexOf("org.freedesktop.NetworkManager.") == 0 &&
+        subject.user == "printr") {
+        return polkit.Result.YES;
+    }
+});
