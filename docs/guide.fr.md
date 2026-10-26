@@ -669,12 +669,13 @@ uv run --with pillow python docs/brand/make-assets.py   # déclinaisons du logo 
 
 Printr parle **ESC/POS** et met les tickets en page pour du **papier de 80 mm** : 512 points de large à
 180 dpi, 42 colonnes en police A et 56 en police B, images envoyées en raster (`GS v 0`), page de code
-PC858 (accents et €) et massicot (`GS V`).
+PC858 (accents et €) et massicot (`GS V`). Si les accents manquent à l'impression (certains clones n'ont pas la page 19), `PRINTR_CODEPAGE=850` sélectionne PC850 (`ESC t 2`) : le `€` s'imprime alors « EUR ».
 
 | Imprimante | Prise en charge |
 |---|---|
 | **Epson TM-T88V** (USB) | ✅ Testée tous les jours : l'imprimante de référence |
 | Epson TM-T88IV, TM-T88VI, TM-T88VII | 🟡 Devraient marcher telles quelles (mêmes commandes, mêmes 180 dpi), pas encore testées |
+| MUNBYN 047P-USEW (Ethernet) | 🟡 Imprime avec `PRINTR_CODEPAGE=850` (pas de page PC858 : les accents manquent sans) ; testée en v1.11.0 |
 | Autres imprimantes ESC/POS 80 mm à 203 dpi (Epson TM-T20, TM-m30, la plupart des autres marques) | 🟡 Devraient imprimer, un peu plus étroit et plus petit que sur une TM-T88 ; les images demandent la prise en charge du raster |
 | Imprimantes 58 mm | ❌ Non prises en charge : les tickets font 512 points de large |
 | Imprimantes sans ESC/POS (mode ligne Star, étiqueteuses, CUPS seulement) | ❌ Non prises en charge |
