@@ -10,6 +10,7 @@ use clap::{ArgAction, CommandFactory, FromArgMatches, Parser, Subcommand};
 // Déclaré en premier :  est visible dans tous les modules qui suivent (macro_use).
 #[macro_use]
 mod i18n;
+mod backup;
 mod blocks;
 mod cache;
 mod claude;

@@ -786,6 +786,10 @@ textarea.input.code { font-family: var(--mono); font-size: 13px; line-height: 1.
 .paper-card { cursor: default; }
 .paper-card:hover { border-color: var(--line); }
 .paper-card .btn { justify-self: start; margin-top: 6px; }
+.backup-card { margin-top: 8px; }
+.backup-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.backup-actions .btn { margin-top: 0; text-decoration: none; }
+.first-restore { display: flex; justify-content: center; margin-top: 10px; }
 .paper-gauge { display: block; height: 8px; margin: 4px 0 2px; border-radius: 999px; background: var(--line); overflow: hidden; }
 .paper-gauge > span { display: block; height: 100%; border-radius: inherit; background: var(--ok); }
 .paper-gauge.low > span { background: var(--warn); }

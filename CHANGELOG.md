@@ -29,6 +29,10 @@ Koenig, Tolbert Lanston…
   model and timeout, MQTT, API token, limits and update check. They are saved with the data and applied by a quick
   automatic restart (under systemd or Docker). Whatever `/etc/printr.env` sets still wins and is shown
   read-only; secrets are never sent back to the app.
+- **Backup and restore** from My account (admin): accounts, tickets, schedules, history, shopping list,
+  family birthdays, settings and photos in one JSON file. Restoring keeps the current state in `backups/`
+  first; a fresh installation can restore from the first account's screen (`GET /api/backup`,
+  `POST /api/restore`).
 - **Date** (`date`): another day than today, as a set `date` or an `offset` in days, to print tickets ahead
   of a trip, one per day (#32, suggested by Fabwiss).
 - **Family birthdays**: a shared list that everyone fills in from the Birthdays block, added to each

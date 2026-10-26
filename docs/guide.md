@@ -348,6 +348,17 @@ systemd or Docker (otherwise at the next start). Whatever `/etc/printr.env` or t
 environment sets wins: the app shows it read-only, as “Set in /etc/printr.env”. Secrets (Claude
 key, MQTT address, token) never go back to the app, which only shows whether they are set.
 
+### Backup
+
+From **My account**, the administrator downloads a **backup**: accounts, tickets and their schedules,
+history, shopping list, family birthdays, settings and photos, in a single JSON file. It holds the
+Claude key and the passwords (hashed): keep it somewhere safe. **Restore** replaces all of that with
+the file's content; the current state is kept first in `backups/` next to the data (the last five),
+and everyone signs in again.
+
+On a fresh installation, the first account's screen also offers to restore a backup (from the home
+network only, like the first account): a new microSD card, then the family's Printr as it was.
+
 ### Data
 
 Data (accounts, presets, history, photos, settings) lives in `$PRINTR_DATA_DIR`, otherwise

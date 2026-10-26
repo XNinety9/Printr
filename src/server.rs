@@ -28,6 +28,8 @@ use crate::ui;
 /// Taille maximale d'un corps JSON, et d'une photo envoyée.
 const MAX_JSON: u64 = 1024 * 1024;
 const MAX_IMAGE: u64 = 15 * 1024 * 1024;
+/// Une sauvegarde (données et photos) : de quoi voir venir.
+const MAX_BACKUP: u64 = 200 * 1024 * 1024;
 const COOKIE: &str = "printr_session";
 /// Impressions par personne et par heure, par défaut (`PRINTR_MAX_TICKETS_PER_HOUR`).
 const DEFAULT_MAX_PER_HOUR: usize = 20;
@@ -900,7 +902,11 @@ impl TodoRequest {
         if items.is_empty() {
             bail!("{}", t("aucune chose à faire (`items` ou `text`)", "nothing to do (`items` or `text`)"));
         }
-        Ok(Ticket { cut: true, spacing: 1, blocks: vec![Block::Date { date: None, offset: None }, Block::Todo { title: self.title, items }] })
+        Ok(Ticket {
+            cut: true,
+            spacing: 1,
+            blocks: vec![Block::Date { date: None, offset: None }, Block::Todo { title: self.title, items }],
+        })
     }
 }
 
@@ -1025,6 +1031,36 @@ fn handle(app: &App, request: &mut Request) -> Reply {
                 .note(tr!("connexion de {name}", "login: {name}"));
         }
         // Premier lancement : tant qu'aucun compte n'existe, l'écran d'accueil crée le premier.
+        // Restauration : par l'administrateur, ou sur une installation neuve (aucun compte), depuis le
+        // réseau de la maison, comme le premier compte : c'est le cas d'une nouvelle carte SD.
+        (Method::Post, ["api", "restore"]) => {
+            let fresh = app.lock_store().users().is_empty();
+            let allowed = if fresh {
+                !client.is_some_and(crate::net::is_public)
+            } else {
+                match caller(app, request) {
+                    Some(Caller::User(u)) => app.lock_store().is_admin(&u.id),
+                    _ => false,
+                }
+            };
+            if !allowed {
+                return Reply::error(403, t("réservé à l'administrateur", "administrator only"));
+            }
+            let body = try_reply!(read_body(request, MAX_BACKUP));
+            let mut store = app.lock_store();
+            return match crate::backup::restore(&mut store, &body) {
+                Ok(r) => {
+                    let restarting = r.settings_changed && crate::settings::restart_supported();
+                    if restarting {
+                        crate::settings::restart_soon();
+                    }
+                    Reply::ok(json!({ "ok": true, "users": r.users, "presets": r.presets, "images": r.images, "restarting": restarting }))
+                        .header("Set-Cookie", format!("{COOKIE}=; Path=/; Max-Age=0"))
+                        .note(tr!("sauvegarde restaurée ({} comptes)", "backup restored ({} accounts)", r.users))
+                }
+                Err(e) => Reply::error(400, format!("{e:#}")),
+            };
+        }
         // Première connexion au réseau : sans compte au départ, depuis le point d'accès de Printr.
         (Method::Get, ["api", "wifi"]) => {
             return match crate::wifi::describe() {
@@ -1263,6 +1299,31 @@ fn handle(app: &App, request: &mut Request) -> Reply {
                     let roll_m = paper["roll_mm"].as_u64().unwrap_or(0) / 1000;
                     Reply::ok(json!({ "ok": true, "paper": paper }))
                         .note(tr!("nouveau rouleau ({roll_m} m) posé par {by}", "new roll ({roll_m} m) put in by {by}"))
+                }
+                Err(e) => Reply::error(500, format!("{e:#}")),
+            }
+        }
+        (Method::Get, ["api", "backup"]) => {
+            let store = app.lock_store();
+            if !user_id.as_deref().is_some_and(|me| store.is_admin(me)) {
+                return Reply::error(403, t("réservé à l'administrateur", "administrator only"));
+            }
+            match crate::backup::export(&store) {
+                Ok(body) => {
+                    let name = format!(
+                        "{}-{}.json",
+                        t("printr-sauvegarde", "printr-backup"),
+                        chrono::Local::now().format("%Y-%m-%d")
+                    );
+                    Reply {
+                        status: 200,
+                        content_type: "application/json; charset=utf-8",
+                        body,
+                        headers: Vec::new(),
+                        note: String::new(),
+                    }
+                    .header("Content-Disposition", format!("attachment; filename=\"{name}\""))
+                    .note(t("sauvegarde téléchargée", "backup downloaded"))
                 }
                 Err(e) => Reply::error(500, format!("{e:#}")),
             }

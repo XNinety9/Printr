@@ -165,7 +165,10 @@ pub fn build(agent: &ureq::Agent, location: &str, days: u8, show: Show) -> Resul
         );
     }
     if show.sun {
-        doc.text(&tr!("Soleil {} - {}", "Sun {} - {}", hour(&d.sunrise[0]), hour(&d.sunset[0])), Style::default().center());
+        doc.text(
+            &tr!("Soleil {} - {}", "Sun {} - {}", hour(&d.sunrise[0]), hour(&d.sunset[0])),
+            Style::default().center(),
+        );
     }
     if show.outfit {
         let today = Today {

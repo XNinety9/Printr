@@ -255,6 +255,12 @@ pub struct Data {
     pub wizard_pending: bool,
 }
 
+impl Data {
+    pub fn users_count(&self) -> usize {
+        self.users.len()
+    }
+}
+
 /// Le rouleau en place, pour estimer le papier qui reste : l'imprimante ne dit « plus de papier »
 /// que trop tard. Longueurs en mm, comptées comme `HistoryEntry::paper_mm`.
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -404,6 +410,26 @@ impl Store {
         fs::rename(&tmp, &self.path)?;
         self.modified = modified(&self.path);
         Ok(())
+    }
+
+    // ---- Sauvegarde ----
+
+    /// Les données à sauvegarder : tout, sauf les sessions et la file d'attente (propres à la machine).
+    pub fn backup_data(&self) -> Result<serde_json::Value> {
+        let mut value = serde_json::to_value(&self.data)?;
+        if let Some(map) = value.as_object_mut() {
+            map.remove("sessions");
+            map.remove("queue");
+        }
+        Ok(value)
+    }
+
+    /// Remplace les données par une sauvegarde : tout le monde se reconnecte, et les tickets qui
+    /// attendent l'imprimante sont gardés.
+    pub fn restore(&mut self, mut data: Data) {
+        data.sessions.clear();
+        data.queue = std::mem::take(&mut self.data.queue);
+        self.data = data;
     }
 
     // ---- Utilisateurs ----

@@ -349,6 +349,18 @@ rapide, automatique sous systemd ou Docker (sinon au prochain démarrage). Ce qu
 avec la mention « Fixé dans /etc/printr.env ». Les secrets (clé Claude, adresse MQTT, jeton) ne
 repartent jamais vers l'appli, qui indique seulement s'ils sont définis.
 
+### Sauvegarde
+
+Depuis **Mon compte**, l'administrateur télécharge une **sauvegarde** : comptes, tickets et leurs
+planifications, historique, liste de courses, anniversaires de la famille, réglages et photos, dans un
+seul fichier JSON. Elle contient la clé Claude et les mots de passe (hachés) : à garder en lieu sûr.
+**Restaurer** remplace tout cela par le contenu du fichier ; l'état actuel est d'abord gardé dans
+`backups/`, à côté des données (les cinq derniers), et chacun se reconnecte.
+
+Sur une installation neuve, l'écran du premier compte propose aussi de restaurer une sauvegarde
+(depuis le réseau de la maison seulement, comme le premier compte) : une nouvelle carte microSD, puis
+le Printr de la famille tel qu'il était.
+
 ### Données
 
 Les données (comptes, presets, historique, photos, réglages) vivent dans `$PRINTR_DATA_DIR`, sinon

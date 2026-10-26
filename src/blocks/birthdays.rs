@@ -76,7 +76,8 @@ fn age(b: &Birthday, on: NaiveDate) -> Option<i32> {
 fn merge(list: &str, family: &str) -> Vec<Birthday> {
     let mut people: Vec<Birthday> = Vec::new();
     for b in list.lines().chain(family.lines()).filter_map(parse_line) {
-        let same = |o: &Birthday| o.name.to_lowercase() == b.name.to_lowercase() && (o.month, o.day) == (b.month, b.day);
+        let same =
+            |o: &Birthday| o.name.to_lowercase() == b.name.to_lowercase() && (o.month, o.day) == (b.month, b.day);
         if !people.iter().any(same) {
             people.push(b);
         }
@@ -172,8 +173,9 @@ mod tests {
 
     #[test]
     fn birthday_of_the_day_comes_first() {
-        let doc =
-            i18n::with_lang(i18n::Lang::Fr, || build("Léo, 20/10/2014\nCamille 25/10", "", 3, d(2026, 10, 20)).unwrap());
+        let doc = i18n::with_lang(i18n::Lang::Fr, || {
+            build("Léo, 20/10/2014\nCamille 25/10", "", 3, d(2026, 10, 20)).unwrap()
+        });
         let text = doc.preview(false);
         // Le titre est en double taille : l'aperçu l'écrit en lettres espacées.
         assert!(text.contains("L é o   !"));

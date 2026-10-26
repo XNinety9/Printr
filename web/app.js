@@ -1319,6 +1319,31 @@ async function waitForRestart() {
 const Restarting = () => html`<div class="restarting" role="status"><${Spinner} />
   <p class="muted">${T('Printr redémarre pour appliquer les réglages…', 'Printr is restarting to apply the settings…')}</p></div>`;
 
+// Restaurer une sauvegarde : tout est remplacé (l'état actuel reste gardé sur le Pi), puis chacun se
+// reconnecte. Depuis « Mon compte » (administrateur), ou sur une installation neuve.
+function RestoreButton({ cls = 'btn secondary small', label }) {
+  const input = useRef();
+  const [file, setFile] = useState(null);
+  const [restarting, setRestarting] = useState(false);
+  const restore = async () => {
+    try {
+      const r = await api('POST', '/api/restore', file);
+      toast(T(`Sauvegarde restaurée : ${r.users} compte(s), ${r.presets} ticket(s)`, `Backup restored: ${r.users} account(s), ${r.presets} ticket(s)`), 'ok', '📦');
+      if (r.restarting) { setRestarting(true); waitForRestart(); } else setTimeout(() => location.reload(), 1200);
+    } catch (e) { toast(e.message, 'error'); }
+  };
+  return html`<button type="button" class=${cls} onClick=${() => input.current.click()}>${label}</button>
+    <input ref=${input} type="file" accept=".json,application/json" hidden
+      onChange=${(e) => { setFile(e.target.files[0] || null); e.target.value = ''; }} />
+    ${file && html`<${Confirm} title=${T('Restaurer cette sauvegarde ?', 'Restore this backup?')} danger action=${T('Restaurer', 'Restore')}
+      message=${T(
+        `« ${file.name} » remplace les comptes, les tickets, l’historique, les réglages et les photos de ce Printr. L’état actuel reste gardé sur le Pi, au cas où. Chacun devra se reconnecter.`,
+        `“${file.name}” replaces the accounts, tickets, history, settings and photos of this Printr. The current state is kept on the Pi, just in case. Everyone will have to sign in again.`,
+      )}
+      onConfirm=${restore} onClose=${() => setFile(null)} />`}
+    ${restarting && html`<div class="overlay"><div class="sheet"><${Restarting} /></div></div>`}`;
+}
+
 // Premier lancement : aucun compte encore, on crée le sien directement ici (et on choisit la langue).
 function FirstAccount({ onLogin }) {
   const [name, setName] = useState('');
@@ -1348,6 +1373,7 @@ function FirstAccount({ onLogin }) {
     <div class="field"><input class="input" type="password" placeholder=${T('Mot de passe (8 caractères minimum)', 'Password (8 characters minimum)')} autocomplete="new-password"
       value=${password} onInput=${(e) => setPassword(e.target.value)} /></div>
     <button class="btn primary big block" disabled=${busy || !name.trim() || password.length < 8}>${busy ? html`<${Spinner} />` : T('Créer mon compte', 'Create my account')}</button>
+    <div class="first-restore"><${RestoreButton} cls="btn ghost small" label=${T('Ou restaurer une sauvegarde', 'Or restore a backup')} /></div>
   </form>`;
 }
 
@@ -2506,6 +2532,16 @@ function AccountSheet({ me, users, version, update, paper, reloadUsers, onLogout
         <span class="grow"><strong>${T('Réglages', 'Settings')}</strong>
           <span class="muted">${T('Imprimante, langue, ville, Claude, Home Assistant…', 'Printer, language, city, Claude, Home Assistant…')}</span></span>
         <${Icon} name="sliders" size=${18} /></button>`}
+
+    ${me.admin && html`<div class="setting-card paper-card backup-card">
+        <span class="big-emoji" aria-hidden="true">📦</span>
+        <span class="grow"><strong>${T('Sauvegarde', 'Backup')}</strong>
+          <span class="muted">${T(
+            'Comptes, tickets, historique, réglages et photos, dans un seul fichier. Il contient la clé Claude et les mots de passe (hachés) : garde-le en lieu sûr.',
+            'Accounts, tickets, history, settings and photos, in a single file. It holds the Claude key and the passwords (hashed): keep it somewhere safe.',
+          )}</span>
+          <span class="backup-actions"><a class="btn secondary small" href="/api/backup" download>${T('Télécharger', 'Download')}</a>
+            <${RestoreButton} label=${T('Restaurer…', 'Restore…')} /></span></span></div>`}
 
     ${me.admin && html`<div class="section-title">${T('Catalogue de la famille', 'The family’s catalog')}</div>
       <button type="button" class="setting-card" onClick=${() => setPicking(true)}>

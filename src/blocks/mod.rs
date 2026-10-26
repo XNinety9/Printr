@@ -869,7 +869,10 @@ impl Block {
             Block::Date { date, offset } => {
                 let day = match (date.as_deref().map(str::trim).filter(|d| !d.is_empty()), offset) {
                     (Some(d), _) => NaiveDate::parse_from_str(d, "%Y-%m-%d").map_err(|_| {
-                        anyhow::anyhow!("{}", tr!("date invalide : {d} (AAAA-MM-JJ attendu)", "invalid date: {d} (YYYY-MM-DD expected)"))
+                        anyhow::anyhow!(
+                            "{}",
+                            tr!("date invalide : {d} (AAAA-MM-JJ attendu)", "invalid date: {d} (YYYY-MM-DD expected)")
+                        )
                     })?,
                     (None, Some(n)) => ctx.today + chrono::Duration::days((*n).clamp(-3660, 3660)),
                     (None, None) => ctx.today,
@@ -924,7 +927,12 @@ impl Block {
                 }
             }
             Block::Weather { location, days, outfit, wind, sun } => {
-                doc = weather::build(&ctx.http, location, *days, weather::Show { outfit: *outfit, wind: *wind, sun: *sun })?
+                doc = weather::build(
+                    &ctx.http,
+                    location,
+                    *days,
+                    weather::Show { outfit: *outfit, wind: *wind, sun: *sun },
+                )?
             }
             Block::Horoscope { sign, tone } => doc = horoscope::build(ctx, sign, *tone)?,
             Block::Saint {} => doc = saint::build(ctx.today),
@@ -1013,7 +1021,11 @@ impl Block {
             Block::Chess { solution } => doc = chess::build(ctx, *solution)?,
             Block::Birthdays { list, upcoming, family } => {
                 // Sans données (commande lancée hors du serveur), la liste de la famille est vide.
-                let shared = if *family { crate::store::read_data().map(|d| d.family_birthdays).unwrap_or_default() } else { String::new() };
+                let shared = if *family {
+                    crate::store::read_data().map(|d| d.family_birthdays).unwrap_or_default()
+                } else {
+                    String::new()
+                };
                 doc = birthdays::build(list, &shared, *upcoming, ctx.today)?
             }
             Block::Story { children, theme, length } => doc = story::build(ctx, children, theme, *length)?,
