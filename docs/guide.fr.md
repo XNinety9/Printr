@@ -336,13 +336,14 @@ famille depuis **Mon compte**.
 ### Réglages
 
 L'administrateur modifie l'installation depuis **Mon compte → Réglages** : langue, ville,
-imprimante (avec détection et ticket de test), page de code, clé et modèle Claude, MQTT, jeton
+imprimante (avec détection et ticket de test), page de code, clé, modèle et délai de Claude, MQTT, jeton
 d'API, tickets par heure, attente des tickets quand l'imprimante est absente, et vérification des
 nouvelles versions.
 
 <p align="center"><img src="shots/mobile-settings.png" alt="Réglages" width="250"></p>
 
-Les réglages sont enregistrés avec les données (`printr.json`) et appliqués par un redémarrage
+`ANTHROPIC_BASE_URL` n'en fait pas partie, exprès : la clé Claude part vers cette adresse, et
+l'appli ne livre jamais la clé. Les réglages sont enregistrés avec les données (`printr.json`) et appliqués par un redémarrage
 rapide, automatique sous systemd ou Docker (sinon au prochain démarrage). Ce que fixent
 `/etc/printr.env` ou l'environnement du conteneur l'emporte : l'appli le montre en lecture seule,
 avec la mention « Fixé dans /etc/printr.env ». Les secrets (clé Claude, adresse MQTT, jeton) ne

@@ -41,6 +41,8 @@ pub const SETTINGS: &[(&str, Kind)] = &[
     ("PRINTR_CODEPAGE", Kind::Choice(&["850"])),
     ("ANTHROPIC_API_KEY", Kind::Secret),
     ("PRINTR_CLAUDE_MODEL", Kind::Text),
+    // Pas ANTHROPIC_BASE_URL : la clé part vers cette adresse, et l'appli ne doit jamais la livrer.
+    ("PRINTR_CLAUDE_TIMEOUT_SECS", Kind::Number(1, 3600)),
     ("PRINTR_TOKEN", Kind::Secret),
     ("PRINTR_MQTT_URL", Kind::Secret),
     ("PRINTR_MQTT_PREFIX", Kind::Text),

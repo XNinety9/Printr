@@ -337,12 +337,13 @@ Everything is saved at the end, in one go, and every step can be skipped. Then a
 ### Settings
 
 The administrator changes the installation from **My account → Settings**: language, city, printer
-(with detection and test ticket), code page, Claude key and model, MQTT, API token, tickets per hour,
+(with detection and test ticket), code page, Claude key, model and timeout, MQTT, API token, tickets per hour,
 how long tickets wait for a missing printer, and the check for new versions.
 
 <p align="center"><img src="shots/en/mobile-settings.png" alt="Settings" width="250"></p>
 
-Settings are saved with the data (`printr.json`) and applied by a quick restart, automatic under
+`ANTHROPIC_BASE_URL` is not among them on purpose: the Claude key is sent to that address, and the
+app never hands the key out. Settings are saved with the data (`printr.json`) and applied by a quick restart, automatic under
 systemd or Docker (otherwise at the next start). Whatever `/etc/printr.env` or the container's
 environment sets wins: the app shows it read-only, as “Set in /etc/printr.env”. Secrets (Claude
 key, MQTT address, token) never go back to the app, which only shows whether they are set.

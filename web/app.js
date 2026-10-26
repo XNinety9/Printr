@@ -2395,6 +2395,7 @@ function SettingsSheet({ onClose }) {
     <div class="section-title">Claude</div>
     ${secret('ANTHROPIC_API_KEY', T('Clé d’API Anthropic', 'Anthropic API key'), html`<a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>`)}
     ${text('PRINTR_CLAUDE_MODEL', T('Modèle', 'Model'), null, 'claude-haiku-5-5')}
+    ${text('PRINTR_CLAUDE_TIMEOUT_SECS', T('Délai d’un appel (secondes)', 'Call timeout (seconds)'), T('À augmenter pour un modèle local lent.', 'Raise it for a slow local model.'), '120', 'number')}
 
     <div class="section-title">Home Assistant · MQTT</div>
     ${secret('PRINTR_MQTT_URL', T('Adresse du broker', 'Broker address'), T('Ex. mqtt://utilisateur:motdepasse@192.168.1.10:1883', 'E.g. mqtt://user:password@192.168.1.10:1883'))}

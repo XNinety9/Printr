@@ -25,8 +25,8 @@ Koenig, Tolbert Lanston…
   guided through finding the printer (USB, or network printers answering on port 9100), printing a test
   ticket and choosing the code page from how the accents came out, then the city and an optional Claude
   key.
-- **Settings in the app** (My account → Settings, admin only): printer, language, city, Claude key and
-  model, MQTT, API token, limits and update check. They are saved with the data and applied by a quick
+- **Settings in the app** (My account → Settings, admin only): printer, language, city, Claude key,
+  model and timeout, MQTT, API token, limits and update check. They are saved with the data and applied by a quick
   automatic restart (under systemd or Docker). Whatever `/etc/printr.env` sets still wins and is shown
   read-only; secrets are never sent back to the app.
 - **Date** (`date`): another day than today, as a set `date` or an `offset` in days, to print tickets ahead
