@@ -894,7 +894,7 @@ impl TodoRequest {
         if items.is_empty() {
             bail!("{}", t("aucune chose à faire (`items` ou `text`)", "nothing to do (`items` or `text`)"));
         }
-        Ok(Ticket { cut: true, spacing: 1, blocks: vec![Block::Date {}, Block::Todo { title: self.title, items }] })
+        Ok(Ticket { cut: true, spacing: 1, blocks: vec![Block::Date { date: None, offset: None }, Block::Todo { title: self.title, items }] })
     }
 }
 

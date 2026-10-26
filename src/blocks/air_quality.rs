@@ -39,7 +39,7 @@ fn aqi_label(aqi: f64) -> &'static str {
     }
 }
 
-pub fn build(agent: &ureq::Agent, location: &str) -> Result<Doc> {
+pub fn build(agent: &ureq::Agent, location: &str, pollutants: bool, pollen: bool) -> Result<Doc> {
     let place = weather::locate(agent, location)?;
     let r: Response = agent
         .get("https://air-quality-api.open-meteo.com/v1/air-quality")
@@ -64,17 +64,22 @@ pub fn build(agent: &ureq::Agent, location: &str) -> Result<Doc> {
         doc.text(&tr!("Qualité de l'air : {}", "Air quality: {}", aqi_label(aqi)), Style::default().bold().center());
         doc.text(&tr!("Indice européen {aqi:.0}", "European AQI {aqi:.0}"), Style::default().small().center());
     }
-    doc.text(
-        &tr!(
-            "PM2,5 {} · PM10 {} · O3 {} · NO2 {} µg/m³",
-            "PM2.5 {} · PM10 {} · O3 {} · NO2 {} µg/m³",
-            v(c.pm2_5),
-            v(c.pm10),
-            v(c.ozone),
-            v(c.nitrogen_dioxide)
-        ),
-        Style::default().small().center(),
-    );
+    if pollutants {
+        doc.text(
+            &tr!(
+                "PM2,5 {} · PM10 {} · O3 {} · NO2 {} µg/m³",
+                "PM2.5 {} · PM10 {} · O3 {} · NO2 {} µg/m³",
+                v(c.pm2_5),
+                v(c.pm10),
+                v(c.ozone),
+                v(c.nitrogen_dioxide)
+            ),
+            Style::default().small().center(),
+        );
+    }
+    if !pollen {
+        return Ok(doc);
+    }
 
     let pollens: Vec<String> = [
         (i18n::t("Aulne", "Alder"), c.alder_pollen),

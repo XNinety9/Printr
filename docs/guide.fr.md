@@ -92,12 +92,12 @@ Un paramètre inconnu est une erreur, pour repérer les fautes de frappe.
 | `title` | `text`, `size` (2) | Gras, centré, agrandi |
 | `text` | `text`, `bold`, `underline`, `reverse`, `small`, `size` (1), `align` (`left`/`center`/`right`) | Coupé aux mots |
 | `separator` | `style` (`-`) | Un caractère répété : `-`, `=`, `═`, `─`, `·`… |
-| `date` | — | « Mercredi 7 octobre 2026 » |
+| `date` | `offset` (jours, par ex. 1 pour demain), `date` (`AAAA-MM-JJ`) | « Mercredi 7 octobre 2026 » ; aujourd'hui par défaut, ou un autre jour, pour préparer des tickets à l'avance |
 | `feed` | `lines` (1) | Espace vertical |
 | `cut` (ou `coupe`) | — | Coupe le papier à cet endroit, après l'espacement habituel (`spacing`) : la suite sort sur un autre ticket. Le `cut` du ticket ajoute toujours la coupe finale |
 | `image` | `path` ou `url`, `dither` (true), `dither_algorithm` (`floyd-steinberg`, `atkinson`, `bayer`) | Réduite à 512 px |
 | `qr` | `data`, `size` (6), `caption` | |
-| `weather` | `location`, `days` (1, max 7), `outfit` (ou `tenue`, false) | [Open-Meteo](https://open-meteo.com), sans clé. `location` : ville ou `"lat,lon"`. Pictogrammes pour chaque jour ; `outfit` ajoute comment s'habiller aujourd'hui (« manteau et bonnet, prends un parapluie »), sans IA |
+| `weather` | `location`, `days` (1, max 7), `outfit` (ou `tenue`, false), `wind` (true), `sun` (true) | [Open-Meteo](https://open-meteo.com), sans clé. `location` : ville ou `"lat,lon"`. Pictogrammes pour chaque jour ; `outfit` ajoute comment s'habiller aujourd'hui (« manteau et bonnet, prends un parapluie »), sans IA ; `wind` et `sun` affichent la ligne du vent et de l'UV, et le lever et le coucher du soleil |
 | `barnum` | `sign` ou `birth_date` (`AAAA-MM-JJ`), `sky` (false), `variant` | Horoscope hors ligne et gratuit, calculé sur le vrai ciel par [Barnum](https://github.com/XNinety9/Barnum) : jauges par domaine, conseil, et en option la position des planètes |
 | `horoscope` | `sign`, `tone` (`serieux`/`farfelu`/`vachard`/`insultant`) | Généré par Claude, sur un thème tiré au hasard. Signe en français ou en anglais |
 | `saint` | — | Calendrier local, hors ligne |
@@ -119,7 +119,7 @@ Un paramètre inconnu est une erreur, pour repérer les fautes de frappe.
 | `birthdays` (ou `anniversaires`) | `list` (une ligne par personne : `Léo, 12/03/2014`, année facultative), `upcoming` (3) | « Joyeux anniversaire Léo ! » avec l'âge le jour J, puis le compte à rebours des suivants. Jour d'abord en français, mois d'abord en anglais, date ISO partout |
 | `moon` | — | Phase, illumination, prochaines pleine et nouvelle lunes. Calcul local |
 | `on_this_day` | `count` (3) | Éphéméride, Wikipédia en français |
-| `air_quality` | `location` | Indice européen, particules, pollens (Open-Meteo) |
+| `air_quality` | `location`, `pollutants` (true), `pollen` (true) | Indice européen, particules, pollens (Open-Meteo) ; `pollutants` et `pollen` affichent leurs lignes |
 | `crypto` | `coins` (`["bitcoin", "ethereum"]`, identifiants CoinGecko), `currency` (`eur`) | Cours et variation sur 24 h |
 | `sun` | `location` | Lever, coucher et durée du jour via Open-Meteo, sans clé |
 | `sky` (ou `ciel`) | `location` | Le ciel ce soir : planètes visibles (direction et hauteur), passages visibles de la Station spatiale internationale jusqu'à l'aube, lune et étoiles filantes. Calculé sur place (éléments orbitaux du JPL, SGP4) ; seule l'orbite de l'ISS vient de CelesTrak, une fois par jour |

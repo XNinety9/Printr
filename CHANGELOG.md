@@ -30,7 +30,13 @@ Koenig, Tolbert Lanston…
   automatic restart (under systemd or Docker). Whatever `/etc/printr.env` sets still wins and is shown
   read-only; secrets are never sent back to the app.
 
+- **Date** (`date`): another day than today, as a set `date` or an `offset` in days, to print tickets ahead
+  of a trip, one per day (#32, suggested by Fabwiss).
+
 ### Changed
+- **Weather** (`weather`): `wind` and `sun` hide the wind and UV line, and sunrise and sunset, to save paper
+  (#29, suggested by Fabwiss).
+- **Air quality** (`air_quality`): `pollutants` and `pollen` hide their lines (#30, suggested by Fabwiss).
 - With no `PRINTR_DEVICE`, Printr uses `/dev/tm88` (the link made by the udev rule) when it exists, then
   `/dev/usb/lp0`. `printr.env.example` no longer sets `PRINTR_DEVICE`, so new installs can pick the printer
   in the app; existing `/etc/printr.env` files are left as they are.

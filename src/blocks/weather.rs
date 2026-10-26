@@ -108,7 +108,15 @@ fn hour(iso: &str) -> &str {
     iso.split_once('T').map_or(iso, |(_, t)| t)
 }
 
-pub fn build(agent: &ureq::Agent, location: &str, days: u8, outfit: bool) -> Result<Doc> {
+/// Ce que montre le bloc, en plus des températures et de la pluie.
+#[derive(Clone, Copy, Debug)]
+pub struct Show {
+    pub outfit: bool,
+    pub wind: bool,
+    pub sun: bool,
+}
+
+pub fn build(agent: &ureq::Agent, location: &str, days: u8, show: Show) -> Result<Doc> {
     let days = days.clamp(1, 7);
     let place = locate(agent, location)?;
     let f: Forecast = agent
@@ -149,13 +157,17 @@ pub fn build(agent: &ureq::Agent, location: &str, days: u8, outfit: bool) -> Res
         ),
         Style::default().center(),
     );
-    let uv = d.uv_index_max[0].map_or("-".to_owned(), |u| format!("{u:.0}"));
-    doc.text(
-        &tr!("Vent {:.0} km/h · UV {uv}", "Wind {:.0} km/h · UV {uv}", c.wind_speed_10m),
-        Style::default().center(),
-    );
-    doc.text(&tr!("Soleil {} - {}", "Sun {} - {}", hour(&d.sunrise[0]), hour(&d.sunset[0])), Style::default().center());
-    if outfit {
+    if show.wind {
+        let uv = d.uv_index_max[0].map_or("-".to_owned(), |u| format!("{u:.0}"));
+        doc.text(
+            &tr!("Vent {:.0} km/h · UV {uv}", "Wind {:.0} km/h · UV {uv}", c.wind_speed_10m),
+            Style::default().center(),
+        );
+    }
+    if show.sun {
+        doc.text(&tr!("Soleil {} - {}", "Sun {} - {}", hour(&d.sunrise[0]), hour(&d.sunset[0])), Style::default().center());
+    }
+    if show.outfit {
         let today = Today {
             min: d.temperature_2m_min[0],
             max: d.temperature_2m_max[0],

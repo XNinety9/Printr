@@ -245,7 +245,17 @@ const BLOCKS = [
     ],
     summary: (b) => b.text || T('Vide', 'Empty'),
   },
-  { type: 'date', label: T('Date', 'Date'), emoji: '📅', group: G.layout, desc: T('La date du jour, en toutes lettres', "Today's date, written out"), defaults: {}, fields: [] },
+  {
+    type: 'date', label: T('Date', 'Date'), emoji: '📅', group: G.layout, desc: T('La date du jour, ou une autre, en toutes lettres', "Today's date, or another one, written out"),
+    defaults: {},
+    fields: [
+      { key: 'offset', label: T('Dans combien de jours ?', 'In how many days?'), kind: 'number', min: -365, max: 365,
+        help: T('Pour préparer des tickets à l’avance : 1 pour demain, 2 pour après-demain…', 'To prepare tickets ahead: 1 for tomorrow, 2 for the day after…') },
+      { key: 'date', label: T('… ou une date précise', '… or a set date'), kind: 'date' },
+    ],
+    summary: (b) => (b.date ? new Date(`${b.date}T12:00`).toLocaleDateString(LOCALE, { day: 'numeric', month: 'long' })
+      : Number(b.offset) ? T(`dans ${b.offset} j`, `in ${b.offset} d`) : ''),
+  },
   {
     type: 'separator', label: T('Séparateur', 'Separator'), emoji: '➖', group: G.layout, desc: T('Une ligne de séparation', 'A dividing line'),
     defaults: { style: '-' },
@@ -299,11 +309,13 @@ const BLOCKS = [
   },
   {
     type: 'weather', label: T('Météo', 'Weather'), emoji: '🌤️', group: G.daily, desc: T('Le temps du jour et des suivants', "Today's weather and the days ahead"),
-    defaults: { location: 'Lyon', days: 1, outfit: false },
+    defaults: { location: 'Lyon', days: 1, outfit: false, wind: true, sun: true },
     fields: [
       { key: 'location', label: T('Ville', 'City'), kind: 'text', placeholder: T('Lyon, ou « 45.76,4.83 »', 'Lyon, or "45.76,4.83"') },
       { key: 'days', label: T('Prévisions', 'Forecast'), kind: 'segmented', options: [[1, T("Aujourd'hui", 'Today')], [3, T('3 jours', '3 days')], [5, T('5 jours', '5 days')], [7, T('7 jours', '7 days')]] },
       { key: 'outfit', label: T('Comment s’habiller', 'What to wear'), kind: 'toggle', help: T('« Manteau et bonnet, prends un parapluie » : d’après les prévisions du jour.', '“Coat and hat, take an umbrella”: from today’s forecast.') },
+      { key: 'wind', label: T('Vent et UV', 'Wind and UV'), kind: 'toggle' },
+      { key: 'sun', label: T('Lever et coucher du soleil', 'Sunrise and sunset'), kind: 'toggle' },
     ],
     summary: (b) => b.location,
   },
@@ -354,8 +366,12 @@ const BLOCKS = [
   },
   {
     type: 'air_quality', label: T("Qualité de l'air", 'Air quality'), emoji: '🍃', group: G.daily, desc: T('Pollution et pollens', 'Pollution and pollen'),
-    defaults: { location: 'Lyon' },
-    fields: [{ key: 'location', label: T('Ville', 'City'), kind: 'text' }],
+    defaults: { location: 'Lyon', pollutants: true, pollen: true },
+    fields: [
+      { key: 'location', label: T('Ville', 'City'), kind: 'text' },
+      { key: 'pollutants', label: T('Polluants', 'Pollutants'), kind: 'toggle', help: T('Particules fines, ozone, dioxyde d’azote', 'Fine particles, ozone, nitrogen dioxide') },
+      { key: 'pollen', label: T('Pollens', 'Pollen'), kind: 'toggle' },
+    ],
     summary: (b) => b.location,
   },
   {
