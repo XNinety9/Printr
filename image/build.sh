@@ -64,7 +64,7 @@ FILES=$WORK/stage-printr/00-printr/files
 mkdir -p "$FILES"
 install -m 755 "$BIN" "$FILES/printr"
 cp deploy/printr.service deploy/70-tm-t88v.rules deploy/50-printr.rules "$FILES/"
-cp image/printr.env image/image.conf image/51-printr-network.rules image/printr-portal.conf "$FILES/"
+cp image/printr.env image/image.conf image/51-printr-network.rules image/printr-hotspot.service image/hotspot-dnsmasq.conf "$FILES/"
 git clone -q --depth 1 https://github.com/XNinety9/Barnum "$FILES/barnum"
 ok "printr stage ready"
 

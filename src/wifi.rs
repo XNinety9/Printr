@@ -221,50 +221,66 @@ fn new_password() -> String {
     (0..10).map(|_| *PASSWORD_LETTERS.choose(&mut rng).unwrap() as char).collect()
 }
 
-/// Ouvre le point d'accès. Réglages explicites plutôt que `nmcli device wifi hotspot` : WPA2 (CCMP)
-/// sur 2,4 GHz et sans PMF, ce que la puce Wi-Fi des Raspberry Pi (brcmfmac) accepte en point
-/// d'accès ; canal 6, permis partout (seul, NetworkManager a pris le 13, que des iPhone refusent) ;
-/// et pas de retour automatique au démarrage.
+/// Configuration de hostapd, écrite par Printr et lue par le service `printr-hotspot` de l'image.
+const HOSTAPD_CONF: &str = "/run/printr/hostapd.conf";
+/// Le service de l'image qui fait tourner hostapd et dnsmasq (adresses, portail captif).
+const HOTSPOT_UNIT: &str = "printr-hotspot.service";
+
+/// La configuration de hostapd : WPA2 strict (WPA-PSK, CCMP) sur le canal 6, permis partout.
+fn hostapd_conf(ifname: &str, ssid: &str, password: &str) -> String {
+    format!(
+        "interface={ifname}\ndriver=nl80211\nssid={ssid}\nhw_mode=g\nchannel=6\nwmm_enabled=1\nauth_algs=1\n\
+         wpa=2\nwpa_key_mgmt=WPA-PSK\nrsn_pairwise=CCMP\nwpa_passphrase={password}\n"
+    )
+}
+
+/// Ouvre le point d'accès avec hostapd plutôt que NetworkManager : celui-ci annonce aussi
+/// WPA-PSK-SHA256 (dès que wpa_supplicant connaît PMF, même désactivé), et la puce Wi-Fi des
+/// Raspberry Pi (brcmfmac) calcule alors une clé que les téléphones refusent (« mot de passe
+/// incorrect »). NetworkManager lâche l'interface le temps du point d'accès.
 fn open_hotspot(ifname: &str, ssid: &str, password: &str) -> Result<()> {
+    // Nom et mot de passe viennent de Printr, mais une ligne de trop changerait la configuration.
+    if [ifname, ssid, password].iter().any(|v| v.chars().any(char::is_control)) {
+        bail!("{}", t("nom ou mot de passe invalide", "invalid name or password"));
+    }
+    std::fs::write(HOSTAPD_CONF, hostapd_conf(ifname, ssid, password))?;
     let _ = nmcli(&["radio", "wifi", "on"]);
-    let _ = nmcli(&["connection", "delete", HOTSPOT]);
-    nmcli(&[
-        "connection",
-        "add",
-        "type",
-        "wifi",
-        "ifname",
-        ifname,
-        "con-name",
-        HOTSPOT,
-        "autoconnect",
-        "no",
-        "ssid",
-        ssid,
-        "802-11-wireless.mode",
-        "ap",
-        "802-11-wireless.band",
-        "bg",
-        "802-11-wireless.channel",
-        "6",
-        "ipv4.method",
-        "shared",
-        "ipv6.method",
-        "disabled",
-        "wifi-sec.key-mgmt",
-        "wpa-psk",
-        "wifi-sec.proto",
-        "rsn",
-        "wifi-sec.pairwise",
-        "ccmp",
-        "wifi-sec.group",
-        "ccmp",
-        "wifi-sec.pmf",
-        "disable",
-        "wifi-sec.psk",
-        password,
-    ])?;
-    nmcli(&["--wait", "30", "connection", "up", "id", HOTSPOT])?;
+    let _ = nmcli(&["connection", "delete", HOTSPOT]); // ancienne version, par NetworkManager
+    nmcli(&["device", "set", ifname, "managed", "no"])?;
+    systemctl(&["restart", HOTSPOT_UNIT])?;
+    // hostapd échoue vite (puce, configuration) : on vérifie qu'il tient.
+    std::thread::sleep(Duration::from_secs(3));
+    if systemctl(&["is-active", "--quiet", HOTSPOT_UNIT]).is_err() {
+        let _ = nmcli(&["device", "set", ifname, "managed", "yes"]);
+        bail!(
+            "{}",
+            t(
+                "hostapd n'a pas démarré (journalctl -u printr-hotspot)",
+                "hostapd did not start (journalctl -u printr-hotspot)"
+            )
+        );
+    }
+    Ok(())
+}
+
+/// Ferme le point d'accès et rend l'interface à NetworkManager, qui refait le tour des réseaux.
+fn close_hotspot(ifname: &str) {
+    let _ = systemctl(&["stop", HOTSPOT_UNIT]);
+    let _ = nmcli(&["device", "set", ifname, "managed", "yes"]);
+    std::thread::sleep(Duration::from_secs(3));
+    let _ = nmcli(&["device", "wifi", "rescan", "ifname", ifname]);
+    std::thread::sleep(Duration::from_secs(5));
+}
+
+fn systemctl(args: &[&str]) -> Result<()> {
+    let out = Command::new("systemctl")
+        .args(args)
+        .env_clear()
+        .env("PATH", std::env::var_os("PATH").unwrap_or_default())
+        .output()?;
+    if !out.status.success() {
+        bail!("systemctl {}: {}", args.join(" "), String::from_utf8_lossy(&out.stderr).trim());
+    }
     Ok(())
 }
 
@@ -384,7 +400,6 @@ fn print_soon(app: &App, doc: &Doc) {
 
 /// Connecté : le point d'accès disparaît, et un ticket donne l'adresse de l'appli.
 fn joined(app: &App, port: u16, ssid: &str) {
-    let _ = nmcli(&["connection", "delete", HOTSPOT]);
     *state() = State::Off;
     eprintln!("{}", tr!("connecté à « {ssid} »", "connected to “{ssid}”"));
     // Le temps d'obtenir une adresse.
@@ -421,7 +436,7 @@ fn retry_known(app: &App, port: u16, ifname: &str, known: &[String]) {
         if recent {
             continue;
         }
-        let _ = nmcli(&["connection", "down", HOTSPOT]);
+        close_hotspot(ifname);
         if let Some(name) =
             known.iter().find(|name| nmcli(&["--wait", "30", "connection", "up", "id", name.as_str()]).is_ok())
         {
@@ -520,7 +535,7 @@ pub fn join(wanted: String, key: String) -> Result<()> {
     std::thread::spawn(move || {
         std::thread::sleep(Duration::from_secs(2));
         let ifname = devices().ok().and_then(|(wifi, _)| wifi).unwrap_or_else(|| "wlan0".to_owned());
-        let _ = nmcli(&["connection", "down", HOTSPOT]);
+        close_hotspot(&ifname);
         let mut args = vec!["--wait", "45", "device", "wifi", "connect", wanted.as_str()];
         if !key.is_empty() {
             args.extend(["password", key.as_str()]);
@@ -586,6 +601,14 @@ mod tests {
         assert!(check("--help", "motdepasse").is_err(), "pris pour une option");
         assert!(check("a\nb", "motdepasse").is_err());
         assert!(check(&"x".repeat(33), "motdepasse").is_err());
+    }
+
+    #[test]
+    fn hostapd_uses_plain_wpa2() {
+        let conf = hostapd_conf("wlan0", "Printr-AB12", "abcdefghjk");
+        assert!(conf.contains("\nwpa_key_mgmt=WPA-PSK\n"), "sans WPA-PSK-SHA256");
+        assert!(conf.contains("\nrsn_pairwise=CCMP\n") && conf.contains("\nchannel=6\n"));
+        assert!(conf.contains("\nssid=Printr-AB12\n") && conf.ends_with("wpa_passphrase=abcdefghjk\n"));
     }
 
     #[test]

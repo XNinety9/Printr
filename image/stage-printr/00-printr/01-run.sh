@@ -25,8 +25,9 @@ printf 'usblp\n' > "${ROOTFS_DIR}/etc/modules-load.d/usblp.conf"
 install -m 644 "$F/50-printr.rules" "${ROOTFS_DIR}/etc/polkit-1/rules.d/50-printr.rules"
 install -m 644 "$F/51-printr-network.rules" "${ROOTFS_DIR}/etc/polkit-1/rules.d/51-printr-network.rules"
 
-# Hotspot: every address leads to Printr, so the phone opens the setup page.
-install -D -m 644 "$F/printr-portal.conf" "${ROOTFS_DIR}/etc/NetworkManager/dnsmasq-shared.d/printr-portal.conf"
+# Hotspot (hostapd and dnsmasq), started by printr when there is no network at boot.
+install -m 644 "$F/printr-hotspot.service" "${ROOTFS_DIR}/etc/systemd/system/printr-hotspot.service"
+install -D -m 644 "$F/hotspot-dnsmasq.conf" "${ROOTFS_DIR}/etc/printr/hotspot-dnsmasq.conf"
 
 on_chroot <<- CHROOT
 	getent group printr >/dev/null || groupadd --system printr
@@ -35,4 +36,5 @@ on_chroot <<- CHROOT
 	usermod -aG printr,lp "${FIRST_USER_NAME}" 2>/dev/null || true
 	chown root:printr /opt/printr /opt/printr/printr /etc/printr.env
 	systemctl enable printr avahi-daemon
+	systemctl disable hostapd 2>/dev/null || true
 CHROOT

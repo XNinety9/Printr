@@ -25,8 +25,9 @@ an account, enables SSH, and can also provide the Wi-Fi right away.
 | `stage-printr/` | Stage added after Lite: packages, files, service |
 | `printr.env` | Service configuration in the image |
 | `image.conf` | Service drop-in: the right to listen on port 80, and nothing else |
-| `51-printr-network.rules` | polkit: the service may drive NetworkManager (hotspot, Wi-Fi) |
-| `printr-portal.conf` | Hotspot dnsmasq: every name leads to Printr (captive portal) |
+| `51-printr-network.rules` | polkit: the service may drive NetworkManager and start its hotspot |
+| `printr-hotspot.service` | The hotspot: hostapd (plain WPA2) and dnsmasq, started by Printr |
+| `hotspot-dnsmasq.conf` | Hotspot DHCP and DNS: every name leads to Printr (captive portal) |
 | `build.sh` | Puts it all together and runs pi-gen in Docker |
 
 ## Building

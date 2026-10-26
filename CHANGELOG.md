@@ -18,7 +18,9 @@ Koenig, Tolbert Lanston…
   of boot, Printr opens a `Printr-XXXX` Wi-Fi hotspot and prints a ticket with QR codes to join it and open
   the setup page (phones open it by themselves, like a hotel Wi-Fi). Pick the home Wi-Fi, type its
   password: Printr joins it and prints the app's address. On a wrong password it reopens the hotspot
-  and prints why. Uses NetworkManager; enabled by `PRINTR_WIFI_SETUP=1` (the image sets it).
+  and prints why. The hotspot runs on hostapd (plain WPA2: NetworkManager's own hotspot is refused by
+  phones on Raspberry Pi Wi-Fi chips), the rest on NetworkManager; enabled by `PRINTR_WIFI_SETUP=1` (the
+  image sets it).
 - **First-run wizard**: after the first account (where the language can now be picked), the admin is
   guided through finding the printer (USB, or network printers answering on port 9100), printing a test
   ticket and choosing the code page from how the accents came out, then the city and an optional Claude
