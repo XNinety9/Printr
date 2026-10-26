@@ -1,5 +1,5 @@
 use std::io::Read;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::time::Instant;
 
@@ -10,10 +10,12 @@ use clap::{ArgAction, CommandFactory, FromArgMatches, Parser, Subcommand};
 // Déclaré en premier :  est visible dans tous les modules qui suivent (macro_use).
 #[macro_use]
 mod i18n;
+mod backup;
 mod blocks;
 mod cache;
 mod claude;
 mod cp858;
+mod detect;
 mod doc;
 mod draw;
 mod guard;
@@ -24,9 +26,11 @@ mod output;
 mod raster;
 mod scheduler;
 mod server;
+mod settings;
 mod store;
 mod ui;
 mod update;
+mod wifi;
 
 use crate::i18n::t;
 use doc::{Doc, Style};
@@ -43,7 +47,7 @@ const STYLES: Styles = Styles::styled()
 
 /// Nom de la version mineure en cours : un pionnier de l'imprimerie, par ordre alphabétique (voir
 /// le CHANGELOG). À changer à chaque nouvelle version mineure, en même temps que le CHANGELOG.
-const CODENAME: &str = "Lanston";
+const CODENAME: &str = "Mergenthaler";
 
 /// Imprime des tickets sur une Epson TM-T88V (ESC/POS).
 #[derive(Parser)]
@@ -354,6 +358,8 @@ fn load_system_env() {
 
 fn main() -> ExitCode {
     load_system_env();
+    // Puis les réglages faits dans l'appli, pour ce que le système n'a pas fixé.
+    settings::load(store::data_dir().map(|d| d.join("printr.json")).as_deref());
     // CrossWords (mots fléchés) range son dictionnaire et ses définitions dans le cache de printr,
     // seul dossier où le service a le droit d'écrire.
     if std::env::var_os("CROSSWORDS_CACHE").is_none()
@@ -372,7 +378,8 @@ fn main() -> ExitCode {
 }
 
 /// Destination des octets : `--tcp`, `--dump` ou `--device` ; sinon `$PRINTR_TCP` (imprimante
-/// réseau), `$PRINTR_DEVICE`, ou /dev/usb/lp0. Les options l'emportent sur l'environnement.
+/// réseau), `$PRINTR_DEVICE`, ou le lien /dev/tm88 de la règle udev s'il existe, sinon
+/// /dev/usb/lp0. Les options l'emportent sur l'environnement.
 fn target(cli: &Cli) -> Target {
     let env = |name| std::env::var(name).ok().filter(|v| !v.trim().is_empty());
     match (&cli.tcp, &cli.dump, &cli.device) {
@@ -381,7 +388,9 @@ fn target(cli: &Cli) -> Target {
         (_, _, Some(device)) => Target::Device(device.clone()),
         _ => match (env("PRINTR_TCP"), env("PRINTR_DEVICE")) {
             (Some(addr), _) => Target::Tcp(addr),
-            (None, device) => Target::Device(device.map_or_else(|| "/dev/usb/lp0".into(), PathBuf::from)),
+            (None, Some(device)) => Target::Device(device.into()),
+            (None, None) if Path::new("/dev/tm88").exists() => Target::Device("/dev/tm88".into()),
+            (None, None) => Target::Device("/dev/usb/lp0".into()),
         },
     }
 }

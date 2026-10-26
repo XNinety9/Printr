@@ -441,6 +441,8 @@ def main() -> None:
         (OUT / page).write_text(render(page, lang, title, source, twin))
     (OUT / BLOCKS_PAGE).write_text(render_blocks())
     (OUT / ".nojekyll").touch()  # fichiers servis tels quels
+    # Installation en une commande : curl -fsSL https://xninety9.github.io/Printr/install.sh | bash
+    shutil.copy(ROOT / "deploy" / "get.sh", OUT / "install.sh")
     pages = sorted(p.name for p in OUT.glob("*.html"))
     print(f"site construit dans {OUT.relative_to(ROOT)} : " + ", ".join(pages))
 

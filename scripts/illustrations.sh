@@ -2,12 +2,13 @@
 # Refait toutes les illustrations du site et du README, dans les deux langues, puis construit le
 # site : à lancer avant chaque version.
 #   1. tickets d'exemple des blocs (docs/exemples/, docs/exemples/en/) ;
-#   2. captures de l'appli et tickets vitrines (docs/shots/, docs/tickets/, et leurs en/) ;
+#   2. captures de l'appli et tickets vitrines (docs/shots/, docs/tickets/, et leurs en/), dont la
+#      première mise en route : point d'accès, assistant, réglages ;
 #   3. image de partage (docs/preview.png) ;
 #   4. site (_site/).
 # Usage : scripts/illustrations.sh [--sans-claude] [--seulement exemples|captures|partage|site]
 #   --sans-claude : aucun appel à Claude ; les blocs qui en ont besoin gardent leur image actuelle.
-# Prérequis : uv, chromium et l'émulateur (uvx emupos). Barnum : $PRINTR_BARNUM, sinon ../Barnum.
+# Prérequis : uv, chromium, l'émulateur (uvx emupos) et unshare. Barnum : $PRINTR_BARNUM, sinon ../Barnum.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -114,6 +115,9 @@ if wanted captures; then
   run "Captures de l'appli et tickets vitrines, en français" $((shots + desktop + tickets)) docs/demo/photo-session.sh
   tickets=$(find docs/demo/tickets/en -maxdepth 1 -name '*.json' | wc -l)
   run "Captures de l'appli et tickets vitrines, en anglais" $((shots + desktop + tickets)) docs/demo/photo-session.sh --en
+  # Première mise en route (réseau isolé, point d'accès après une minute) : trois captures, deux tickets.
+  run "Première mise en route, en français" 5 docs/demo/setup-session.sh
+  run "Première mise en route, en anglais" 5 docs/demo/setup-session.sh --en
 fi
 
 if wanted site || wanted partage; then

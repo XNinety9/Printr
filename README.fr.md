@@ -40,6 +40,9 @@ sur un Raspberry Pi, qui parle ESC/POS directement à l'imprimante.
   liste de courses, actualités, photos…
 - **Une appli web pour la famille** : comptes, tickets enregistrés et partagés, aperçu en direct,
   planification, historique.
+- **Prêt à flasher** : une image pour Raspberry Pi ; on branche l'imprimante, on allume, et le Wi-Fi
+  se règle depuis le téléphone grâce au ticket qu'elle imprime. Un assistant et les réglages dans
+  l'appli font le reste.
 - **Ne perd aucun ticket** : imprimante éteinte, capot ouvert ou plus de papier ? Le ticket attend, et
   l'appli dit pourquoi.
 - **S'intègre à la maison** : Home Assistant (intégration ou découverte automatique), MQTT, Node-RED, API HTTP.
@@ -47,6 +50,15 @@ sur un Raspberry Pi, qui parle ESC/POS directement à l'imprimante.
   demande une plume, par de petits appels à Claude Haiku, toujours mis en cache.
 
 ## Démarrage rapide
+
+**Sur un Raspberry Pi** : écrire l'[image prête à flasher](https://github.com/XNinety9/Printr/releases)
+sur une carte microSD avec Raspberry Pi Imager, brancher l'imprimante et allumer
+([détails](https://xninety9.github.io/Printr/guide.html#image-prête-à-flasher)).
+
+**Sur une machine déjà en service** (Raspberry Pi OS, ou tout Linux avec systemd) :
+`curl -fsSL https://xninety9.github.io/Printr/install.sh | bash`, puis l'assistant dans le navigateur.
+
+**Depuis le code source** :
 
 ```sh
 cargo run --release -- --preview print examples/complet.json   # aperçu dans le terminal, sans imprimante

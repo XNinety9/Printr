@@ -72,8 +72,22 @@ fn age(b: &Birthday, on: NaiveDate) -> Option<i32> {
     b.year.map(|y| on.year() - y).filter(|a| *a > 0)
 }
 
-pub fn build(list: &str, upcoming: u8, today: NaiveDate) -> Result<Doc> {
-    let people: Vec<Birthday> = list.lines().filter_map(parse_line).take(100).collect();
+/// Les anniversaires du bloc puis ceux de la famille, sans doublon (même nom, même jour).
+fn merge(list: &str, family: &str) -> Vec<Birthday> {
+    let mut people: Vec<Birthday> = Vec::new();
+    for b in list.lines().chain(family.lines()).filter_map(parse_line) {
+        let same =
+            |o: &Birthday| o.name.to_lowercase() == b.name.to_lowercase() && (o.month, o.day) == (b.month, b.day);
+        if !people.iter().any(same) {
+            people.push(b);
+        }
+    }
+    people.truncate(200);
+    people
+}
+
+pub fn build(list: &str, family: &str, upcoming: u8, today: NaiveDate) -> Result<Doc> {
+    let people = merge(list, family);
     if people.is_empty() {
         bail!(
             "{}",
@@ -159,12 +173,21 @@ mod tests {
 
     #[test]
     fn birthday_of_the_day_comes_first() {
-        let doc =
-            i18n::with_lang(i18n::Lang::Fr, || build("Léo, 20/10/2014\nCamille 25/10", 3, d(2026, 10, 20)).unwrap());
+        let doc = i18n::with_lang(i18n::Lang::Fr, || {
+            build("Léo, 20/10/2014\nCamille 25/10", "", 3, d(2026, 10, 20)).unwrap()
+        });
         let text = doc.preview(false);
         // Le titre est en double taille : l'aperçu l'écrit en lettres espacées.
         assert!(text.contains("L é o   !"));
         assert!(text.contains("12 ans aujourd'hui"));
         assert!(text.contains("25 oct. · Camille · J-5"));
+    }
+
+    #[test]
+    fn family_birthdays_join_without_duplicates() {
+        let people = i18n::with_lang(i18n::Lang::Fr, || merge("Léo, 20/10/2014", "léo 20/10\nMamie, 02/01/1950"));
+        let names: Vec<&str> = people.iter().map(|b| b.name.as_str()).collect();
+        assert_eq!(names, vec!["Léo", "Mamie"], "Léo n'est compté qu'une fois, avec son année");
+        assert_eq!(people[0].year, Some(2014));
     }
 }

@@ -65,6 +65,29 @@ fn four() -> u8 {
     4
 }
 
+/// La ville par défaut des blocs à lieu (météo, air, soleil, ciel) : réglage `PRINTR_CITY`.
+fn city() -> Option<String> {
+    std::env::var("PRINTR_CITY").ok()
+}
+
+/// Le lieu du bloc, sinon la ville par défaut.
+fn pick_location(location: &str, city: Option<&str>) -> Option<String> {
+    [Some(location), city].into_iter().flatten().map(str::trim).find(|l| !l.is_empty()).map(str::to_owned)
+}
+
+/// Le lieu à utiliser, ou une erreur qui dit où l'indiquer.
+fn place(location: &str) -> Result<String> {
+    pick_location(location, city().as_deref()).ok_or_else(|| {
+        anyhow::anyhow!(
+            "{}",
+            i18n::t(
+                "aucune ville : indique-la dans le bloc, ou dans les réglages (ville par défaut)",
+                "no city: set it in the block, or in the settings (default city)"
+            )
+        )
+    })
+}
+
 fn yes() -> bool {
     true
 }
@@ -137,7 +160,14 @@ pub enum Block {
         #[serde(default)]
         style: Option<char>,
     },
-    Date {},
+    /// La date du jour, ou une autre : `date` fixe (`AAAA-MM-JJ`), ou `offset` jours plus tard (ou
+    /// plus tôt), pour préparer des tickets à l'avance.
+    Date {
+        #[serde(default)]
+        date: Option<String>,
+        #[serde(default)]
+        offset: Option<i64>,
+    },
     Feed {
         #[serde(default = "one")]
         lines: u8,
@@ -167,12 +197,20 @@ pub enum Block {
         caption: Option<String>,
     },
     Weather {
+        /// Vide : la ville des réglages (`PRINTR_CITY`), comme pour les autres blocs à lieu.
+        #[serde(default)]
         location: String,
         #[serde(default = "one")]
         days: u8,
         /// Comment s'habiller aujourd'hui, d'après les prévisions (sans IA).
         #[serde(default, alias = "tenue")]
         outfit: bool,
+        /// Ligne du vent et de l'UV.
+        #[serde(default = "yes")]
+        wind: bool,
+        /// Lever et coucher du soleil.
+        #[serde(default = "yes")]
+        sun: bool,
     },
     Horoscope {
         sign: String,
@@ -271,7 +309,13 @@ pub enum Block {
         count: u8,
     },
     AirQuality {
+        #[serde(default)]
         location: String,
+        /// Particules, ozone et dioxyde d'azote.
+        #[serde(default = "yes")]
+        pollutants: bool,
+        #[serde(default = "yes")]
+        pollen: bool,
     },
     Quote {},
     /// Un petit papier façon biscuit chinois (`fortune`), dit par une vache en option (`cowsay`).
@@ -290,6 +334,7 @@ pub enum Block {
         currency: String,
     },
     Sun {
+        #[serde(default)]
         location: String,
     },
     /// Horoscope hors ligne et gratuit, calculé sur le ciel réel par Barnum.
@@ -473,6 +518,9 @@ pub enum Block {
         /// Combien des suivants annoncer.
         #[serde(default = "three", alias = "suivants")]
         upcoming: u8,
+        /// Ajoute les anniversaires communs à la famille (enregistrés dans l'appli).
+        #[serde(default = "yes")]
+        family: bool,
     },
     /// Problème d'échecs du jour (Lichess) : l'échiquier, et la solution à l'envers.
     #[serde(alias = "echecs")]
@@ -571,6 +619,7 @@ pub enum Block {
     /// Le ciel ce soir : planètes visibles, passages de l'ISS, lune, étoiles filantes.
     #[serde(alias = "ciel")]
     Sky {
+        #[serde(default)]
         location: String,
     },
     /// Mandala à colorier.
@@ -710,7 +759,7 @@ impl Block {
             Block::Text { .. } => i18n::t("texte", "text"),
             Block::Glitch { .. } => "glitch",
             Block::Separator { .. } => i18n::t("séparateur", "separator"),
-            Block::Date {} => "date",
+            Block::Date { .. } => "date",
             Block::Feed { .. } => i18n::t("espace", "space"),
             Block::Cut {} => i18n::t("coupe", "cut"),
             Block::Image { .. } => "image",
@@ -748,7 +797,9 @@ impl Block {
     pub fn label(&self) -> String {
         let detail = match self {
             Block::Title { text, .. } => Some(text.chars().take(24).collect()),
-            Block::Weather { location, .. } | Block::AirQuality { location } => Some(location.clone()),
+            Block::Weather { location, .. } | Block::AirQuality { location, .. } => {
+                pick_location(location, city().as_deref())
+            }
             Block::Horoscope { sign, tone } => Some(format!("{sign} ({})", tone.label())),
             Block::Sudoku { difficulty, solution, .. }
             | Block::TrainTracks { difficulty, solution, .. }
@@ -806,7 +857,7 @@ impl Block {
             }
             Block::Countdown { label, .. } => Some(label.clone()),
             Block::Crypto { coins, .. } => Some(coins.join(", ")),
-            Block::Sun { location } | Block::Sky { location } => Some(location.clone()),
+            Block::Sun { location } | Block::Sky { location } => pick_location(location, city().as_deref()),
             Block::News { title, .. } => Some(title.clone()),
             Block::Workout { level, .. } => Some(level.label().to_owned()),
             Block::Picto { shape, .. } => Some(shape.label().to_owned()),
@@ -845,8 +896,18 @@ impl Block {
             Block::Separator { style } => {
                 doc.rule(style.unwrap_or('-'));
             }
-            Block::Date {} => {
-                doc.text(&i18n::capitalize(&i18n::long_date(ctx.today)), Style::default().bold().center());
+            Block::Date { date, offset } => {
+                let day = match (date.as_deref().map(str::trim).filter(|d| !d.is_empty()), offset) {
+                    (Some(d), _) => NaiveDate::parse_from_str(d, "%Y-%m-%d").map_err(|_| {
+                        anyhow::anyhow!(
+                            "{}",
+                            tr!("date invalide : {d} (AAAA-MM-JJ attendu)", "invalid date: {d} (YYYY-MM-DD expected)")
+                        )
+                    })?,
+                    (None, Some(n)) => ctx.today + chrono::Duration::days((*n).clamp(-3660, 3660)),
+                    (None, None) => ctx.today,
+                };
+                doc.text(&i18n::capitalize(&i18n::long_date(day)), Style::default().bold().center());
             }
             Block::Feed { lines } => {
                 doc.feed(*lines);
@@ -895,7 +956,14 @@ impl Block {
                     doc.text(caption, Style::default().small().center());
                 }
             }
-            Block::Weather { location, days, outfit } => doc = weather::build(&ctx.http, location, *days, *outfit)?,
+            Block::Weather { location, days, outfit, wind, sun } => {
+                doc = weather::build(
+                    &ctx.http,
+                    &place(location)?,
+                    *days,
+                    weather::Show { outfit: *outfit, wind: *wind, sun: *sun },
+                )?
+            }
             Block::Horoscope { sign, tone } => doc = horoscope::build(ctx, sign, *tone)?,
             Block::Saint {} => doc = saint::build(ctx.today),
             Block::Todo { title, items } => {
@@ -932,11 +1000,13 @@ impl Block {
                 doc.text(&small, Style::default().center());
             }
             Block::OnThisDay { count } => doc = on_this_day::build(&ctx.http, ctx.today, *count)?,
-            Block::AirQuality { location } => doc = air_quality::build(&ctx.http, location)?,
+            Block::AirQuality { location, pollutants, pollen } => {
+                doc = air_quality::build(&ctx.http, &place(location)?, *pollutants, *pollen)?
+            }
             Block::Quote {} => doc = quote::build(ctx.today),
             Block::Fortune { source, cow, seed } => doc = fortune::build(*source, *cow, *seed)?,
             Block::Crypto { coins, currency } => doc = crypto::build(&ctx.http, coins, currency)?,
-            Block::Sun { location } => doc = sun::build(ctx, location)?,
+            Block::Sun { location } => doc = sun::build(ctx, &place(location)?)?,
             Block::Riddle { kind, number, answer } => doc = riddle::build(ctx.today, *kind, *number, *answer)?,
             Block::Workout { level, number } => doc = workout::build(ctx.today, *level, *number)?,
             Block::Picto { shape, size, count } => doc = picto::build(*shape, *size, *count),
@@ -979,7 +1049,15 @@ impl Block {
             Block::Bins { collections, when, always } => doc = bins::build(collections, *when, *always, ctx.today)?,
             Block::Chores { tasks, people, period } => doc = chores::build(tasks, people, *period, ctx.today)?,
             Block::Chess { solution } => doc = chess::build(ctx, *solution)?,
-            Block::Birthdays { list, upcoming } => doc = birthdays::build(list, *upcoming, ctx.today)?,
+            Block::Birthdays { list, upcoming, family } => {
+                // Sans données (commande lancée hors du serveur), la liste de la famille est vide.
+                let shared = if *family {
+                    crate::store::read_data().map(|d| d.family_birthdays).unwrap_or_default()
+                } else {
+                    String::new()
+                };
+                doc = birthdays::build(list, &shared, *upcoming, ctx.today)?
+            }
             Block::Story { children, theme, length } => doc = story::build(ctx, children, theme, *length)?,
             Block::Agenda { calendars, days, title } => doc = agenda::build(ctx, calendars, *days, title.as_deref())?,
             Block::MonthlyReport { month } => doc = monthly::build(month.as_deref(), ctx.today)?,
@@ -989,7 +1067,7 @@ impl Block {
                 doc = arrow_word::build(ctx, &options)?;
             }
             Block::Recipe { url, steps, qr } => doc = recipe::build(ctx, url, *steps, *qr)?,
-            Block::Sky { location } => doc = sky::build(ctx, location)?,
+            Block::Sky { location } => doc = sky::build(ctx, &place(location)?)?,
             Block::RecipeClaude { dish, servings, steps } => {
                 doc = recipe::build_with_claude(ctx, dish, *servings, *steps)?
             }
@@ -1169,6 +1247,65 @@ mod tests {
     fn rejects_unknown_fields_and_types() {
         assert!(serde_json::from_str::<Ticket>(r#"{"blocks": [{"type": "saint", "oups": 1}]}"#).is_err());
         assert!(serde_json::from_str::<Ticket>(r#"{"blocks": [{"type": "licorne"}]}"#).is_err());
+    }
+
+    #[test]
+    fn location_falls_back_to_the_default_city() {
+        assert_eq!(pick_location("Lyon", Some("Mérignac")).as_deref(), Some("Lyon"));
+        assert_eq!(pick_location("", Some("Mérignac")).as_deref(), Some("Mérignac"));
+        assert_eq!(pick_location("  ", Some(" Mérignac ")).as_deref(), Some("Mérignac"));
+        assert_eq!(pick_location("", None), None);
+        assert_eq!(pick_location("", Some("")), None);
+        // Le lieu peut manquer dans le JSON : la ville des réglages prendra le relais.
+        let t: Ticket = serde_json::from_str(
+            r#"{"blocks": [{"type": "weather"}, {"type": "air_quality"}, {"type": "sun"}, {"type": "sky"}]}"#,
+        )
+        .unwrap();
+        assert_eq!(t.blocks.len(), 4);
+    }
+
+    #[test]
+    fn weather_and_air_show_everything_by_default() {
+        let t: Ticket = serde_json::from_str(
+            r#"{"blocks": [
+                {"type": "weather", "location": "Lyon"},
+                {"type": "weather", "location": "Lyon", "wind": false, "sun": false},
+                {"type": "air_quality", "location": "Lyon"},
+                {"type": "air_quality", "location": "Lyon", "pollutants": false}
+            ]}"#,
+        )
+        .unwrap();
+        assert!(matches!(t.blocks[0], Block::Weather { wind: true, sun: true, .. }));
+        assert!(matches!(t.blocks[1], Block::Weather { wind: false, sun: false, .. }));
+        assert!(matches!(t.blocks[2], Block::AirQuality { pollutants: true, pollen: true, .. }));
+        assert!(matches!(t.blocks[3], Block::AirQuality { pollutants: false, pollen: true, .. }));
+    }
+
+    #[test]
+    fn date_block_prints_another_day() {
+        let t: Ticket = serde_json::from_str(
+            r#"{"blocks": [
+                {"type": "date", "offset": 2},
+                {"type": "date", "date": "2026-12-25"},
+                {"type": "date", "date": "25/12/2026"}
+            ]}"#,
+        )
+        .unwrap();
+        let ctx = Ctx {
+            today: NaiveDate::from_ymd_opt(2026, 10, 7).unwrap(),
+            http: ureq::agent(),
+            claude: None,
+            cache: None,
+            refresh: false,
+            preview: false,
+            local: true,
+        };
+        let (doc, reports) = t.build(&ctx, &mut Silent);
+        let preview = doc.preview(false);
+        // Deux jours après le 7 octobre, puis Noël ; la troisième date est refusée.
+        assert!(preview.contains("9 octobre 2026") || preview.contains("October 9, 2026"), "{preview}");
+        assert!(preview.contains("25 décembre 2026") || preview.contains("December 25, 2026"), "{preview}");
+        assert_eq!(reports.iter().filter(|r| r.error.is_some()).count(), 1);
     }
 
     #[test]

@@ -291,7 +291,10 @@ d'exemple (voir `barnum.rs`).
   langues (exemples des blocs, captures de l'appli, tickets vitrines, image de partage), puis
   construit le site ; `--sans-claude` évite tout appel à Claude (les blocs Claude gardent leur image).
 - Les captures du site et de la doc se régénèrent avec `docs/demo/photo-session.sh`, toujours
-  sur des données fictives. N'y mets jamais de vraies données personnelles.
+  sur des données fictives. N'y mets jamais de vraies données personnelles. Celles de la mise en
+  route (point d'accès Wi-Fi, assistant, réglages) viennent de `docs/demo/setup-session.sh`, qui fait
+  tourner Printr dans un espace réseau isolé (`unshare`, sans sudo) avec un faux réseau, un faux
+  `nmcli` et l'émulateur.
 - Les déclinaisons du logo se régénèrent avec
   `uv run --with pillow python docs/brand/make-assets.py`.
 - Le site se construit avec `docs/build.py` : la page d'accueil (`docs/index.html`) et la
@@ -318,6 +321,31 @@ poussée : `git tag -a v1.1.0 -m "printr 1.1.0" && git push origin v1.1.0`. Le w
 compile alors les binaires et publie la release GitHub, avec la section du CHANGELOG comme notes. Les installations la
 voient dans la journée (« Mon compte » de l'administrateur) : ne pousse une étiquette que pour
 une version prête à être installée.
+
+Une fois le workflow terminé, le mainteneur signe la release sur son ordinateur :
+`scripts/signer-release.sh v1.1.0`. Le script télécharge `SHA256SUMS` et tous les fichiers listés,
+vérifie les empreintes, signe la liste avec la clé des releases (`~/.config/printr-release/printr.key`,
+qui ne quitte jamais cet ordinateur) et ajoute `SHA256SUMS.minisig` à la release. Les installations
+en mise à jour automatique n'installent qu'une release signée. `scripts/labo-maj.sh` essaie tout
+le chemin de mise à jour en local (faux GitHub, faux systemd) : une bonne version, une qui plante
+(retour en arrière), une mauvaise clé, un binaire modifié.
+
+Les clés des releases se créent une fois, chacune avec un mot de passe :
+
+```sh
+cargo run -q --example signer -- keygen ~/.config/printr-release        # clé principale, sur cet ordinateur
+cargo run -q --example signer -- keygen /media/usb/printr-secours       # clé de secours, directement sur une clé USB
+```
+
+Les deux clés publiques vont dans `RELEASE_KEYS` (`src/update.rs`), la principale d'abord : Printr
+accepte une signature de l'une ou de l'autre. Sauvegarde la clé privée principale (`printr.key`,
+quelques lignes de texte déjà chiffrées par son mot de passe) dans un gestionnaire de mots de
+passe, et garde son mot de passe ailleurs. La clé de secours reste hors ligne, jamais sur
+l'ordinateur : une clé USB dans un tiroir, ou imprimée sur du papier ordinaire (pas sur un ticket :
+le papier thermique s'efface). Si la clé principale est perdue, signe avec celle de secours
+(`scripts/signer-release.sh vX.Y.Z --key /media/usb/printr-secours/printr.key`) une version dont
+`RELEASE_KEYS` contient une nouvelle clé principale et la même clé de secours : toutes les
+installations la prennent d'elles-mêmes.
 
 ## Proposer une modification
 

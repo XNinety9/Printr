@@ -1,0 +1,4 @@
+avahi-daemon
+dnsmasq-base
+hostapd
+python3

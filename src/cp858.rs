@@ -23,7 +23,24 @@ const HIGH: [char; 128] = [
 /// les imprimantes qui n'ont pas la page 19. PC850 n'a pas le `€` (0xD5 y est un `ı`).
 pub fn is_pc850() -> bool {
     static PC850: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    if let Some(forced) = FORCED.with(std::cell::Cell::get) {
+        return forced;
+    }
     *PC850.get_or_init(|| matches!(std::env::var("PRINTR_CODEPAGE").as_deref().map(str::trim), Ok("850" | "2")))
+}
+
+thread_local! {
+    /// Page imposée le temps d'un appel à `with_codepage` (ticket de test de l'assistant).
+    static FORCED: std::cell::Cell<Option<bool>> = const { std::cell::Cell::new(None) };
+}
+
+/// Exécute `f` avec la page PC850 (`true`) ou PC858 (`false`), quel que soit le réglage : pour
+/// essayer une page avant de l'enregistrer.
+pub fn with_codepage<T>(pc850: bool, f: impl FnOnce() -> T) -> T {
+    let before = FORCED.with(|c| c.replace(Some(pc850)));
+    let result = f();
+    FORCED.with(|c| c.set(before));
+    result
 }
 
 /// Remplacements pour les caractères courants absents de la page.
@@ -115,6 +132,13 @@ mod tests {
         assert_eq!(encode("a-b"), b"a-b");
         assert_eq!(encode("é€°"), vec![0x82, 0xD5, 0xF8]);
         assert_eq!(encode("Ò¿®"), vec![0xE3, 0xA8, 0xA9]);
+    }
+
+    #[test]
+    fn codepage_can_be_forced_for_a_call() {
+        assert_eq!(with_codepage(true, || encode("5€")), b"5EUR");
+        assert_eq!(with_codepage(false, || encode("5€")), vec![b'5', 0xD5]);
+        assert!(!with_codepage(true, || with_codepage(false, is_pc850)));
     }
 
     #[test]

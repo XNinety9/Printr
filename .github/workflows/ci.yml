@@ -29,6 +29,15 @@ jobs:
       - run: cargo fmt --check
       - run: cargo clippy --all-targets --locked -- -D warnings
       - run: cargo test --locked
+      # node --check ne voit que la syntaxe : l'appli doit aussi démarrer pour de bon (une constante
+      # utilisée avant sa déclaration l'arrête au chargement, sans erreur de syntaxe).
+      - name: L'appli démarre dans un navigateur
+        run: |
+          cargo build --locked
+          PRINTR_DATA_DIR=$(mktemp -d) target/debug/printr --dump /dev/null serve --listen 127.0.0.1:8099 &
+          for _ in $(seq 50); do curl -fs -o /dev/null http://127.0.0.1:8099/ && break; sleep 0.2; done
+          google-chrome --headless=new --disable-gpu --virtual-time-budget=5000 --dump-dom http://127.0.0.1:8099/ > dom.html
+          grep -q 'class="login-card"' dom.html || { echo "l'appli ne s'affiche pas :"; head -c 3000 dom.html; exit 1; }
 
   web:
     name: Appli web et scripts

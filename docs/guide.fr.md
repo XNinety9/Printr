@@ -13,7 +13,12 @@ cargo run --release -- --device /dev/usb/lp0 serve             # interface sur h
 scripts/deploy.sh pi@printer.local                             # installation sur un Raspberry Pi (ou --local)
 ```
 
-Au premier lancement, l'interface propose de créer son compte, puis ceux de la famille.
+Au premier lancement, l'interface propose de créer son compte, puis un court
+[assistant](#premier-lancement) règle l'imprimante, la ville et Claude ; viennent ensuite les comptes
+de la famille.
+
+**Le plus simple, sur un Raspberry Pi** : écrire l'[image prête à flasher](#image-prête-à-flasher)
+sur une carte microSD, brancher l'imprimante et allumer. Même le Wi-Fi se règle depuis le téléphone.
 
 Pas encore d'imprimante ? `scripts/demo.sh` imprime le ticket complet dans un
 [émulateur](#tester-sans-imprimante-émulateur) et en donne une image PNG.
@@ -87,12 +92,12 @@ Un paramètre inconnu est une erreur, pour repérer les fautes de frappe.
 | `title` | `text`, `size` (2) | Gras, centré, agrandi |
 | `text` | `text`, `bold`, `underline`, `reverse`, `small`, `size` (1), `align` (`left`/`center`/`right`) | Coupé aux mots |
 | `separator` | `style` (`-`) | Un caractère répété : `-`, `=`, `═`, `─`, `·`… |
-| `date` | — | « Mercredi 7 octobre 2026 » |
+| `date` | `offset` (jours, par ex. 1 pour demain), `date` (`AAAA-MM-JJ`) | « Mercredi 7 octobre 2026 » ; aujourd'hui par défaut, ou un autre jour, pour préparer des tickets à l'avance |
 | `feed` | `lines` (1) | Espace vertical |
 | `cut` (ou `coupe`) | — | Coupe le papier à cet endroit, après l'espacement habituel (`spacing`) : la suite sort sur un autre ticket. Le `cut` du ticket ajoute toujours la coupe finale |
 | `image` | `path` ou `url`, `dither` (true), `dither_algorithm` (`floyd-steinberg`, `atkinson`, `bayer`) | Réduite à 512 px |
 | `qr` | `data`, `size` (6), `caption` | |
-| `weather` | `location`, `days` (1, max 7), `outfit` (ou `tenue`, false) | [Open-Meteo](https://open-meteo.com), sans clé. `location` : ville ou `"lat,lon"`. Pictogrammes pour chaque jour ; `outfit` ajoute comment s'habiller aujourd'hui (« manteau et bonnet, prends un parapluie »), sans IA |
+| `weather` | `location` (ville par défaut), `days` (1, max 7), `outfit` (ou `tenue`, false), `wind` (true), `sun` (true) | [Open-Meteo](https://open-meteo.com), sans clé. `location` : ville ou `"lat,lon"` ; vide, la ville par défaut des réglages. Pictogrammes pour chaque jour ; `outfit` ajoute comment s'habiller aujourd'hui (« manteau et bonnet, prends un parapluie »), sans IA ; `wind` et `sun` affichent la ligne du vent et de l'UV, et le lever et le coucher du soleil. °F et mph avec `PRINTR_UNITS=imperial` (dans les réglages) |
 | `barnum` | `sign` ou `birth_date` (`AAAA-MM-JJ`), `sky` (false), `variant` | Horoscope hors ligne et gratuit, calculé sur le vrai ciel par [Barnum](https://github.com/XNinety9/Barnum) : jauges par domaine, conseil, et en option la position des planètes |
 | `horoscope` | `sign`, `tone` (`serieux`/`farfelu`/`vachard`/`insultant`) | Généré par Claude, sur un thème tiré au hasard. Signe en français ou en anglais |
 | `saint` | — | Calendrier local, hors ligne |
@@ -111,13 +116,13 @@ Un paramètre inconnu est une erreur, pour repérer les fautes de frappe.
 | `fortune` | `cow` (ou `vache`, false), `source` (`builtin`, ou `system` pour la commande `fortune`), `seed` | Un petit papier façon biscuit chinois, hors ligne ; `cow` le fait dire par la vache de cowsay. `system` demande `fortune-mod` sur le serveur |
 | `holidays` | `zone` (`metropole`/`alsace-moselle`), `count` (1) | Calcul local, vérifié contre calendrier.api.gouv.fr |
 | `countdown` | `label`, `date` (`AAAA-MM-JJ`) | « J-79 avant : Noël » |
-| `birthdays` (ou `anniversaires`) | `list` (une ligne par personne : `Léo, 12/03/2014`, année facultative), `upcoming` (3) | « Joyeux anniversaire Léo ! » avec l'âge le jour J, puis le compte à rebours des suivants. Jour d'abord en français, mois d'abord en anglais, date ISO partout |
+| `birthdays` (ou `anniversaires`) | `list` (une ligne par personne : `Léo, 12/03/2014`, année facultative), `upcoming` (3), `family` (true) | « Joyeux anniversaire Léo ! » avec l'âge le jour J, puis le compte à rebours des suivants. Jour d'abord en français, mois d'abord en anglais, date ISO partout. `family` ajoute la liste commune de la famille, que chacun remplit depuis l'appli (`GET`/`PUT /api/birthdays`) |
 | `moon` | — | Phase, illumination, prochaines pleine et nouvelle lunes. Calcul local |
 | `on_this_day` | `count` (3) | Éphéméride, Wikipédia en français |
-| `air_quality` | `location` | Indice européen, particules, pollens (Open-Meteo) |
+| `air_quality` | `location` (ville par défaut), `pollutants` (true), `pollen` (true) | Indice européen, particules, pollens (Open-Meteo) ; `pollutants` et `pollen` affichent leurs lignes |
 | `crypto` | `coins` (`["bitcoin", "ethereum"]`, identifiants CoinGecko), `currency` (`eur`) | Cours et variation sur 24 h |
-| `sun` | `location` | Lever, coucher et durée du jour via Open-Meteo, sans clé |
-| `sky` (ou `ciel`) | `location` | Le ciel ce soir : planètes visibles (direction et hauteur), passages visibles de la Station spatiale internationale jusqu'à l'aube, lune et étoiles filantes. Calculé sur place (éléments orbitaux du JPL, SGP4) ; seule l'orbite de l'ISS vient de CelesTrak, une fois par jour |
+| `sun` | `location` (ville par défaut) | Lever, coucher et durée du jour via Open-Meteo, sans clé |
+| `sky` (ou `ciel`) | `location` (ville par défaut) | Le ciel ce soir : planètes visibles (direction et hauteur), passages visibles de la Station spatiale internationale jusqu'à l'aube, lune et étoiles filantes. Calculé sur place (éléments orbitaux du JPL, SGP4) ; seule l'orbite de l'ISS vient de CelesTrak, une fois par jour |
 | `riddle` (ou `enigme`) | `kind` (`devinette`/`charade`/`logique`/`calcul`), `number`, `answer` (`envers`/`lendemain`/`dessous`/`aucune`) | 125 énigmes, une par jour sans répétition. Par défaut, la réponse est imprimée à l'envers : on retourne le ticket pour la lire |
 | `workout` (ou `defi_sportif`) | `level` (`facile`/`moyen`/`difficile`), `number` | Défi sportif du jour, sans équipement, 25 défis par niveau |
 | `news` | `title`, `feeds` (URL RSS/Atom), `count` (3, max 5), `qr` (2, max 2), `themes`, `exclude`, `max_age_hours` (24) | Revue de presse sans IA : voir ci-dessous |
@@ -255,7 +260,8 @@ mêmes résultats, sans nouvel appel. `--refresh` force une nouvelle génératio
 
 Printr parle français par défaut. `PRINTR_LANG=en` (dans `/etc/printr.env` pour le service) passe
 toute l'installation en anglais : l'interface web, la ligne de commande, les messages et les
-tickets. Les blocs à contenu (énigmes, citations, mots mêlés, défis sportifs, bons à offrir…) ont
+tickets. La langue se choisit aussi sur l'écran du premier compte, ou plus tard dans
+[les réglages](#réglages). Les blocs à contenu (énigmes, citations, mots mêlés, défis sportifs, bons à offrir…) ont
 leur propre liste anglaise, et Claude écrit l'horoscope et le mot du jour en anglais.
 
 Les **mots fléchés** viennent du dictionnaire anglais de CrossWords, avec des définitions anglaises
@@ -305,7 +311,59 @@ en page, attendent son retour puis sortent tout seuls, planifications comprises 
 retard » dans l'historique). Au-delà de 12 heures (`PRINTR_QUEUE_HOURS`), un ticket en attente est
 abandonné : le brief du matin n'a plus d'intérêt le soir.
 
-Les données (comptes, presets, historique, photos) vivent dans `$PRINTR_DATA_DIR`, sinon
+### Premier lancement
+
+Sur une installation neuve, l'écran d'accueil propose de créer le premier compte, celui de
+l'administrateur, et de choisir la langue. Un court assistant suit :
+
+<p align="center">
+  <img src="shots/mobile-wizard.png" alt="Assistant : l'imprimante trouvée sur le réseau, et la question des accents" width="250">
+  &nbsp;
+  <img src="tickets/test.png" alt="Ticket de test avec des lettres accentuées et le signe euro" width="250">
+</p>
+
+1. **L'imprimante** : Printr liste les imprimantes USB (`/dev/tm88`, `/dev/usb/lp*`) et celles qui
+   répondent sur le port 9100 dans le réseau local ; une autre adresse peut être saisie. Un ticket
+   de test la vérifie : si les accents sortent en symboles bizarres, « Non » le réimprime avec
+   l'autre page de code (PC850, pour les imprimantes sans PC858), et garde celle qui marche.
+2. **La ville**, pour la météo, la qualité de l'air et les horaires du soleil.
+3. **Claude** (facultatif) : une clé d'API Anthropic, pour les histoires, l'horoscope, les recettes
+   et le mot du jour.
+
+Tout est enregistré à la fin, d'un coup, et chaque étape peut être passée. Il reste à ajouter la
+famille depuis **Mon compte**.
+
+### Réglages
+
+L'administrateur modifie l'installation depuis **Mon compte → Réglages** : langue, ville, unités de la météo (°C et km/h, ou °F et mph),
+imprimante (avec détection et ticket de test), page de code, clé, modèle et délai de Claude, MQTT, jeton
+d'API, tickets par heure, attente des tickets quand l'imprimante est absente, et vérification des
+nouvelles versions.
+
+<p align="center"><img src="shots/mobile-settings.png" alt="Réglages" width="250"></p>
+
+`ANTHROPIC_BASE_URL` n'en fait pas partie, exprès : la clé Claude part vers cette adresse, et
+l'appli ne livre jamais la clé. Les réglages sont enregistrés avec les données (`printr.json`) et appliqués par un redémarrage
+rapide, automatique sous systemd ou Docker (sinon au prochain démarrage). Ce que fixent
+`/etc/printr.env` ou l'environnement du conteneur l'emporte : l'appli le montre en lecture seule,
+avec la mention « Fixé dans /etc/printr.env ». Les secrets (clé Claude, adresse MQTT, jeton) ne
+repartent jamais vers l'appli, qui indique seulement s'ils sont définis.
+
+### Sauvegarde
+
+Depuis **Mon compte**, l'administrateur télécharge une **sauvegarde** : comptes, tickets et leurs
+planifications, historique, liste de courses, anniversaires de la famille, réglages et photos, dans un
+seul fichier JSON. Elle contient la clé Claude et les mots de passe (hachés) : à garder en lieu sûr.
+**Restaurer** remplace tout cela par le contenu du fichier ; l'état actuel est d'abord gardé dans
+`backups/`, à côté des données (les cinq derniers), et chacun se reconnecte.
+
+Sur une installation neuve, l'écran du premier compte propose aussi de restaurer une sauvegarde
+(depuis le réseau de la maison seulement, comme le premier compte) : une nouvelle carte microSD, puis
+le Printr de la famille tel qu'il était.
+
+### Données
+
+Les données (comptes, presets, historique, photos, réglages) vivent dans `$PRINTR_DATA_DIR`, sinon
 `~/.local/share/printr`, ou `/var/lib/printr` avec le service systemd. Pour travailler sur
 l'interface sans recompiler : `PRINTR_WEB_DIR=web printr serve`.
 
@@ -569,10 +627,22 @@ se protège ainsi :
 
 **Mises à jour** : une fois par jour (`PRINTR_UPDATE_INTERVAL` minutes pour changer, 5 au
 minimum), printr regarde sur GitHub si une version plus récente est publiée et le signale à
-l'administrateur (« Mon compte »). Rien n'est téléchargé ni installé
-tout seul : la mise à jour reste un geste humain (`scripts/deploy.sh`), après lecture des
-nouveautés ; un compte GitHub compromis ne peut donc rien exécuter sur les machines.
+l'administrateur (« Mon compte »). Par défaut, rien n'est téléchargé ni installé tout seul : la mise
+à jour reste un geste humain (`scripts/deploy.sh`), après lecture des nouveautés.
 `PRINTR_UPDATE_CHECK=off` coupe la vérification.
+
+Les **mises à jour automatiques** se choisissent : l'assistant les propose, et elles s'activent
+dans les réglages (`PRINTR_AUTO_UPDATE=auto`). Printr n'installe alors une nouvelle version **que si
+elle est signée** avec la clé du mainteneur, qui ne quitte jamais son ordinateur : la signature
+porte sur la liste des empreintes (`SHA256SUMS`), et le programme téléchargé doit avoir la bonne
+empreinte, se lancer et annoncer la version attendue. Un compte GitHub compromis ne peut donc rien
+pousser sur les machines. Le remplacement se fait la nuit (`PRINTR_UPDATE_WINDOW`, `03:00-05:00`
+par défaut), une fois l'imprimante libre ; l'ancien programme reste dans `printr.old`. Si la
+nouvelle version ne répond pas dans les deux minutes qui suivent son démarrage, la garde lancée par
+le service avant chaque démarrage ([`deploy/printr-update-guard.sh`](../deploy/printr-update-guard.sh))
+remet l'ancienne, et cette version n'est plus jamais essayée. Chaque mise à jour apparaît dans
+l'historique. Dans un conteneur, rien ne s'installe : c'est l'image qu'on met à jour. Le service
+peut écrire dans `/opt/printr` pour cela, et seulement là.
 
 Côté machine, il reste conseillé de n'accepter que les clés en SSH, et de vérifier que le
 pare-feu IPv6 de la box ne laisse pas entrer les connexions vers le réseau local.
@@ -662,6 +732,7 @@ Ses illustrations sont générées avec des données fictives uniquement :
 scripts/illustrations.sh                                # tout, dans les deux langues, puis le site
 scripts/illustrations.sh --sans-claude                  # pareil, sans aucun appel à Claude
 docs/demo/photo-session.sh                              # captures de l'appli + tickets de l'émulateur
+docs/demo/setup-session.sh                              # mise en route : point d'accès, assistant, réglages
 uv run --with pillow python docs/brand/make-assets.py   # déclinaisons du logo et icônes de l'appli
 ```
 
@@ -706,6 +777,82 @@ papier.
 
 ## Installation
 
+Deux façons :
+
+- sur un **Raspberry Pi**, l'[image prête à flasher](#image-prête-à-flasher) : rien à installer,
+  même le Wi-Fi se règle depuis le téléphone ;
+- sur **n'importe quel Linux**, Raspberry Pi compris, le [script d'installation](#script-dinstallation),
+  qui ajoute Printr comme service systemd.
+
+### Image prête à flasher
+
+Chaque [version](https://github.com/XNinety9/Printr/releases) est accompagnée d'une image pour
+Raspberry Pi 3, 4, 5 et Zero 2 W (64 bits) : Raspberry Pi OS Lite avec Printr prêt à l'emploi
+(`printr-X.Y.Z-raspberrypi-arm64.img.xz`).
+
+1. L'écrire sur une carte microSD avec [Raspberry Pi Imager](https://www.raspberrypi.com/software/) :
+   **Choisir l'OS → Use custom**. Ou faire apparaître Printr dans la liste d'Imager : dans ses
+   options, indiquer comme dépôt de contenu
+   `https://github.com/XNinety9/Printr/releases/latest/download/printr-imager.json`. Sa personnalisation (roue dentée) est facultative : un compte et
+   SSH, pour se connecter à la machine ; le Wi-Fi, pour se passer de la
+   [première connexion au réseau](#première-connexion-au-réseau).
+2. Brancher l'imprimante en USB, et un câble Ethernet s'il y en a un, puis allumer.
+3. En Ethernet, ou avec le Wi-Fi donné à Imager, l'appli est sur `http://printr.local` (ou à
+   l'adresse indiquée par la box). Sinon, Printr imprime un ticket pour régler le Wi-Fi.
+
+L'image sert l'appli sur le port 80, sous le nom `printr`, avec la langue et le clavier français,
+le fuseau de Paris et le pays Wi-Fi FR (Imager les change), Barnum pour l'horoscope hors ligne, et
+ni compte ni SSH sauf si Imager les ajoute. Tout le reste se règle dans l'appli : le
+[premier lancement](#premier-lancement), puis les [réglages](#réglages). Pour construire l'image
+soi-même : [image/README.md](../image/README.md).
+
+### Première connexion au réseau
+
+Sans réseau une minute après l'allumage, Printr ouvre son propre Wi-Fi, **Printr-XXXX**, et imprime
+un ticket :
+
+<p align="center">
+  <img src="tickets/wifi.png" alt="Ticket avec deux QR codes : rejoindre le Wi-Fi de Printr, puis ouvrir la page de configuration" width="250">
+  &nbsp;
+  <img src="shots/mobile-wifi.png" alt="Page de configuration : les réseaux Wi-Fi à portée" width="250">
+</p>
+
+1. Scanner le premier QR code pour rejoindre ce Wi-Fi (son mot de passe est imprimé dessous).
+2. La page de configuration s'ouvre en général toute seule, comme sur un Wi-Fi d'hôtel ; sinon,
+   scanner le second QR code (`http://10.42.0.1`).
+3. Choisir le Wi-Fi de la maison et taper son mot de passe : Printr le rejoint et imprime un second
+   ticket avec l'adresse de l'appli. Remettre le téléphone sur le Wi-Fi de la maison, et ouvrir
+   cette adresse.
+
+Un mauvais mot de passe ? Printr le dit sur un nouveau ticket et rouvre son Wi-Fi, avec le même nom
+et le même mot de passe. Ce Wi-Fi est protégé (WPA2) par le mot de passe du ticket, qui reste le
+même d'un démarrage à l'autre, et n'existe que tant que Printr n'a pas de réseau.
+
+Quand le Wi-Fi de la maison est déjà connu mais absent au démarrage (après une coupure de courant,
+la box redémarre souvent moins vite que le Pi), Printr attend cinq minutes avant d'ouvrir son
+propre Wi-Fi, puis retente celui de la maison toutes les cinq minutes. Certaines box bloquent les
+noms `.local` entre appareils en Wi-Fi : c'est pourquoi le ticket donne d'abord l'adresse IP.
+
+Sous le capot : `PRINTR_WIFI_SETUP=1` (posé par l'image) active ce mode ; le point d'accès tourne
+sur hostapd en WPA2 classique (celui de NetworkManager est refusé par les téléphones sur la puce
+Wi-Fi des Raspberry Pi), NetworkManager s'occupe du reste.
+
+### En une commande
+
+Sur une machine déjà en service (Raspberry Pi OS, ou tout Linux avec systemd), depuis son compte :
+
+```sh
+curl -fsSL https://xninety9.github.io/Printr/install.sh | bash
+```
+
+La commande télécharge l'archive de la dernière version pour cette machine, vérifie la signature de
+la release (les mêmes clés que la mise à jour automatique, avec `openssl`) et l'empreinte de
+l'archive, puis lance son `install.sh` ; le mot de passe `sudo` est demandé une fois. La suite se
+passe dans le navigateur, avec l'assistant du [premier lancement](#premier-lancement). La relancer
+met Printr à jour. `curl … | bash -s -- --download-only` télécharge et vérifie seulement.
+
+### Script d'installation
+
 printr s'installe comme service systemd sur n'importe quel Linux : Raspberry Pi (Raspberry Pi
 OS Lite 64 bits conseillé), serveur ou PC, en ARM 64 bits, ARM 32 bits ou x86_64. L'imprimante
 peut être en USB ou sur le réseau.
@@ -742,6 +889,9 @@ nano /etc/printr.env                    # configuration (clé Claude, imprimante
 systemctl restart printr                # redémarrage
 journalctl -u printr -f                 # suivre les impressions
 ```
+
+La plupart de la configuration se change aussi dans l'appli ([réglages](#réglages)) ; ce que fixe
+`/etc/printr.env` l'emporte.
 
 `--install` relance l'installation complète (nouveau fichier de service, nouvelle règle udev…).
 Pour une imprimante réseau, définir `PRINTR_TCP=adresse:9100` dans `/etc/printr.env`. Sur la

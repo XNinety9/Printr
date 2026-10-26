@@ -28,6 +28,8 @@ use crate::ui;
 /// Taille maximale d'un corps JSON, et d'une photo envoyée.
 const MAX_JSON: u64 = 1024 * 1024;
 const MAX_IMAGE: u64 = 15 * 1024 * 1024;
+/// Une sauvegarde (données et photos) : de quoi voir venir.
+const MAX_BACKUP: u64 = 200 * 1024 * 1024;
 const COOKIE: &str = "printr_session";
 /// Impressions par personne et par heure, par défaut (`PRINTR_MAX_TICKETS_PER_HOUR`).
 const DEFAULT_MAX_PER_HOUR: usize = 20;
@@ -55,6 +57,34 @@ pub struct App {
     /// Au-delà de ce délai, un ticket en attente est abandonné (le brief du matin n'a plus
     /// d'intérêt le soir) : `PRINTR_QUEUE_HOURS`, 12 heures par défaut.
     queue_hours: i64,
+}
+
+impl crate::update::Host for App {
+    /// Attend la fin de l'impression en cours (et bloque les suivantes), remplace le programme,
+    /// le note dans l'historique et redémarre : systemd relance printr sur la nouvelle version.
+    fn restart_for_update(&self, update: &crate::update::Prepared) {
+        let _printer = self.printer.lock().unwrap_or_else(|e| e.into_inner());
+        if let Err(e) = update.swap() {
+            eprintln!("{}", tr!("mise à jour : {e:#}", "update: {e:#}"));
+            return;
+        }
+        let mut store = self.lock_store();
+        store.record(HistoryEntry {
+            queued: None,
+            printed_at: None,
+            preview: None,
+            at: Utc::now(),
+            by: t("mise à jour", "update").to_owned(),
+            label: format!("printr {} → {}", update.from, update.to),
+            ok: true,
+            errors: Vec::new(),
+            blocks: Vec::new(),
+            paper_mm: None,
+        });
+        let _ = store.save();
+        eprintln!("{}", tr!("mise à jour : redémarrage sur printr {}", "update: restarting on printr {}", update.to));
+        std::process::exit(crate::settings::RESTART_CODE);
+    }
 }
 
 fn busy_reason() -> &'static str {
@@ -223,6 +253,13 @@ impl App {
 
     /// Verrouille les données, après les avoir relues si le fichier a changé sur le disque
     /// (compte créé en ligne de commande pendant que le serveur tourne, par exemple).
+    /// Imprime un ticket construit par Printr lui-même (configuration), sans historique.
+    pub fn print_doc(&self, doc: &crate::doc::Doc) -> Result<()> {
+        let bytes = crate::output::render(doc, true)?;
+        let printer = self.printer.lock().unwrap_or_else(|e| e.into_inner());
+        printer.write(&bytes)
+    }
+
     pub fn lock_store(&self) -> std::sync::MutexGuard<'_, Store> {
         let mut store = self.store.lock().unwrap_or_else(|e| e.into_inner());
         if let Err(e) = store.reload_if_changed() {
@@ -710,6 +747,53 @@ struct NewUser {
     password: String,
 }
 
+/// Premier compte, avec la langue choisie sur l'écran d'accueil.
+#[derive(Deserialize)]
+struct SetupInput {
+    name: String,
+    password: String,
+    #[serde(default)]
+    lang: Option<String>,
+}
+
+/// La liste des anniversaires de la famille.
+#[derive(Deserialize)]
+struct BirthdaysInput {
+    list: String,
+}
+
+/// Le Wi-Fi de la maison, choisi pendant la première connexion.
+#[derive(Deserialize)]
+struct WifiInput {
+    ssid: String,
+    #[serde(default)]
+    password: String,
+}
+
+/// Imprimante à essayer depuis l'assistant, avant de l'enregistrer.
+#[derive(Deserialize)]
+struct TestPrint {
+    #[serde(default)]
+    device: Option<String>,
+    #[serde(default)]
+    tcp: Option<String>,
+    #[serde(default)]
+    pc850: bool,
+}
+
+/// Le ticket de test de l'assistant : des accents et un « € », pour voir si la page de code convient.
+fn test_ticket_doc() -> crate::doc::Doc {
+    use crate::doc::{Doc, Style};
+    let mut doc = Doc::new();
+    doc.text("Printr", Style::default().bold().center().size(2));
+    doc.text(t("Ça marche !", "It works!"), Style::default().center());
+    doc.feed(1);
+    doc.text(t("Les accents doivent être lisibles :", "Accents should be readable:"), Style::default());
+    doc.text("é è ê à â ç ù û ô î ï", Style::default().bold());
+    doc.text("É È À Ç · 12,50 €", Style::default().bold());
+    doc
+}
+
 #[derive(Deserialize)]
 struct NewPassword {
     password: String,
@@ -732,6 +816,12 @@ fn paper_json(paper: &crate::store::Paper) -> Value {
         "low": paper.low(),
         "since": paper.since,
     })
+}
+
+/// Réglages à enregistrer : nom de variable → valeur (vide : retirer le réglage).
+#[derive(Deserialize)]
+struct SettingsInput {
+    values: std::collections::BTreeMap<String, String>,
 }
 
 /// Blocs à retirer du catalogue (types : « sudoku », « weather »…).
@@ -840,7 +930,11 @@ impl TodoRequest {
         if items.is_empty() {
             bail!("{}", t("aucune chose à faire (`items` ou `text`)", "nothing to do (`items` or `text`)"));
         }
-        Ok(Ticket { cut: true, spacing: 1, blocks: vec![Block::Date {}, Block::Todo { title: self.title, items }] })
+        Ok(Ticket {
+            cut: true,
+            spacing: 1,
+            blocks: vec![Block::Date { date: None, offset: None }, Block::Todo { title: self.title, items }],
+        })
     }
 }
 
@@ -913,6 +1007,12 @@ fn handle(app: &App, request: &mut Request) -> Reply {
     let client = guard::client_ip(request.remote_addr().map(|a| a.ip()), header(request, "X-Forwarded-For"));
     let https = header(request, "X-Forwarded-Proto").is_some_and(|p| p.eq_ignore_ascii_case("https"));
 
+    // Pendant la première connexion au réseau, le téléphone est renvoyé vers la page de configuration.
+    if method == Method::Get
+        && let Some(location) = crate::wifi::portal_redirect(header(request, "Host"))
+    {
+        return Reply::json(302, json!({ "ok": false })).header("Location", location);
+    }
     if method == Method::Get {
         if let Some((body, content_type)) = asset(app, path) {
             return Reply { status: 200, content_type, body, headers: Vec::new(), note: String::new() }
@@ -959,6 +1059,56 @@ fn handle(app: &App, request: &mut Request) -> Reply {
                 .note(tr!("connexion de {name}", "login: {name}"));
         }
         // Premier lancement : tant qu'aucun compte n'existe, l'écran d'accueil crée le premier.
+        // Restauration : par l'administrateur, ou sur une installation neuve (aucun compte), depuis le
+        // réseau de la maison, comme le premier compte : c'est le cas d'une nouvelle carte SD.
+        (Method::Post, ["api", "restore"]) => {
+            let fresh = app.lock_store().users().is_empty();
+            let allowed = if fresh {
+                !client.is_some_and(crate::net::is_public)
+            } else {
+                match caller(app, request) {
+                    Some(Caller::User(u)) => app.lock_store().is_admin(&u.id),
+                    _ => false,
+                }
+            };
+            if !allowed {
+                return Reply::error(403, t("réservé à l'administrateur", "administrator only"));
+            }
+            let body = try_reply!(read_body(request, MAX_BACKUP));
+            let mut store = app.lock_store();
+            return match crate::backup::restore(&mut store, &body) {
+                Ok(r) => {
+                    let restarting = r.settings_changed && crate::settings::restart_supported();
+                    if restarting {
+                        crate::settings::restart_soon();
+                    }
+                    Reply::ok(json!({ "ok": true, "users": r.users, "presets": r.presets, "images": r.images, "restarting": restarting }))
+                        .header("Set-Cookie", format!("{COOKIE}=; Path=/; Max-Age=0"))
+                        .note(tr!("sauvegarde restaurée ({} comptes)", "backup restored ({} accounts)", r.users))
+                }
+                Err(e) => Reply::error(400, format!("{e:#}")),
+            };
+        }
+        // Première connexion au réseau : sans compte au départ, depuis le point d'accès de Printr.
+        (Method::Get, ["api", "wifi"]) => {
+            return match crate::wifi::describe() {
+                Some(state) => Reply::ok(state),
+                None => Reply::error(404, t("pas de configuration Wi-Fi en cours", "no Wi-Fi setup in progress")),
+            };
+        }
+        (Method::Post, ["api", "wifi"]) => {
+            if client.is_some_and(crate::net::is_public) {
+                return Reply::error(403, t("réservé au réseau local", "local network only"));
+            }
+            // Sans compte, même sur une installation déjà utilisée (Wi-Fi changé, déménagement) : le
+            // point d'accès est protégé par le mot de passe imprimé sur le ticket, il faut donc avoir
+            // l'imprimante sous la main. Et il n'existe que tant que Printr n'a pas de réseau.
+            let input: WifiInput = try_reply!(json_body(request));
+            return match crate::wifi::join(input.ssid.trim().to_owned(), input.password) {
+                Ok(()) => Reply::ok(json!({ "ok": true })).note(t("connexion au Wi-Fi", "joining the Wi-Fi")),
+                Err(e) => Reply::error(400, format!("{e:#}")),
+            };
+        }
         (Method::Post, ["api", "setup"]) => {
             // Depuis Internet, personne ne doit pouvoir s'approprier une installation vide.
             if client.is_some_and(crate::net::is_public) {
@@ -970,7 +1120,7 @@ fn handle(app: &App, request: &mut Request) -> Reply {
                     ),
                 );
             }
-            let input: NewUser = try_reply!(json_body(request));
+            let input: SetupInput = try_reply!(json_body(request));
             let mut store = app.lock_store();
             if !store.users().is_empty() {
                 return Reply::error(
@@ -984,10 +1134,23 @@ fn handle(app: &App, request: &mut Request) -> Reply {
             };
             let token = store.open_session(&id);
             let user = store.user(&id).map(|u| user_json(&store, u));
+            store.data.wizard_pending = true;
+            // La langue choisie à l'accueil, si le système ne la fixe pas : elle demande un redémarrage.
+            let lang = input.lang.as_deref().and_then(|l| crate::settings::check("PRINTR_LANG", l).ok());
+            let restarting = match lang.filter(|l| !l.is_empty()) {
+                Some(lang) if !crate::settings::is_locked("PRINTR_LANG") && lang != crate::i18n::lang().code() => {
+                    store.data.settings.insert("PRINTR_LANG".to_owned(), lang);
+                    crate::settings::restart_supported()
+                }
+                _ => false,
+            };
             if let Err(e) = store.save() {
                 return Reply::error(500, format!("{e:#}"));
             }
-            return Reply::ok(json!({ "ok": true, "user": user }))
+            if restarting {
+                crate::settings::restart_soon();
+            }
+            return Reply::ok(json!({ "ok": true, "user": user, "restarting": restarting }))
                 .header("Set-Cookie", session_cookie(&token, https))
                 .note(tr!("premier compte : {}", "first account: {}", input.name.trim()));
         }
@@ -1143,6 +1306,14 @@ fn handle(app: &App, request: &mut Request) -> Reply {
                 "version": env!("CARGO_PKG_VERSION"),
                 "mqtt_prefix": crate::mqtt::prefix(),
                 "update": *app.latest.lock().unwrap_or_else(|e| e.into_inner()),
+                // Installation automatique active (avec clé de signature), et la dernière faite.
+                "auto_update": crate::update::auto_installs(),
+                "last_update": crate::update::last_update().map(|(from, to, at)| json!({ "from": from, "to": to, "at": at })),
+                "city": std::env::var("PRINTR_CITY").ok().filter(|c| !c.trim().is_empty()),
+                "wizard": user_id.as_deref().is_some_and(|me| {
+                    let store = app.lock_store();
+                    store.data.wizard_pending && store.is_admin(me)
+                }),
             }))
         }
         (Method::Post, ["api", "paper", "roll"]) => {
@@ -1162,6 +1333,140 @@ fn handle(app: &App, request: &mut Request) -> Reply {
                 }
                 Err(e) => Reply::error(500, format!("{e:#}")),
             }
+        }
+        (Method::Get, ["api", "backup"]) => {
+            let store = app.lock_store();
+            if !user_id.as_deref().is_some_and(|me| store.is_admin(me)) {
+                return Reply::error(403, t("réservé à l'administrateur", "administrator only"));
+            }
+            match crate::backup::export(&store) {
+                Ok(body) => {
+                    let name = format!(
+                        "{}-{}.json",
+                        t("printr-sauvegarde", "printr-backup"),
+                        chrono::Local::now().format("%Y-%m-%d")
+                    );
+                    Reply {
+                        status: 200,
+                        content_type: "application/json; charset=utf-8",
+                        body,
+                        headers: Vec::new(),
+                        note: String::new(),
+                    }
+                    .header("Content-Disposition", format!("attachment; filename=\"{name}\""))
+                    .note(t("sauvegarde téléchargée", "backup downloaded"))
+                }
+                Err(e) => Reply::error(500, format!("{e:#}")),
+            }
+        }
+        (Method::Get, ["api", "setup", "printers"]) => {
+            if !user_id.as_deref().is_some_and(|me| app.lock_store().is_admin(me)) {
+                return Reply::error(403, t("réservé à l'administrateur", "administrator only"));
+            }
+            Reply::ok(crate::detect::printers())
+        }
+        (Method::Post, ["api", "setup", "test-print"]) => {
+            let input: TestPrint = try_reply!(json_body(request));
+            if !user_id.as_deref().is_some_and(|me| app.lock_store().is_admin(me)) {
+                return Reply::error(403, t("réservé à l'administrateur", "administrator only"));
+            }
+            let target = match (&input.device, &input.tcp) {
+                (Some(device), _) => match crate::settings::check("PRINTR_DEVICE", device) {
+                    Ok(device) if !device.is_empty() => Target::Device(device.into()),
+                    Ok(_) => return Reply::error(400, t("imprimante manquante", "missing printer")),
+                    Err(e) => return Reply::error(400, format!("{e:#}")),
+                },
+                (None, Some(tcp)) => match crate::settings::check("PRINTR_TCP", tcp) {
+                    // Seulement le réseau local : l'assistant ne doit pas servir à joindre Internet.
+                    Ok(tcp)
+                        if !tcp.is_empty()
+                            && std::net::ToSocketAddrs::to_socket_addrs(tcp.as_str())
+                                .ok()
+                                .and_then(|mut a| a.next())
+                                .is_some_and(|a| !crate::net::is_public(a.ip())) =>
+                    {
+                        Target::Tcp(tcp)
+                    }
+                    Ok(_) => {
+                        return Reply::error(
+                            400,
+                            t("imprimante réseau locale attendue", "local network printer expected"),
+                        );
+                    }
+                    Err(e) => return Reply::error(400, format!("{e:#}")),
+                },
+                (None, None) => return Reply::error(400, t("imprimante manquante", "missing printer")),
+            };
+            let bytes =
+                match crate::cp858::with_codepage(input.pc850, || crate::output::render(&test_ticket_doc(), true)) {
+                    Ok(bytes) => bytes,
+                    Err(e) => return Reply::error(500, format!("{e:#}")),
+                };
+            // Une impression à la fois, même pour un essai.
+            let _printer = app.printer.lock().unwrap_or_else(|e| e.into_inner());
+            match target.write(&bytes) {
+                Ok(()) => {
+                    Reply::ok(json!({ "ok": true })).note(tr!("ticket de test sur {target}", "test ticket on {target}"))
+                }
+                Err(e) => Reply::error(502, format!("{e:#}")),
+            }
+        }
+        (Method::Post, ["api", "wizard", "done"]) => {
+            let mut store = app.lock_store();
+            if !user_id.as_deref().is_some_and(|me| store.is_admin(me)) {
+                return Reply::error(403, t("réservé à l'administrateur", "administrator only"));
+            }
+            store.data.wizard_pending = false;
+            match store.save() {
+                Ok(()) => Reply::ok(json!({ "ok": true })),
+                Err(e) => Reply::error(500, format!("{e:#}")),
+            }
+        }
+        (Method::Get, ["api", "settings"]) => {
+            if !user_id.as_deref().is_some_and(|me| app.lock_store().is_admin(me)) {
+                return Reply::error(403, t("réservé à l'administrateur", "administrator only"));
+            }
+            Reply::ok(crate::settings::describe())
+        }
+        (Method::Put, ["api", "settings"]) => {
+            let input: SettingsInput = try_reply!(json_body(request));
+            let mut store = app.lock_store();
+            if !user_id.as_deref().is_some_and(|me| store.is_admin(me)) {
+                return Reply::error(403, t("réservé à l'administrateur", "administrator only"));
+            }
+            let mut changes = Vec::new();
+            for (key, value) in &input.values {
+                if crate::settings::is_locked(key) {
+                    return Reply::error(
+                        409,
+                        tr!(
+                            "{key} est fixé par le système (/etc/printr.env)",
+                            "{key} is set by the system (/etc/printr.env)"
+                        ),
+                    );
+                }
+                match crate::settings::check(key, value) {
+                    Ok(value) => changes.push((key.clone(), value)),
+                    Err(e) => return Reply::error(400, format!("{e:#}")),
+                }
+            }
+            for (key, value) in changes {
+                if value.is_empty() {
+                    store.data.settings.remove(&key);
+                } else {
+                    store.data.settings.insert(key, value);
+                }
+            }
+            if let Err(e) = store.save() {
+                return Reply::error(500, format!("{e:#}"));
+            }
+            drop(store);
+            let restarting = crate::settings::restart_supported();
+            if restarting {
+                crate::settings::restart_soon();
+            }
+            Reply::ok(json!({ "ok": true, "restarting": restarting }))
+                .note(tr!("réglages enregistrés par {by}", "settings saved by {by}"))
         }
         (Method::Put, ["api", "settings", "hidden-blocks"]) => {
             let input: HiddenBlocks = try_reply!(json_body(request));
@@ -1339,6 +1644,25 @@ fn handle(app: &App, request: &mut Request) -> Reply {
             }
             printed_reply(app.print(&ticket, &by, &preset.name), &preset.name)
         }
+        (Method::Get, ["api", "birthdays"]) => {
+            let store = app.lock_store();
+            Reply::ok(json!({ "list": store.data.family_birthdays }))
+        }
+        // La liste commune : tout le monde la complète.
+        (Method::Put, ["api", "birthdays"]) => {
+            let input: BirthdaysInput = try_reply!(json_body(request));
+            let list = input.list.replace("\r\n", "\n");
+            if list.len() > 10_000 || list.lines().count() > 200 || list.chars().any(|c| c.is_control() && c != '\n') {
+                return Reply::error(400, t("liste trop longue ou invalide", "list too long or invalid"));
+            }
+            let mut store = app.lock_store();
+            store.data.family_birthdays = list.trim().to_owned();
+            match store.save() {
+                Ok(()) => Reply::ok(json!({ "ok": true, "list": store.data.family_birthdays }))
+                    .note(t("anniversaires de la famille", "family birthdays")),
+                Err(e) => Reply::error(500, format!("{e:#}")),
+            }
+        }
         (Method::Get, ["api", "shopping"]) => {
             let store = app.lock_store();
             Reply::ok(shopping_json(&store))
@@ -1486,10 +1810,12 @@ pub fn serve(listen: &str, token: Option<String>, target: Target) -> Result<()> 
         pending: Mutex::new(None),
         queue_hours: std::env::var("PRINTR_QUEUE_HOURS").ok().and_then(|v| v.trim().parse().ok()).unwrap_or(12),
     });
-    crate::update::spawn(Arc::clone(&app.latest));
     let server = Server::http(listen).map_err(|e| {
         anyhow::anyhow!("{}", tr!("impossible d'écouter sur {listen} : {e}", "cannot listen on {listen}: {e}"))
     })?;
+    // Après une mise à jour : la nouvelle version confirme qu'elle répond, ou laisse la place.
+    crate::update::confirm_pending(listen);
+    crate::update::spawn(Arc::clone(&app.latest), Arc::clone(&app) as Arc<dyn crate::update::Host>);
 
     let ctx = Ctx::web(false);
     let cache = ctx.cache.as_ref().map(|c| c.dir().display().to_string());
@@ -1504,6 +1830,7 @@ pub fn serve(listen: &str, token: Option<String>, target: Target) -> Result<()> 
 
     crate::scheduler::spawn(Arc::clone(&app));
     crate::mqtt::spawn(Arc::clone(&app));
+    crate::wifi::spawn(Arc::clone(&app), listen.rsplit(':').next().and_then(|p| p.parse().ok()).unwrap_or(8080));
     // L'imprimante est-elle là ? Toutes les 10 secondes ; c'est aussi ce qui vide la file d'attente.
     {
         let app = Arc::clone(&app);

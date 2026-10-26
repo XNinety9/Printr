@@ -221,6 +221,16 @@ const EVERY = [
   [3, T('Toutes les 3 semaines', 'Every 3 weeks')], [4, T('Toutes les 4 semaines', 'Every 4 weeks')],
 ];
 
+// Réglages du serveur utiles à l'appli, relus avec /api/status.
+const SERVER = { mqtt: null, autoUpdate: false, lastUpdate: null, city: null };
+// Champ « Ville » des blocs à lieu (météo, air, soleil, ciel) : vide, c'est la ville des réglages.
+const cityField = () => ({
+  key: 'location', label: T('Ville', 'City'), kind: 'text',
+  get placeholder() { return SERVER.city ? T(`${SERVER.city} (ville des réglages)`, `${SERVER.city} (default city)`) : T('Lyon, ou « 45.76,4.83 »', 'Lyon, or "45.76,4.83"'); },
+  get help() { return SERVER.city ? '' : T('Astuce : une ville par défaut se règle dans Mon compte → Réglages.', 'Tip: a default city can be set in My account → Settings.'); },
+});
+const citySummary = (b) => b.location || SERVER.city || '';
+
 const BLOCKS = [
   {
     type: 'title', label: T('Titre', 'Title'), emoji: '🔠', group: G.layout, desc: T('Un grand titre centré', 'A big centered title'),
@@ -245,7 +255,17 @@ const BLOCKS = [
     ],
     summary: (b) => b.text || T('Vide', 'Empty'),
   },
-  { type: 'date', label: T('Date', 'Date'), emoji: '📅', group: G.layout, desc: T('La date du jour, en toutes lettres', "Today's date, written out"), defaults: {}, fields: [] },
+  {
+    type: 'date', label: T('Date', 'Date'), emoji: '📅', group: G.layout, desc: T('La date du jour, ou une autre, en toutes lettres', "Today's date, or another one, written out"),
+    defaults: {},
+    fields: [
+      { key: 'offset', label: T('Dans combien de jours ?', 'In how many days?'), kind: 'number', min: -365, max: 365,
+        help: T('Pour préparer des tickets à l’avance : 1 pour demain, 2 pour après-demain…', 'To prepare tickets ahead: 1 for tomorrow, 2 for the day after…') },
+      { key: 'date', label: T('… ou une date précise', '… or a set date'), kind: 'date' },
+    ],
+    summary: (b) => (b.date ? new Date(`${b.date}T12:00`).toLocaleDateString(LOCALE, { day: 'numeric', month: 'long' })
+      : Number(b.offset) ? T(`dans ${b.offset} j`, `in ${b.offset} d`) : ''),
+  },
   {
     type: 'separator', label: T('Séparateur', 'Separator'), emoji: '➖', group: G.layout, desc: T('Une ligne de séparation', 'A dividing line'),
     defaults: { style: '-' },
@@ -299,13 +319,15 @@ const BLOCKS = [
   },
   {
     type: 'weather', label: T('Météo', 'Weather'), emoji: '🌤️', group: G.daily, desc: T('Le temps du jour et des suivants', "Today's weather and the days ahead"),
-    defaults: { location: 'Lyon', days: 1, outfit: false },
+    defaults: { location: '', days: 1, outfit: false, wind: true, sun: true },
     fields: [
-      { key: 'location', label: T('Ville', 'City'), kind: 'text', placeholder: T('Lyon, ou « 45.76,4.83 »', 'Lyon, or "45.76,4.83"') },
+      cityField(),
       { key: 'days', label: T('Prévisions', 'Forecast'), kind: 'segmented', options: [[1, T("Aujourd'hui", 'Today')], [3, T('3 jours', '3 days')], [5, T('5 jours', '5 days')], [7, T('7 jours', '7 days')]] },
       { key: 'outfit', label: T('Comment s’habiller', 'What to wear'), kind: 'toggle', help: T('« Manteau et bonnet, prends un parapluie » : d’après les prévisions du jour.', '“Coat and hat, take an umbrella”: from today’s forecast.') },
+      { key: 'wind', label: T('Vent et UV', 'Wind and UV'), kind: 'toggle' },
+      { key: 'sun', label: T('Lever et coucher du soleil', 'Sunrise and sunset'), kind: 'toggle' },
     ],
-    summary: (b) => b.location,
+    summary: citySummary,
   },
   {
     type: 'barnum', label: T('Horoscope', 'Horoscope'), emoji: '🌟', group: G.daily, desc: T('Le vrai ciel du jour, hors ligne et gratuit', 'The real sky of the day, offline and free'),
@@ -342,21 +364,25 @@ const BLOCKS = [
   { type: 'moon', label: T('Lune', 'Moon'), emoji: '🌙', group: G.daily, desc: T('Phase et prochaines lunes', 'Phase and upcoming moons'), defaults: {}, fields: [] },
   {
     type: 'sun', label: T('Soleil', 'Sun'), emoji: '🌅', group: G.daily, desc: T('Lever, coucher, durée du jour', 'Sunrise, sunset, length of day'),
-    defaults: { location: 'Lyon' },
-    fields: [{ key: 'location', label: T('Ville', 'City'), kind: 'text' }],
-    summary: (b) => b.location,
+    defaults: { location: '' },
+    fields: [cityField()],
+    summary: citySummary,
   },
   {
     type: 'sky', label: T('Le ciel ce soir', "Tonight's sky"), emoji: '🔭', group: G.daily, desc: T('Planètes, passages de l’ISS, lune, étoiles filantes', 'Planets, ISS passes, moon, shooting stars'),
-    defaults: { location: 'Lyon' },
-    fields: [{ key: 'location', label: T('Ville', 'City'), kind: 'text' }],
-    summary: (b) => b.location,
+    defaults: { location: '' },
+    fields: [cityField()],
+    summary: citySummary,
   },
   {
     type: 'air_quality', label: T("Qualité de l'air", 'Air quality'), emoji: '🍃', group: G.daily, desc: T('Pollution et pollens', 'Pollution and pollen'),
-    defaults: { location: 'Lyon' },
-    fields: [{ key: 'location', label: T('Ville', 'City'), kind: 'text' }],
-    summary: (b) => b.location,
+    defaults: { location: '', pollutants: true, pollen: true },
+    fields: [
+      cityField(),
+      { key: 'pollutants', label: T('Polluants', 'Pollutants'), kind: 'toggle', help: T('Particules fines, ozone, dioxyde d’azote', 'Fine particles, ozone, nitrogen dioxide') },
+      { key: 'pollen', label: T('Pollens', 'Pollen'), kind: 'toggle' },
+    ],
+    summary: citySummary,
   },
   {
     type: 'holidays', label: T('Jours fériés', 'Public holidays'), emoji: '🏖️', group: G.daily, desc: T('Les prochains jours fériés', 'The next public holidays'),
@@ -377,12 +403,15 @@ const BLOCKS = [
   },
   {
     type: 'birthdays', label: T('Anniversaires', 'Birthdays'), emoji: '🎂', group: G.daily, desc: T('« Aujourd’hui, Léo a 12 ans ! », et les suivants', '“Today, Leo turns 12!”, and the next ones'),
-    defaults: { list: '', upcoming: 3 },
+    defaults: { list: '', upcoming: 3, family: true },
     fields: [
-      { key: 'list', label: T('Les anniversaires', 'Birthdays'), kind: 'textarea', placeholder: T('Léo, 12/03/2014\nCamille, 14/11', 'Leo, 03/12/2014\nCamille, 11/14'), help: T('Une personne par ligne, la date à la fin (jour/mois, l’année pour l’âge).', 'One person per line, the date last (month/day, the year for the age).') },
+      { key: 'family', label: T('Avec ceux de la famille', 'With the family’s'), kind: 'toggle', help: T('La liste commune, que chacun complète.', 'The shared list, which everyone adds to.') },
+      { key: 'family_list', label: T('Anniversaires de la famille', 'Family birthdays'), kind: 'familyBirthdays', when: (b) => b.family !== false },
+      { key: 'list', label: T('Rien que pour ce ticket', 'Just for this ticket'), kind: 'textarea', placeholder: T('Léo, 12/03/2014\nCamille, 14/11', 'Leo, 03/12/2014\nCamille, 11/14'), help: T('Une personne par ligne, la date à la fin (jour/mois, l’année pour l’âge).', 'One person per line, the date last (month/day, the year for the age).') },
       { key: 'upcoming', label: T('Combien des suivants', 'How many next ones'), kind: 'number', min: 1, max: 10 },
     ],
-    summary: (b) => (b.list || '').split('\n').map((l) => l.split(/[,:]/)[0].trim()).filter(Boolean).slice(0, 4).join(', ') || T('Personne', 'Nobody'),
+    summary: (b) => (b.list || '').split('\n').map((l) => l.split(/[,:]/)[0].trim()).filter(Boolean).slice(0, 4).join(', ')
+      || (b.family !== false ? T('La famille', 'The family') : T('Personne', 'Nobody')),
   },
   {
     type: 'riddle', label: T('Énigme', 'Riddle'), emoji: '🧩', group: G.challenges, desc: T('125 énigmes, réponse à l’envers', 'Riddles, charades, logic, the answer upside down'),
@@ -808,8 +837,6 @@ const haYaml = (ticket, label) =>
 const mqttYaml = (ticket, prefix) =>
   `${yamlMap({ action: 'mqtt.publish', data: { topic: `${prefix}/print`, payload: JSON.stringify(ticket) } }, '')}\n`;
 
-// Réglages du serveur utiles à l'appli, relus avec /api/status.
-const SERVER = { mqtt: null };
 const usesAi = (blocks) => blocks.some((b) => BLOCK[b.type || b.data?.type]?.ai);
 
 function blockSummary(data) {
@@ -910,6 +937,36 @@ function ListEdit({ value, onChange, placeholder, add }) {
 }
 
 // Ramassages des poubelles : un nom, un jour, une fréquence (et une date de référence).
+// La liste des anniversaires commune à la famille, enregistrée sur le serveur (bloc Anniversaires).
+function FamilyBirthdays() {
+  const [list, setList] = useState(null);
+  const [draft, setDraft] = useState('');
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { api('GET', '/api/birthdays').then((r) => setList(r.list || '')).catch(() => setList('')); }, []);
+  const count = (list || '').split('\n').filter((l) => l.trim()).length;
+  const save = async () => {
+    setBusy(true);
+    try {
+      const r = await api('PUT', '/api/birthdays', { list: draft });
+      setList(r.list); setOpen(false);
+      toast(T('Anniversaires de la famille enregistrés', 'Family birthdays saved'), 'ok', '🎂');
+    } catch (e) { toast(e.message, 'error'); } finally { setBusy(false); }
+  };
+  return html`<button type="button" class="btn secondary small" disabled=${list === null} onClick=${() => { setDraft(list || ''); setOpen(true); }}>
+      ${count ? T(`${count} personne${count > 1 ? 's' : ''} · Modifier`, `${count} ${count > 1 ? 'people' : 'person'} · Edit`) : T('Ajouter des anniversaires', 'Add birthdays')}</button>
+    ${open && html`<${Sheet} title=${T('Anniversaires de la famille', 'Family birthdays')} onClose=${() => setOpen(false)} footer=${html`
+      <button class="btn secondary" onClick=${() => setOpen(false)}>${T('Annuler', 'Cancel')}</button>
+      <button class="btn primary grow" disabled=${busy} onClick=${save}><${Icon} name="check" /> ${T('Enregistrer', 'Save')}</button>`}>
+      <p class="muted" style="margin:0 0 10px">${T(
+        'Une liste pour toute la famille : chacun la complète, et tous les blocs Anniversaires l’utilisent. Une personne par ligne, la date à la fin (jour/mois, l’année pour l’âge).',
+        'One list for the whole family: everyone adds to it, and every Birthdays block uses it. One person per line, the date last (month/day, the year for the age).',
+      )}</p>
+      <textarea class="input" rows="10" value=${draft} placeholder=${T('Mamie, 02/01/1950\nLéo, 12/03/2014', 'Grandma, 01/02/1950\nLeo, 03/12/2014')}
+        onInput=${(e) => setDraft(e.target.value)}></textarea>
+    </${Sheet}>`}`;
+}
+
 function BinsEdit({ value, onChange }) {
   const rows = value?.length ? value : [{ name: '', days: ['lundi'], every: 1 }];
   const set = (i, patch) => onChange(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
@@ -1139,6 +1196,8 @@ function FieldInput({ field, value, onChange }) {
       return html`<input class="input" type="month" value=${value ?? ''} onInput=${(e) => onChange(e.target.value)} />`;
     case 'bins':
       return html`<${BinsEdit} value=${value} onChange=${onChange} />`;
+    case 'familyBirthdays':
+      return html`<${FamilyBirthdays} />`;
     case 'image':
       return html`<${PhotoField} value=${value} onChange=${onChange} />`;
     default:
@@ -1252,22 +1311,68 @@ function usePreview(ticket) {
 // Écran : connexion
 // ============================================================================
 
-// Premier lancement : aucun compte encore, on crée le sien directement ici.
+// Après un changement de réglages, le serveur se relance (systemd ou Docker) : on attend qu'il
+// réponde de nouveau, puis on recharge la page, dans la bonne langue.
+async function waitForRestart() {
+  await new Promise((r) => setTimeout(r, 1500));
+  for (let i = 0; i < 60; i++) {
+    try {
+      if ((await fetch('/api/status', { credentials: 'same-origin' })).ok) { location.reload(); return; }
+    } catch { /* pas encore relancé */ }
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  toast(T('Printr met du temps à redémarrer. Recharge la page dans un instant.', 'Printr is taking a while to restart. Reload the page in a moment.'), 'warn');
+}
+
+const Restarting = () => html`<div class="restarting" role="status"><${Spinner} />
+  <p class="muted">${T('Printr redémarre pour appliquer les réglages…', 'Printr is restarting to apply the settings…')}</p></div>`;
+
+// Restaurer une sauvegarde : tout est remplacé (l'état actuel reste gardé sur le Pi), puis chacun se
+// reconnecte. Depuis « Mon compte » (administrateur), ou sur une installation neuve.
+function RestoreButton({ cls = 'btn secondary small', label }) {
+  const input = useRef();
+  const [file, setFile] = useState(null);
+  const [restarting, setRestarting] = useState(false);
+  const restore = async () => {
+    try {
+      const r = await api('POST', '/api/restore', file);
+      toast(T(`Sauvegarde restaurée : ${r.users} compte(s), ${r.presets} ticket(s)`, `Backup restored: ${r.users} account(s), ${r.presets} ticket(s)`), 'ok', '📦');
+      if (r.restarting) { setRestarting(true); waitForRestart(); } else setTimeout(() => location.reload(), 1200);
+    } catch (e) { toast(e.message, 'error'); }
+  };
+  return html`<button type="button" class=${cls} onClick=${() => input.current.click()}>${label}</button>
+    <input ref=${input} type="file" accept=".json,application/json" hidden
+      onChange=${(e) => { setFile(e.target.files[0] || null); e.target.value = ''; }} />
+    ${file && html`<${Confirm} title=${T('Restaurer cette sauvegarde ?', 'Restore this backup?')} danger action=${T('Restaurer', 'Restore')}
+      message=${T(
+        `« ${file.name} » remplace les comptes, les tickets, l’historique, les réglages et les photos de ce Printr. L’état actuel reste gardé sur le Pi, au cas où. Chacun devra se reconnecter.`,
+        `“${file.name}” replaces the accounts, tickets, history, settings and photos of this Printr. The current state is kept on the Pi, just in case. Everyone will have to sign in again.`,
+      )}
+      onConfirm=${restore} onClose=${() => setFile(null)} />`}
+    ${restarting && html`<div class="overlay"><div class="sheet"><${Restarting} /></div></div>`}`;
+}
+
+// Premier lancement : aucun compte encore, on crée le sien directement ici (et on choisit la langue).
 function FirstAccount({ onLogin }) {
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
+  const [lang, setLang] = useState(EN ? 'en' : 'fr');
   const [busy, setBusy] = useState(false);
+  const [restarting, setRestarting] = useState(false);
   const submit = async (e) => {
     e.preventDefault();
     setBusy(true);
     try {
-      const { user } = await api('POST', '/api/setup', { name, password });
+      const { user, restarting } = await api('POST', '/api/setup', { name, password, lang });
       store.set('printr.lastUser', user.id);
+      if (restarting) { setRestarting(true); waitForRestart(); return; }
       toast(T(`Bienvenue ${user.name} !`, `Welcome, ${user.name}!`), 'ok', '🎉');
       onLogin(user);
     } catch (err) { toast(err.message, 'error'); } finally { setBusy(false); }
   };
+  if (restarting) return html`<${Restarting} />`;
   return html`<form class="first-account" onSubmit=${submit}>
+    <div class="first-lang"><${Segmented} options=${[['fr', 'Français'], ['en', 'English']]} value=${lang} onChange=${setLang} /></div>
     <p style="margin:24px 0 14px"><strong>${T('Bienvenue !', 'Welcome!')}</strong><br/><span class="muted">${T(
       'Crée ton compte pour commencer. Tu pourras ensuite ajouter le reste de la famille.',
       'Create your account to get started. You can add the rest of the family afterwards.',
@@ -1276,6 +1381,7 @@ function FirstAccount({ onLogin }) {
     <div class="field"><input class="input" type="password" placeholder=${T('Mot de passe (8 caractères minimum)', 'Password (8 characters minimum)')} autocomplete="new-password"
       value=${password} onInput=${(e) => setPassword(e.target.value)} /></div>
     <button class="btn primary big block" disabled=${busy || !name.trim() || password.length < 8}>${busy ? html`<${Spinner} />` : T('Créer mon compte', 'Create my account')}</button>
+    <div class="first-restore"><${RestoreButton} cls="btn ghost small" label=${T('Ou restaurer une sauvegarde', 'Or restore a backup')} /></div>
   </form>`;
 }
 
@@ -2224,6 +2330,126 @@ function HiddenBlocksSheet({ onClose }) {
   </${Sheet}>`;
 }
 
+// Réglages du serveur (administrateur) : ce que fixe /etc/printr.env reste en lecture seule.
+const LOCKED_HINT = T('Fixé dans /etc/printr.env', 'Set in /etc/printr.env');
+const randomToken = () => [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, '0')).join('');
+
+function SettingSecret({ s, label, help, value, onChange, generate }) {
+  const [editing, setEditing] = useState(false);
+  let body;
+  if (s.locked) body = html`<div class="setting-state"><span class="chip">${LOCKED_HINT}</span></div>`;
+  else if (value === '' && s.set) body = html`<div class="setting-state"><span class="muted">${T('Sera effacé', 'Will be cleared')}</span>
+    <button type="button" class="btn ghost small" onClick=${() => onChange(undefined)}>${T('Annuler', 'Undo')}</button></div>`;
+  else if (generate && value) body = html`<div class="setting-new-token"><code>${value}</code><span class="muted">${T(
+    'Copie-le maintenant : Printr ne le montrera plus.', 'Copy it now: Printr won’t show it again.')}</span>
+    <button type="button" class="btn ghost small" onClick=${() => onChange(undefined)}>${T('Annuler', 'Undo')}</button></div>`;
+  else if (editing || !s.set) body = html`<div class="setting-state">
+    <input class="input" type="password" autocomplete="off" value=${value || ''} onInput=${(e) => onChange(e.target.value.trim() || undefined)} />
+    ${generate && html`<button type="button" class="btn secondary small" onClick=${() => onChange(randomToken())}>${T('Générer', 'Generate')}</button>`}</div>`;
+  else body = html`<div class="setting-state"><span class="setting-set">✓ ${T('Défini', 'Set')}</span>
+    <button type="button" class="btn ghost small" onClick=${() => (generate ? onChange(randomToken()) : setEditing(true))}>${T('Remplacer', 'Replace')}</button>
+    <button type="button" class="btn ghost small" onClick=${() => onChange('')}>${T('Effacer', 'Clear')}</button></div>`;
+  return html`<${Field} label=${label} help=${help}>${body}</${Field}>`;
+}
+
+function SettingsSheet({ onClose }) {
+  const [settings, setSettings] = useState(null);
+  const [restart, setRestart] = useState(true);
+  const [draft, setDraft] = useState({});
+  const [printer, setPrinter] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [restarting, setRestarting] = useState(false);
+  useEffect(() => {
+    api('GET', '/api/settings').then((r) => {
+      setSettings(Object.fromEntries(r.settings.map((x) => [x.key, x])));
+      setRestart(r.restart);
+    }).catch((e) => { toast(e.message, 'error'); onClose(); });
+  }, []);
+  if (!settings) return html`<${Sheet} title=${T('Réglages', 'Settings')} onClose=${onClose}><div class="boot"><${Spinner} /></div></${Sheet}>`;
+
+  const set = (key, value) => setDraft((d) => {
+    const next = { ...d };
+    if (value === undefined) delete next[key]; else next[key] = value;
+    return next;
+  });
+  const cur = (key) => draft[key] ?? settings[key]?.value ?? '';
+  const lang = cur('PRINTR_LANG') || (EN ? 'en' : 'fr');
+  // Ce qui change vraiment : un secret touché, ou une valeur différente de celle en vigueur.
+  const changes = Object.fromEntries(Object.entries(draft).filter(([k, v]) =>
+    !settings[k]?.locked && (settings[k]?.value === null && settings[k]?.set ? true : (settings[k]?.value ?? '') !== v)));
+  const count = Object.keys(changes).length;
+
+  const text = (key, label, help, placeholder, type = 'text') => html`<${Field} label=${label} help=${help}>
+    <input class="input" type=${type} placeholder=${placeholder} value=${cur(key)} disabled=${settings[key].locked}
+      inputmode=${type === 'number' ? 'numeric' : undefined} onInput=${(e) => set(key, e.target.value)} />
+    ${settings[key].locked && html`<span class="chip setting-lock">${LOCKED_HINT}</span>`}</${Field}>`;
+  const secret = (key, label, help, generate) => html`<${SettingSecret} s=${settings[key]} label=${label} help=${help}
+    value=${draft[key]} generate=${generate} onChange=${(v) => set(key, v)} />`;
+  const choice = (key, title, options) => html`<${Field} label=${title}>
+    ${settings[key].locked ? html`<span class="chip setting-lock">${LOCKED_HINT} : ${label(options, cur(key))}</span>`
+      : html`<${Segmented} options=${options} value=${key === 'PRINTR_LANG' ? lang : cur(key)} onChange=${(v) => set(key, v)} />`}</${Field}>`;
+  const toggle = (key, text, help) => settings[key].locked
+    ? html`<${Field} label=${text}><span class="chip setting-lock">${LOCKED_HINT}</span></${Field}>`
+    : html`<${Switch} label=${text} help=${help} checked=${!['off', 'false', '0', 'no', 'non'].includes(cur(key))}
+      onChange=${(on) => set(key, on ? '' : 'off')} />`;
+
+  const target = cur('PRINTR_TCP') || cur('PRINTR_DEVICE') || '/dev/usb/lp0';
+  const save = async () => {
+    setBusy(true);
+    try {
+      const r = await api('PUT', '/api/settings', { values: changes });
+      if (r.restarting) { setRestarting(true); waitForRestart(); return; }
+      toast(T('Réglages enregistrés : redémarre Printr pour les appliquer.', 'Settings saved: restart Printr to apply them.'), 'warn', '🔁');
+      onClose();
+    } catch (e) { toast(e.message, 'error'); } finally { setBusy(false); }
+  };
+  if (restarting) return html`<${Sheet} title=${T('Réglages', 'Settings')} onClose=${() => {}}><${Restarting} /></${Sheet}>`;
+
+  const printerLocked = settings.PRINTR_DEVICE.locked || settings.PRINTR_TCP.locked;
+  return html`<${Sheet} title=${T('Réglages', 'Settings')} onClose=${onClose} footer=${html`
+    <button class="btn secondary" onClick=${onClose}>${T('Annuler', 'Cancel')}</button>
+    <button class="btn primary grow" disabled=${busy || !count} onClick=${save}><${Icon} name="check" /> ${count
+      ? T(`Enregistrer (${count})`, `Save (${count})`) : T('Enregistrer', 'Save')}</button>`}>
+    <p class="muted" style="margin:0">${restart
+      ? T('Printr redémarre quelques secondes pour appliquer les changements.', 'Printr restarts for a few seconds to apply changes.')
+      : T('Les changements s’appliquent au prochain redémarrage de Printr.', 'Changes apply the next time Printr restarts.')}</p>
+
+    <div class="section-title">${T('Général', 'General')}</div>
+    ${choice('PRINTR_LANG', T('Langue', 'Language'), [['fr', 'Français'], ['en', 'English']])}
+    ${text('PRINTR_CITY', T('Ville', 'City'), T('Météo, qualité de l’air et horaires du soleil, sauf si le bloc en précise une.', 'Weather, air quality and sun times, unless the block sets one.'), T('Ex. Bordeaux', 'E.g. Boston'))}
+    ${choice('PRINTR_UNITS', T('Unités de la météo', 'Weather units'), [['', T('°C et km/h', '°C and km/h')], ['imperial', T('°F et mph', '°F and mph')]])}
+
+    <div class="section-title">${T('Imprimante', 'Printer')}</div>
+    ${printerLocked ? html`<${Field} label=${T('Imprimante', 'Printer')}><span class="chip setting-lock">${LOCKED_HINT} : ${target}</span></${Field}>`
+      : printer ? html`<${WizardPrinter} settings=${settings} values=${draft} onValues=${(v) => setDraft((d) => ({ ...d, ...v }))} />`
+      : html`<div class="setting-card paper-card"><span class="big-emoji" aria-hidden="true">${cur('PRINTR_TCP') ? '📡' : '🔌'}</span>
+          <span class="grow"><strong>${target}</strong><span class="muted">${cur('PRINTR_TCP') ? T('Imprimante réseau', 'Network printer') : 'USB'}</span>
+          <button type="button" class="btn secondary small" onClick=${() => setPrinter(true)}>${T('Changer et tester', 'Change and test')}</button></span></div>`}
+    ${choice('PRINTR_CODEPAGE', T('Page de code', 'Code page'), [['', T('PC858 (avec €)', 'PC858 (with €)')], ['850', 'PC850']])}
+
+    <div class="section-title">Claude</div>
+    ${secret('ANTHROPIC_API_KEY', T('Clé d’API Anthropic', 'Anthropic API key'), html`<a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>`)}
+    ${text('PRINTR_CLAUDE_MODEL', T('Modèle', 'Model'), null, 'claude-haiku-5-5')}
+    ${text('PRINTR_CLAUDE_TIMEOUT_SECS', T('Délai d’un appel (secondes)', 'Call timeout (seconds)'), T('À augmenter pour un modèle local lent.', 'Raise it for a slow local model.'), '120', 'number')}
+
+    <div class="section-title">Home Assistant · MQTT</div>
+    ${secret('PRINTR_MQTT_URL', T('Adresse du broker', 'Broker address'), T('Ex. mqtt://utilisateur:motdepasse@192.168.1.10:1883', 'E.g. mqtt://user:password@192.168.1.10:1883'))}
+    ${text('PRINTR_MQTT_PREFIX', T('Préfixe des sujets', 'Topic prefix'), null, 'printr')}
+    ${toggle('PRINTR_MQTT_DISCOVERY', T('Découverte automatique', 'Automatic discovery'), T('Printr apparaît tout seul dans Home Assistant.', 'Printr shows up in Home Assistant by itself.'))}
+
+    <div class="section-title">${T('Scripts et limites', 'Scripts and limits')}</div>
+    ${secret('PRINTR_TOKEN', T('Jeton d’API', 'API token'), T('Pour les scripts : « Authorization: Bearer <jeton> ».', 'For scripts: “Authorization: Bearer <token>”.'), true)}
+    ${text('PRINTR_MAX_TICKETS_PER_HOUR', T('Tickets par heure et par compte', 'Tickets per hour and account'), T('0 : sans limite.', '0: no limit.'), '20', 'number')}
+    ${text('PRINTR_QUEUE_HOURS', T('Attente si l’imprimante est absente (heures)', 'Wait when the printer is away (hours)'), null, '12', 'number')}
+    ${toggle('PRINTR_UPDATE_CHECK', T('Signaler les nouvelles versions', 'Report new versions'), T('Une fois par jour, Printr regarde sur GitHub.', 'Once a day, Printr checks GitHub.'))}
+    ${settings.PRINTR_AUTO_UPDATE.locked
+      ? html`<${Field} label=${T('Installer automatiquement', 'Install automatically')}><span class="chip setting-lock">${LOCKED_HINT}</span></${Field}>`
+      : html`<${Switch} label=${T('Installer automatiquement, la nuit', 'Install automatically, at night')}
+        help=${T('Seulement les versions signées par l’auteur de Printr, entre 3 h et 5 h ; retour à l’ancienne si la nouvelle ne démarre pas.', 'Only versions signed by Printr’s author, between 3 and 5 am; back to the previous one if the new one does not start.')}
+        checked=${cur('PRINTR_AUTO_UPDATE') === 'auto'} onChange=${(on) => set('PRINTR_AUTO_UPDATE', on ? 'auto' : '')} />`}
+  </${Sheet}>`;
+}
+
 // Mon compte : la famille (ajouter, retirer), mon mot de passe, la déconnexion.
 // Longueur de papier lisible : « 52 m », « 80 cm ».
 const metres = (mm) => (mm >= 1000 ? `${Math.round(mm / 1000)}\u00a0m` : `${Math.round(mm / 10)}\u00a0cm`);
@@ -2267,6 +2493,7 @@ function AccountSheet({ me, users, version, update, paper, reloadUsers, onLogout
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState(null);
   const [picking, setPicking] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const run = async (fn) => { setBusy(true); try { await fn(); } catch (e) { toast(e.message, 'error'); } finally { setBusy(false); } };
   const add = (e) => { e.preventDefault(); run(async () => {
     const { user } = await api('POST', '/api/users', { name, password });
@@ -2293,11 +2520,18 @@ function AccountSheet({ me, users, version, update, paper, reloadUsers, onLogout
     ${me.admin && update && html`<a class="update-card" href=${update.url} target="_blank" rel="noopener">
       <span class="big-emoji">✨</span>
       <span class="grow"><strong>${T(`Printr ${update.version} est disponible`, `Printr ${update.version} is available`)}</strong>
-        <span class="muted">${T(
+        <span class="muted">${SERVER.autoUpdate ? T(
+          `Tu as la ${version}. Elle s’installera toute seule cette nuit ; les nouveautés sont par ici.`,
+          `You're on ${version}. It will install itself tonight; here's what's new.`,
+        ) : T(
           `Tu as la ${version}. Lis les nouveautés, puis mets à jour depuis ton ordinateur.`,
           `You're on ${version}. Read what's new, then update from your computer.`,
         )}</span></span>
       <${Icon} name="send" size=${18} /></a>`}
+    ${me.admin && SERVER.lastUpdate && html`<p class="muted last-update">✨ ${T(
+      `Mis à jour tout seul de la ${SERVER.lastUpdate.from} à la ${SERVER.lastUpdate.to}, le ${new Date(SERVER.lastUpdate.at).toLocaleDateString(LOCALE, { day: 'numeric', month: 'long' })}.`,
+      `Updated by itself from ${SERVER.lastUpdate.from} to ${SERVER.lastUpdate.to} on ${new Date(SERVER.lastUpdate.at).toLocaleDateString(LOCALE, { day: 'numeric', month: 'long' })}.`,
+    )}</p>`}
 
     ${paper && html`<div class="section-title">${T('L’imprimante', 'The printer')}</div><${PaperCard} paper=${paper} />`}
 
@@ -2312,6 +2546,23 @@ function AccountSheet({ me, users, version, update, paper, reloadUsers, onLogout
       <input class="input" type="password" placeholder=${T('Son mot de passe (8 caractères minimum)', 'Their password (8 characters minimum)')} autocomplete="new-password" value=${password} onInput=${(e) => setPassword(e.target.value)} />
       <button class="btn secondary" disabled=${busy || !name.trim() || password.length < 8}><${Icon} name="plus" size=${16} /> ${T('Ajouter', 'Add')}</button>
     </form>
+
+    ${me.admin && html`<div class="section-title">${T('Printr', 'Printr')}</div>
+      <button type="button" class="setting-card" onClick=${() => setSettingsOpen(true)}>
+        <span class="big-emoji" aria-hidden="true">⚙️</span>
+        <span class="grow"><strong>${T('Réglages', 'Settings')}</strong>
+          <span class="muted">${T('Imprimante, langue, ville, Claude, Home Assistant…', 'Printer, language, city, Claude, Home Assistant…')}</span></span>
+        <${Icon} name="sliders" size=${18} /></button>`}
+
+    ${me.admin && html`<div class="setting-card paper-card backup-card">
+        <span class="big-emoji" aria-hidden="true">📦</span>
+        <span class="grow"><strong>${T('Sauvegarde', 'Backup')}</strong>
+          <span class="muted">${T(
+            'Comptes, tickets, historique, réglages et photos, dans un seul fichier. Il contient la clé Claude et les mots de passe (hachés) : garde-le en lieu sûr.',
+            'Accounts, tickets, history, settings and photos, in a single file. It holds the Claude key and the passwords (hashed): keep it somewhere safe.',
+          )}</span>
+          <span class="backup-actions"><a class="btn secondary small" href="/api/backup" download>${T('Télécharger', 'Download')}</a>
+            <${RestoreButton} label=${T('Restaurer…', 'Restore…')} /></span></span></div>`}
 
     ${me.admin && html`<div class="section-title">${T('Catalogue de la famille', 'The family’s catalog')}</div>
       <button type="button" class="setting-card" onClick=${() => setPicking(true)}>
@@ -2332,7 +2583,236 @@ function AccountSheet({ me, users, version, update, paper, reloadUsers, onLogout
     ${version && html`<p class="version">printr ${version}</p>`}
     ${confirm && html`<${Confirm} ...${confirm} onClose=${() => setConfirm(null)} />`}
     ${picking && html`<${HiddenBlocksSheet} onClose=${() => setPicking(false)} />`}
+    ${settingsOpen && html`<${SettingsSheet} onClose=${() => setSettingsOpen(false)} />`}
   </${Sheet}>`;
+}
+
+// ============================================================================
+// Première connexion au réseau (image Raspberry Pi) : depuis le point d'accès de Printr
+// ============================================================================
+
+const signalBars = (signal) => (signal >= 70 ? '▂▄▆█' : signal >= 45 ? '▂▄▆' : signal >= 20 ? '▂▄' : '▂');
+
+function WifiSetup({ state }) {
+  const [picked, setPicked] = useState(null); // { ssid, secure } ou { hidden: true }
+  const [ssid, setSsid] = useState('');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [joining, setJoining] = useState(state.joining);
+  const name = picked?.hidden ? ssid.trim() : picked?.ssid;
+  const needsPassword = picked?.hidden || picked?.secure;
+  const submit = async (e) => {
+    e.preventDefault(); setBusy(true);
+    try {
+      await api('POST', '/api/wifi', { ssid: name, password: needsPassword ? password : '' });
+      setJoining(name);
+    } catch (err) { toast(err.message, 'error'); } finally { setBusy(false); }
+  };
+  if (joining) {
+    return html`<div class="login"><div class="login-card wizard">
+      <div class="wifi-joining" aria-hidden="true">📶</div>
+      <h1>${T(`Connexion à « ${joining} »…`, `Joining “${joining}”…`)}</h1>
+      <div class="wizard-body"><p class="muted">${T(
+        'Ton téléphone va perdre le Wi-Fi de Printr : c’est normal. Dans un instant, Printr imprime un ticket avec l’adresse de l’appli.',
+        'Your phone is about to lose Printr’s Wi-Fi: that’s expected. In a moment, Printr prints a ticket with the app’s address.',
+      )}</p><p class="muted">${T(
+        `Si le ticket annonce un échec, reconnecte-toi à « ${state.hotspot || 'Printr'} » et réessaie.`,
+        `If the ticket reports a failure, reconnect to “${state.hotspot || 'Printr'}” and try again.`,
+      )}</p></div></div></div>`;
+  }
+  return html`<div class="login"><form class="login-card wizard" onSubmit=${submit}>
+    <img class="logo" src="/mark.png" alt="" style="display:block" />
+    <h1>${T('Le Wi-Fi de la maison', 'Your home Wi-Fi')}</h1>
+    ${state.error && html`<p class="wifi-error" role="alert">${state.error}</p>`}
+    <div class="wizard-body">
+      <p class="muted">${T('Choisis le réseau que Printr doit rejoindre.', 'Pick the network Printr should join.')}</p>
+      <div class="wizard-printers">
+        ${state.networks.map((n) => html`<button type="button" key=${n.ssid} class="setting-card ${picked?.ssid === n.ssid ? 'on' : ''}"
+          onClick=${() => { setPicked(n); setPassword(''); }}>
+          <span class="wifi-bars" aria-label=${`${n.signal} %`}>${signalBars(n.signal)}</span>
+          <span class="grow"><strong>${n.ssid}</strong><span class="muted">${n.secure ? T('🔒 Protégé', '🔒 Secured') : T('Ouvert', 'Open')}</span></span></button>`)}
+        ${!state.networks.length && html`<p class="muted">${T('Aucun réseau trouvé : tape son nom ci-dessous.', 'No network found: type its name below.')}</p>`}
+        <button type="button" class="setting-card ${picked?.hidden ? 'on' : ''}" onClick=${() => setPicked({ hidden: true })}>
+          <span class="big-emoji" aria-hidden="true">✍️</span>
+          <span class="grow"><strong>${T('Autre réseau', 'Other network')}</strong><span class="muted">${T('Réseau masqué, ou absent de la liste', 'Hidden network, or not listed')}</span></span></button>
+      </div>
+      ${picked?.hidden && html`<input class="input" placeholder=${T('Nom du réseau', 'Network name')} value=${ssid} onInput=${(e) => setSsid(e.target.value)} />`}
+      ${picked && needsPassword && html`<input class="input" type="password" autocomplete="off" placeholder=${T('Mot de passe du Wi-Fi', 'Wi-Fi password')}
+        value=${password} onInput=${(e) => setPassword(e.target.value)} />`}
+    </div>
+    <div class="wizard-actions"><button class="btn primary big block" disabled=${busy || !name || (needsPassword && password.length < 8)}>
+      ${busy ? html`<${Spinner} />` : T('Connecter Printr', 'Connect Printr')}</button></div>
+  </form></div>`;
+}
+
+// ============================================================================
+// Assistant de premier lancement (administrateur)
+// ============================================================================
+
+const ACCENTS = 'é è à ç ù €';
+
+// Étape « imprimante » : détection, ticket de test, puis la page de code selon les accents.
+function WizardPrinter({ settings, values, onValues }) {
+  const locked = settings.PRINTR_DEVICE?.locked || settings.PRINTR_TCP?.locked;
+  const [found, setFound] = useState(null);
+  const [choice, setChoice] = useState(null);
+  const [manual, setManual] = useState(settings.PRINTR_TCP?.value || '');
+  const [pc850, setPc850] = useState(settings.PRINTR_CODEPAGE?.value === '850');
+  const [step, setStep] = useState('pick'); // pick → printing → ask → ok
+  const detect = () => {
+    setFound(null);
+    api('GET', '/api/setup/printers').then((r) => {
+      setFound(r);
+      const first = r.usb[0]?.device ? { device: r.usb[0].device } : r.network[0] ? { tcp: r.network[0].tcp }
+        : settings.PRINTR_TCP?.value ? { manual: true } : null;
+      setChoice((c) => c || first);
+    }).catch((e) => { toast(e.message, 'error'); setFound({ usb: [], network: [] }); });
+  };
+  useEffect(() => { if (!locked) detect(); }, []);
+
+  const target = choice?.manual ? { tcp: manual.trim() } : choice;
+  const print = async (codepage) => {
+    setStep('printing');
+    try {
+      await api('POST', '/api/setup/test-print', { ...target, pc850: codepage });
+      setStep('ask');
+    } catch (e) { toast(e.message, 'error'); setStep('pick'); }
+  };
+  const answer = (ok) => {
+    if (ok) {
+      setStep('ok');
+      onValues({ PRINTR_DEVICE: target.device || '', PRINTR_TCP: target.tcp || '', PRINTR_CODEPAGE: pc850 ? '850' : '' });
+    } else {
+      // L'autre page de code : celle des imprimantes qui n'ont pas le « € » (PC850).
+      setPc850(!pc850); print(!pc850);
+    }
+  };
+  const pick = (c) => { setChoice(c); setStep('pick'); };
+
+  if (locked) {
+    const fixed = settings.PRINTR_TCP?.value || settings.PRINTR_DEVICE?.value;
+    return html`<p class="muted">${T(
+      `L’imprimante est réglée par le système (${fixed}). Pour en changer, modifie /etc/printr.env.`,
+      `The printer is set by the system (${fixed}). To change it, edit /etc/printr.env.`,
+    )}</p>`;
+  }
+  const same = (c) => choice && !choice.manual && c.device === choice.device && c.tcp === choice.tcp;
+  return html`<div class="wizard-printers">
+    ${found === null ? html`<div class="wizard-searching"><${Spinner} /><span class="muted">${T('Recherche des imprimantes…', 'Looking for printers…')}</span></div>` : html`
+      ${found.usb.map((p) => html`<button type="button" class="setting-card ${same(p) ? 'on' : ''}" onClick=${() => pick({ device: p.device })}>
+        <span class="big-emoji" aria-hidden="true">🔌</span>
+        <span class="grow"><strong>${T('USB', 'USB')} · ${p.device}</strong><span class="muted">${printerState(p.status || 'missing').label()}</span></span></button>`)}
+      ${found.network.map((p) => html`<button type="button" class="setting-card ${same(p) ? 'on' : ''}" onClick=${() => pick({ tcp: p.tcp })}>
+        <span class="big-emoji" aria-hidden="true">📡</span>
+        <span class="grow"><strong>${T('Réseau', 'Network')} · ${p.tcp}</strong><span class="muted">${T('Répond sur le port 9100', 'Answers on port 9100')}</span></span></button>`)}
+      ${!found.usb.length && !found.network.length && html`<p class="muted">${T(
+        'Aucune imprimante trouvée. Vérifie qu’elle est allumée et branchée, puis relance la recherche.',
+        'No printer found. Check that it is on and plugged in, then search again.',
+      )}</p>`}
+      <button type="button" class="setting-card ${choice?.manual ? 'on' : ''}" onClick=${() => pick({ manual: true })}>
+        <span class="big-emoji" aria-hidden="true">✍️</span>
+        <span class="grow"><strong>${T('Autre imprimante réseau', 'Another network printer')}</strong><span class="muted">${T('Son adresse et son port', 'Its address and port')}</span></span></button>
+      ${choice?.manual && html`<input class="input" placeholder="192.168.1.50:9100" value=${manual} onInput=${(e) => { setManual(e.target.value); setStep('pick'); }} />`}
+      <button type="button" class="btn ghost small" onClick=${detect}><${Icon} name="history" size=${16} /> ${T('Chercher de nouveau', 'Search again')}</button>`}
+
+    ${step === 'pick' && html`<button type="button" class="btn primary block" disabled=${!target || (choice?.manual && !/^.+:\d+$/.test(manual.trim()))}
+      onClick=${() => print(pc850)}>🧾 ${T('Imprimer un ticket de test', 'Print a test ticket')}</button>`}
+    ${step === 'printing' && html`<div class="wizard-searching"><${Spinner} /><span class="muted">${T('Impression…', 'Printing…')}</span></div>`}
+    ${step === 'ask' && html`<div class="wizard-ask"><strong>${T(`Les accents (${ACCENTS}) sont-ils bien sortis ?`, `Did the accents (${ACCENTS}) come out right?`)}</strong>
+      <div class="wizard-actions"><button type="button" class="btn primary" onClick=${() => answer(true)}>${T('Oui, parfait', 'Yes, perfect')}</button>
+        <button type="button" class="btn secondary" onClick=${() => answer(false)}>${T('Non, des symboles bizarres', 'No, odd symbols')}</button></div>
+      <span class="muted">${T('« Non » imprime un nouveau ticket avec l’autre page de code.', '“No” prints a new ticket with the other code page.')}</span></div>`}
+    ${step === 'ok' && html`<p class="wizard-ok">✅ ${T('L’imprimante est prête.', 'The printer is ready.')}${values.PRINTR_CODEPAGE === '850' ? T(' (page de code PC850)', ' (PC850 code page)') : ''}</p>`}
+  </div>`;
+}
+
+const WIZARD_STEPS = [
+  { id: 'printer', emoji: '🖨️', title: T('Ton imprimante', 'Your printer') },
+  { id: 'city', emoji: '🏙️', title: T('Ta ville', 'Your city') },
+  { id: 'claude', emoji: '✨', title: 'Claude' },
+  { id: 'done', emoji: '🎉', title: T('C’est prêt !', 'All set!') },
+];
+
+function Wizard({ me, onDone }) {
+  const [settings, setSettings] = useState(null);
+  const [index, setIndex] = useState(0);
+  const [values, setValues] = useState({});
+  const [busy, setBusy] = useState(false);
+  const [restarting, setRestarting] = useState(false);
+  useEffect(() => {
+    api('GET', '/api/settings').then((r) => setSettings(Object.fromEntries(r.settings.map((s) => [s.key, s]))))
+      .catch((e) => { toast(e.message, 'error'); onDone(); });
+  }, []);
+  const set = (key, value) => setValues((v) => ({ ...v, [key]: value }));
+  const step = WIZARD_STEPS[index];
+
+  const finish = async () => {
+    setBusy(true);
+    try {
+      await api('POST', '/api/wizard/done');
+      // Mises à jour automatiques proposées par défaut : Printr se débrouille seul.
+      const all = settings.PRINTR_AUTO_UPDATE && !settings.PRINTR_AUTO_UPDATE.set ? { PRINTR_AUTO_UPDATE: 'auto', ...values } : values;
+      // Seulement ce qui change, et pas ce que le système fixe.
+      const changes = Object.fromEntries(Object.entries(all)
+        .filter(([k, v]) => !settings[k]?.locked && (settings[k]?.value ?? (settings[k]?.set ? null : '')) !== v));
+      if (!Object.keys(changes).length) { onDone(); return; }
+      const r = await api('PUT', '/api/settings', { values: changes });
+      if (r.restarting) { setRestarting(true); waitForRestart(); return; }
+      toast(T('Réglages enregistrés : redémarre Printr pour les appliquer.', 'Settings saved: restart Printr to apply them.'), 'warn', '🔁');
+      onDone();
+    } catch (e) { toast(e.message, 'error'); } finally { setBusy(false); }
+  };
+
+  if (restarting) return html`<div class="login"><${Restarting} /></div>`;
+  if (!settings) return html`<div class="boot"><${Spinner} /></div>`;
+  const city = values.PRINTR_CITY ?? settings.PRINTR_CITY?.value ?? '';
+  const key = values.ANTHROPIC_API_KEY ?? '';
+  let body;
+  if (step.id === 'printer') {
+    body = html`<p class="muted">${T('Choisis l’imprimante, puis imprime un ticket pour vérifier.', 'Pick the printer, then print a ticket to check.')}</p>
+      <${WizardPrinter} settings=${settings} values=${values} onValues=${(v) => setValues((old) => ({ ...old, ...v }))} />`;
+  } else if (step.id === 'city') {
+    body = settings.PRINTR_CITY?.locked
+      ? html`<p class="muted">${T(`La ville est réglée par le système : ${city}.`, `The city is set by the system: ${city}.`)}</p>`
+      : html`<${Field} help=${T('Pour la météo, la qualité de l’air et les horaires du soleil. Tu pourras la changer dans chaque bloc.',
+          'For the weather, air quality and sun times. You can change it in each block.')}>
+          <input class="input" placeholder=${T('Ex. Bordeaux', 'E.g. Boston')} value=${city} onInput=${(e) => set('PRINTR_CITY', e.target.value)} /></${Field}>`;
+  } else if (step.id === 'claude') {
+    body = settings.ANTHROPIC_API_KEY?.set
+      ? html`<p class="muted">✅ ${T('Claude est déjà configuré : histoires, horoscope, recettes et mot du jour sont disponibles.',
+          'Claude is already set up: stories, horoscope, recipes and word of the day are available.')}</p>`
+      : html`<p class="muted">${T(
+          'Facultatif : avec une clé d’API Anthropic, Printr écrit des histoires, l’horoscope, des recettes et le mot du jour. Sans clé, tous les autres blocs marchent.',
+          'Optional: with an Anthropic API key, Printr writes stories, the horoscope, recipes and the word of the day. Without one, every other block works.',
+        )}</p>
+        <${Field} help=${html`<a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">${T('Créer une clé sur console.anthropic.com', 'Create a key on console.anthropic.com')}</a>`}>
+          <input class="input" type="password" autocomplete="off" placeholder="sk-ant-…" value=${key} onInput=${(e) => set('ANTHROPIC_API_KEY', e.target.value.trim())} /></${Field}>`;
+  } else {
+    body = html`<p class="muted">${T(
+      'Ouvre Printr sur le téléphone de chacun à cette adresse, et ajoute-les depuis « Mon compte ».',
+      'Open Printr on everyone’s phone at this address, and add them from “My account”.',
+    )}</p><p class="wizard-address">${location.origin}</p>
+    ${settings.PRINTR_AUTO_UPDATE && !settings.PRINTR_AUTO_UPDATE.locked && html`<${Switch} label=${T('Mettre Printr à jour tout seul, la nuit', 'Keep Printr up to date by itself, at night')}
+      help=${T('Les nouvelles versions signées s’installent entre 3 h et 5 h.', 'New signed versions install between 3 and 5 am.')}
+      checked=${(values.PRINTR_AUTO_UPDATE ?? (settings.PRINTR_AUTO_UPDATE.set ? settings.PRINTR_AUTO_UPDATE.value : 'auto')) === 'auto'}
+      onChange=${(on) => set('PRINTR_AUTO_UPDATE', on ? 'auto' : '')} />`}`;
+  }
+  const last = index === WIZARD_STEPS.length - 1;
+  return html`<div class="login"><div class="login-card wizard">
+    <ol class="wizard-steps" aria-label=${T('Étapes', 'Steps')}>${WIZARD_STEPS.map((s, i) => html`<li class=${i === index ? 'on' : i < index ? 'done' : ''}
+      aria-current=${i === index ? 'step' : undefined}>${s.emoji}</li>`)}</ol>
+    ${index === 0 && html`<p class="muted" style="margin:0">${T(`Bienvenue ${me.name} ! Quelques réglages et c’est parti.`, `Welcome, ${me.name}! A few settings and you’re off.`)}</p>`}
+    <h1>${step.title}</h1>
+    <div class="wizard-body">${body}</div>
+    <div class="wizard-actions">
+      ${index > 0 && html`<button type="button" class="btn ghost" onClick=${() => setIndex(index - 1)}>${T('Retour', 'Back')}</button>`}
+      <span class="grow"></span>
+      ${last
+        ? html`<button type="button" class="btn primary big" disabled=${busy} onClick=${finish}>${busy ? html`<${Spinner} />` : T('C’est parti !', 'Let’s go!')}</button>`
+        : html`<button type="button" class="btn primary" onClick=${() => setIndex(index + 1)}>${T('Suivant', 'Next')}</button>`}
+    </div>
+    ${!last && html`<button type="button" class="btn ghost small wizard-skip" disabled=${busy} onClick=${finish}>${T('Passer, je réglerai plus tard', 'Skip, I’ll set it up later')}</button>`}
+  </div></div>`;
 }
 
 const NAV = [
@@ -2355,12 +2835,15 @@ function App() {
   const [composer, setComposer] = useState(() => store.get('printr.draft', null) || emptyComposer());
   const [scrolled, setScrolled] = useState(false);
   const [menu, setMenu] = useState(false);
+  const [wizard, setWizard] = useState(false); // assistant de premier lancement à faire
+  const [wifi, setWifi] = useState(null); // première connexion au réseau en cours
   const hash = useHash();
 
   const loadPresets = useCallback(() => api('GET', '/api/presets').then(setPresets).catch((e) => toast(e.message, 'error')), []);
   const loadUsers = useCallback(() => api('GET', '/api/users').then(setUsers).catch(() => {}), []);
 
   useEffect(() => {
+    api('GET', '/api/wifi').then(setWifi).catch(() => {});
     api('GET', '/api/me').then(({ user }) => setMe(user)).catch(() => setMe(null));
     return bus.on('unauthorized', () => { Object.assign(MY_CATALOG, { favorites: [], recent: [] }); setMe(null); });
   }, []);
@@ -2369,10 +2852,13 @@ function App() {
     loadPresets();
     loadUsers();
     const status = () => api('GET', '/api/status').then((s) => {
-      setVersion(s.version); setUpdate(s.update || null);
+      setVersion(s.version); setUpdate(s.update || null); setWizard(!!s.wizard);
       CATALOG.hidden = s.hidden_blocks || [];
       CATALOG.claude = !!s.claude;
       SERVER.mqtt = s.mqtt_prefix || null;
+      SERVER.city = s.city || null;
+      SERVER.autoUpdate = !!s.auto_update;
+      SERVER.lastUpdate = s.last_update || null;
       setPrinter((before) => {
         const status = s.printer_status || (s.printer_ready === false ? 'missing' : 'ready');
         const now = { ready: status === 'ready', status, queued: s.queued || 0, paper: s.paper || null };
@@ -2391,8 +2877,10 @@ function App() {
     return () => removeEventListener('scroll', onScroll);
   }, []);
 
+  if (wifi) return html`<${WifiSetup} state=${wifi} /><${Toasts} />`;
   if (me === undefined) return html`<div class="boot"><${Spinner} /></div><${Toasts} />`;
   if (me === null) return html`<${Login} onLogin=${setMe} /><${Toasts} />`;
+  if (wizard) return html`<${Wizard} me=${me} onDone=${() => { setWizard(false); bus.emit('printer'); }} /><${Toasts} />`;
 
   const openComposer = (state) => { setComposer(state); location.hash = '#/compose'; };
   const logout = async () => {

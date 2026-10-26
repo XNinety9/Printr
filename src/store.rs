@@ -232,6 +232,10 @@ pub struct Data {
     pub history: Vec<HistoryEntry>,
     #[serde(default)]
     pub shopping: Vec<ShoppingItem>,
+    /// Anniversaires communs à la famille, que chacun complète : une personne par ligne, comme
+    /// dans le bloc Anniversaires, qui les ajoute aux siens.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub family_birthdays: String,
     /// Tickets qui attendent le retour de l'imprimante, du plus ancien au plus récent ; leurs
     /// octets ESC/POS sont dans `queue/`.
     #[serde(default)]
@@ -242,6 +246,19 @@ pub struct Data {
     pub hidden_blocks: Vec<String>,
     #[serde(default)]
     pub paper: Paper,
+    /// Réglages faits dans l'appli par l'administrateur (voir `settings`), par nom de variable.
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub settings: std::collections::BTreeMap<String, String>,
+    /// Assistant de premier lancement à faire : posé à la création du premier compte, retiré quand
+    /// l'administrateur le termine (les installations existantes ne le voient pas).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub wizard_pending: bool,
+}
+
+impl Data {
+    pub fn users_count(&self) -> usize {
+        self.users.len()
+    }
 }
 
 /// Le rouleau en place, pour estimer le papier qui reste : l'imprimante ne dit « plus de papier »
@@ -393,6 +410,26 @@ impl Store {
         fs::rename(&tmp, &self.path)?;
         self.modified = modified(&self.path);
         Ok(())
+    }
+
+    // ---- Sauvegarde ----
+
+    /// Les données à sauvegarder : tout, sauf les sessions et la file d'attente (propres à la machine).
+    pub fn backup_data(&self) -> Result<serde_json::Value> {
+        let mut value = serde_json::to_value(&self.data)?;
+        if let Some(map) = value.as_object_mut() {
+            map.remove("sessions");
+            map.remove("queue");
+        }
+        Ok(value)
+    }
+
+    /// Remplace les données par une sauvegarde : tout le monde se reconnecte, et les tickets qui
+    /// attendent l'imprimante sont gardés.
+    pub fn restore(&mut self, mut data: Data) {
+        data.sessions.clear();
+        data.queue = std::mem::take(&mut self.data.queue);
+        self.data = data;
     }
 
     // ---- Utilisateurs ----

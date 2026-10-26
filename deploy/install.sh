@@ -54,7 +54,7 @@ fi
 NEW_VERSION=$("$BIN" --version 2>/dev/null) || fail "$BIN ne s'exécute pas ici (compilé pour une autre architecture que $(uname -m) ?)"
 [ -d /run/systemd/system ] && have systemctl || fail "systemd est nécessaire pour installer le service"
 for tool in useradd groupadd usermod install; do have "$tool" || fail "outil manquant : $tool"; done
-for file in printr.service printr.env.example 70-tm-t88v.rules 50-printr.rules; do
+for file in printr.service printr.env.example 70-tm-t88v.rules 50-printr.rules printr-update-guard.sh; do
   [ -f "$HERE/$file" ] || fail "fichier manquant à côté du script : $file"
 done
 if [ -z "$OWNER" ] || [ "$OWNER" = root ]; then
@@ -180,6 +180,8 @@ else
   [ -f /opt/printr/printr.old ] && note "version précédente gardée : /opt/printr/printr.old"
 fi
 ln -sfn /opt/printr/printr /usr/local/bin/printr
+# Garde des mises à jour automatiques (lancée par le service avant chaque démarrage).
+install -m 755 -o root -g printr "$HERE/printr-update-guard.sh" /opt/printr/printr-update-guard.sh
 
 # ---- Dossiers de données ----
 step "Dossiers"

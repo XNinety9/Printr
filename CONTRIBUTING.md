@@ -285,7 +285,9 @@ sample response (see `barnum.rs`).
   (block examples, app screenshots, showcase tickets, link preview image), then builds the site;
   `--sans-claude` avoids any Claude call (Claude blocks keep their current image).
 - The screenshots for the site and the docs are regenerated with `docs/demo/photo-session.sh`,
-  always with fictional data. Never put real personal data in them.
+  always with fictional data. Never put real personal data in them. Those of the first start (Wi-Fi
+  hotspot, wizard, settings) come from `docs/demo/setup-session.sh`, which runs Printr in an
+  isolated network namespace (`unshare`, no sudo) with a fake network, fake `nmcli` and the emulator.
 - The logo variants are regenerated with `uv run --with pillow python docs/brand/make-assets.py`.
 - The site is built with `docs/build.py`: the home page (`docs/index.html`) and the documentation,
   rendered from `docs/guide.md` and `CONTRIBUTING.md`. A change to these files therefore also updates
@@ -310,6 +312,29 @@ pushed: `git tag -a v1.1.0 -m "printr 1.1.0" && git push origin v1.1.0`. The Rel
 builds the binaries and publishes the GitHub release, with the CHANGELOG section as notes. Installations see it
 within the day ("My account" of the administrator): only push a tag for a version that is ready
 to be installed.
+
+Once the workflow is done, the maintainer signs the release on their own computer:
+`scripts/signer-release.sh v1.1.0`. It downloads `SHA256SUMS` and every file it lists, checks the
+checksums, signs the list with the release key (`~/.config/printr-release/printr.key`, which never
+leaves that computer) and adds `SHA256SUMS.minisig` to the release. Installations with automatic
+updates only install a signed release. `scripts/labo-maj.sh` tests the whole update path locally
+(fake GitHub, fake systemd): a good version, a crashing one (rolled back), a wrong key, a tampered
+binary.
+
+The release keys are created once, with a password each:
+
+```sh
+cargo run -q --example signer -- keygen ~/.config/printr-release        # main key, on this computer
+cargo run -q --example signer -- keygen /media/usb/printr-spare         # spare key, straight to a USB stick
+```
+
+Both public keys go into `RELEASE_KEYS` (`src/update.rs`), the main one first: Printr accepts a
+signature from either. Back up the main private key (`printr.key` is a few lines of text, already
+encrypted by its password) in a password manager, and keep its password somewhere else. The spare
+key stays offline, never on the computer: a USB stick in a drawer, or printed on ordinary paper
+(not on receipts: thermal paper fades). If the main key is lost, sign with the spare one
+(`scripts/signer-release.sh vX.Y.Z --key /media/usb/printr-spare/printr.key`) a version whose
+`RELEASE_KEYS` holds a new main key and the same spare: every installation takes it by itself.
 
 ## Proposing a change
 

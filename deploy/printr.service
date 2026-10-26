@@ -9,6 +9,8 @@ Wants=network-online.target
 
 [Service]
 EnvironmentFile=/etc/printr.env
+# Mise à jour automatique : remet l'ancienne version si la nouvelle n'a pas confirmé son démarrage.
+ExecStartPre=-/opt/printr/printr-update-guard.sh
 ExecStart=/opt/printr/printr serve
 Restart=on-failure
 RestartSec=5
@@ -20,6 +22,9 @@ SupplementaryGroups=lp
 UMask=0007
 NoNewPrivileges=yes
 ProtectSystem=strict
+# Le programme lui-même, pour la mise à jour automatique (PRINTR_AUTO_UPDATE=auto) : le dossier
+# appartient déjà au groupe printr, pour les mises à jour sans sudo.
+ReadWritePaths=/opt/printr
 ProtectHome=yes
 PrivateTmp=yes
 # Garde-fous : un ticket qui s'emballe ne peut pas faire tomber la machine.

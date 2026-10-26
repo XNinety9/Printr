@@ -1,0 +1,16 @@
+# Printr's Wi-Fi hotspot for the first network connection (PRINTR_WIFI_SETUP=1): hostapd for the
+# access point, dnsmasq for addresses and the captive portal. Started and stopped by printr, which
+# writes /run/printr/hostapd.conf and releases wlan0 from NetworkManager first; never at boot.
+[Unit]
+Description=Printr Wi-Fi setup hotspot
+After=NetworkManager.service
+
+[Service]
+Type=simple
+RuntimeDirectory=printr-hotspot
+ExecStartPre=/usr/sbin/ip addr flush dev wlan0
+ExecStartPre=/usr/sbin/ip addr add 10.42.0.1/24 dev wlan0
+ExecStartPre=/usr/sbin/ip link set wlan0 up
+ExecStart=/usr/sbin/hostapd /run/printr/hostapd.conf
+ExecStartPost=/usr/sbin/dnsmasq --conf-file=/etc/printr/hotspot-dnsmasq.conf --pid-file=/run/printr-hotspot/dnsmasq.pid
+ExecStopPost=/bin/sh -c 'if [ -f /run/printr-hotspot/dnsmasq.pid ]; then kill "$(cat /run/printr-hotspot/dnsmasq.pid)"; fi; /usr/sbin/ip addr flush dev wlan0'

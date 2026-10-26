@@ -38,12 +38,23 @@ the printer.
 - **56 blocks**: weather with what to wear, tonight's sky, horoscope in four tones, recipes, bedtime
   stories, birthdays, chores, crosswords, sudoku, kakuro, chess, coloring, shopping list, news, photos…
 - **A web app for the family**: accounts, saved and shared tickets, live preview, scheduling, history.
+- **Ready to flash**: an image for the Raspberry Pi; plug in the printer, power on, and set up the
+  Wi-Fi from your phone with the ticket it prints. A wizard and in-app settings do the rest.
 - **Never loses a ticket**: printer off, cover open or out of paper? The ticket waits, and the app says why.
 - **Plays well with the house**: Home Assistant (integration or automatic discovery), MQTT, Node-RED, HTTP API.
 - **Lean**: almost everything is computed locally or comes from free APIs. Claude only writes what
   needs a pen, with small Claude Haiku calls, always cached.
 
 ## Quick start
+
+**On a Raspberry Pi**: write the [ready-to-flash image](https://github.com/XNinety9/Printr/releases)
+to a microSD card with Raspberry Pi Imager, plug in the printer and power on
+([details](https://xninety9.github.io/Printr/guide.en.html#ready-to-flash-image)).
+
+**On a machine already running** (Raspberry Pi OS or any Linux with systemd):
+`curl -fsSL https://xninety9.github.io/Printr/install.sh | bash`, then the wizard in the browser.
+
+**From the source code**:
 
 ```sh
 export PRINTR_LANG=en                                          # English app and tickets (French by default)

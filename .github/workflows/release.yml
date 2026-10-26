@@ -5,7 +5,8 @@ name: Release
 #   - à chaque étiquette vX.Y.Z poussée ;
 #   - à la main pour une ancienne étiquette : gh workflow run release.yml -f tag=v1.4.0
 # Chaque archive contient le binaire et les fichiers d'installation : décompresser, puis
-# `sudo bash install.sh`. SHA256SUMS permet de vérifier ce qu'on a téléchargé.
+# `sudo bash install.sh`. SHA256SUMS permet de vérifier ce qu'on a téléchargé. S'y ajoute l'image
+# prête à flasher pour Raspberry Pi (voir image/README.md).
 on:
   push:
     tags: ["v*.*.*"]
@@ -70,10 +71,21 @@ jobs:
           for f in README.md README.fr.md docs/guide.md docs/guide.fr.md CHANGELOG.md; do [ -f "$f" ] && cp "$f" "dist/$name/"; done
           cp _main/LICENSE _main/NOTICE "dist/$name/"
           tar -C dist -czf "dist/$name.tar.gz" "$name"
+          # Binaire seul, pour la mise à jour automatique : printr-<architecture de Rust>. Le
+          # binaire ARM 32 bits vise ARMv6, et tourne donc aussi en ARMv7.
+          case "${{ matrix.target }}" in
+            aarch64-*) cp "target/${{ matrix.target }}/release/printr" dist/printr-aarch64 ;;
+            arm-*) cp "target/${{ matrix.target }}/release/printr" dist/printr-arm ;;
+            x86_64-*) cp "target/${{ matrix.target }}/release/printr" dist/printr-x86_64 ;;
+          esac
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ matrix.target }}
-          path: dist/*.tar.gz
+          path: |
+            dist/*.tar.gz
+            dist/printr-aarch64
+            dist/printr-arm
+            dist/printr-x86_64
 
   release:
     name: Publication
@@ -92,7 +104,8 @@ jobs:
           path: dist
           merge-multiple: true
       - name: Sommes de contrôle
-        run: cd dist && sha256sum *.tar.gz > SHA256SUMS && cat SHA256SUMS
+        # Signée ensuite sur le PC du mainteneur (scripts/signer-release.sh) : SHA256SUMS.minisig.
+        run: cd dist && sha256sum *.tar.gz printr-aarch64 printr-arm printr-x86_64 > SHA256SUMS && cat SHA256SUMS
       - name: Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -110,4 +123,13 @@ jobs:
             name=$(grep -m1 "^## \[$version\]" CHANGELOG.md | sed -n 's/.*“\(.*\)”.*/\1/p')
             gh release create "$TAG" --verify-tag --title "Printr $version${name:+ “$name”}" --notes-file notes.md
           fi
-          gh release upload "$TAG" dist/*.tar.gz dist/SHA256SUMS --clobber
+          gh release upload "$TAG" dist/*.tar.gz dist/printr-aarch64 dist/printr-arm dist/printr-x86_64 dist/SHA256SUMS --clobber
+
+  image:
+    name: Image Raspberry Pi
+    needs: release
+    permissions:
+      contents: write
+    uses: $/.github/workflows/image.yml
+    with:
+      tag: ${{ inputs.tag || github.ref_name }}

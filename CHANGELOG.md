@@ -10,11 +10,79 @@ Koenig, Tolbert Lanston…
 
 ## [Unreleased]
 
+## [2.0.0] “Mergenthaler” - 2026-10-26
+
+Printr 2.0 looks after itself: flash a card, plug in the printer, set up the Wi-Fi from your phone, and
+everything else happens in the app, up to signed updates at night. No terminal needed any more.
+
+### Upgrading from 1.x
+- Run the full installation once (`scripts/deploy.sh HOST --install`, the archive's `install.sh`, or the
+  new one-command install below): the service now runs the update guard before each start and may write
+  to `/opt/printr`. A plain binary swap keeps the old service file, and automatic updates would not work.
+- Data, accounts and `/etc/printr.env` are kept (and backed up first). What `/etc/printr.env` sets stays in
+  charge and shows as read-only in the new settings screen; remove a line from it to manage that setting
+  from the app instead.
+
 ### Added
-- **Claude blocks on any compatible endpoint**: `ANTHROPIC_BASE_URL` points the API path at
-  another Messages API endpoint (a local inference server, for instance), and
-  `PRINTR_CLAUDE_TIMEOUT_SECS` sets the call timeout (120 s by default) for slower local models
-  (#25, by salazr).
+**Install and set up without a terminal**
+- **Ready-to-flash image for Raspberry Pi** (Pi 3, 4, 5 and Zero 2 W, 64-bit): Raspberry Pi OS Lite with
+  Printr installed, the printer's udev rule, `http://printr.local` on port 80 and Barnum. Write it with
+  Raspberry Pi Imager, plug in the printer, power on. Built with pi-gen (`image/build.sh`), attached to
+  each release with `printr-imager.json`, which lists Printr in Imager from a custom content repository.
+- **First network connection without a screen**: on the image, when no network shows up within a minute
+  of boot, Printr opens a `Printr-XXXX` Wi-Fi hotspot and prints a ticket with QR codes to join it and open
+  the setup page (phones open it by themselves, like a hotel Wi-Fi). Pick the home Wi-Fi, type its
+  password: Printr joins it and prints the app's address. On a wrong password it reopens the hotspot and
+  prints why; a known Wi-Fi missing after a power cut is retried every five minutes. The hotspot runs on
+  hostapd (plain WPA2: NetworkManager's own hotspot is refused by phones on Raspberry Pi Wi-Fi chips);
+  enabled by `PRINTR_WIFI_SETUP=1` (the image sets it).
+- **Install in one command** on a machine already running:
+  `curl -fsSL https://xninety9.github.io/Printr/install.sh | bash` downloads the archive for the machine,
+  checks the release signature (with `openssl`) and the archive's checksum, and runs `install.sh`.
+- **First-run wizard**: after the first account (where the language can now be picked), the admin is
+  guided through finding the printer (USB, or network printers answering on port 9100), printing a test
+  ticket and choosing the code page from how the accents came out, then the city, an optional Claude key
+  and automatic updates.
+- **Settings in the app** (My account → Settings, admin only): printer, language, city, weather units,
+  Claude key, model and timeout, MQTT, API token, limits, update check and automatic updates. They are
+  saved with the data and applied by a quick automatic restart (under systemd or Docker). Whatever
+  `/etc/printr.env` sets still wins and is shown read-only; secrets are never sent back to the app.
+
+**Look after itself**
+- **Signed automatic updates** (opt-in, offered by the wizard): at night, Printr installs a new release only
+  if its checksum list is signed with the maintainer's key (minisign, with an offline spare key) and the
+  program matches, runs and reports the right version; if it does not answer after restarting, the
+  service's guard puts the previous one back and never retries it. Releases now also carry the bare
+  binaries (`printr-aarch64`, `printr-arm`, `printr-x86_64`); `scripts/signer-release.sh` signs a release,
+  `scripts/labo-maj.sh` tests the whole path locally.
+- **Backup and restore** from My account (admin): accounts, tickets, schedules, history, shopping list,
+  family birthdays, settings and photos in one JSON file. Restoring keeps the current state in `backups/`
+  first; a fresh installation can restore from the first account's screen (`GET /api/backup`,
+  `POST /api/restore`).
+
+**Blocks**
+- **Date** (`date`): another day than today, as a set `date` or an `offset` in days, to print tickets ahead
+  of a trip, one per day (#32, suggested by Fabwiss).
+- **Family birthdays**: a shared list that everyone fills in from the Birthdays block, added to each
+  block's own list (`family`, on by default; `GET`/`PUT /api/birthdays`) (#27, suggested by Fabwiss).
+- **Claude blocks on any compatible endpoint**: `ANTHROPIC_BASE_URL` points the API path at another
+  Messages API endpoint (a local inference server, for instance), and `PRINTR_CLAUDE_TIMEOUT_SECS` sets the
+  call timeout (120 s by default) for slower local models (#26, by salazr).
+
+### Changed
+- **Weather** (`weather`): `wind` and `sun` hide the wind and UV line, and sunrise and sunset, to save paper
+  (#29, suggested by Fabwiss); °F and mph with the "weather units" setting (`PRINTR_UNITS=imperial`),
+  forecasts being still read in °C so the what-to-wear advice keeps working (discussion #34, suggested by
+  mi3816).
+- **Air quality** (`air_quality`): `pollutants` and `pollen` hide their lines (#30, suggested by Fabwiss).
+- **The default city is used by every block with a place**: weather, air quality, sun and tonight's sky
+  take the city from the settings when their own `location` is empty, which is now how the app adds them
+  (it no longer fills in "Lyon"); the field shows the default city. With neither, the block says where to
+  set one.
+- With no `PRINTR_DEVICE`, Printr uses `/dev/tm88` (the link made by the udev rule) when it exists, then
+  `/dev/usb/lp0`. `printr.env.example` no longer sets `PRINTR_DEVICE`, so new installs can pick the printer
+  in the app; existing `/etc/printr.env` files are left as they are.
+- The accent check of the test ticket leaves out `œ`, which the printer's code page prints as `oe`.
 
 ## [1.11.1] “Lanston” - 2026-10-25
 
@@ -319,7 +387,8 @@ First release.
 - One-command installation on a Raspberry Pi, no sudo needed afterwards.
 - Windows development with a dev container and a printing relay.
 
-[Unreleased]: https://github.com/XNinety9/Printr/compare/v1.11.1...HEAD
+[Unreleased]: https://github.com/XNinety9/Printr/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/XNinety9/Printr/compare/v1.11.1...v2.0.0
 [1.11.1]: https://github.com/XNinety9/Printr/compare/v1.11.0...v1.11.1
 [1.11.0]: https://github.com/XNinety9/Printr/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/XNinety9/Printr/compare/v1.9.0...v1.10.0
