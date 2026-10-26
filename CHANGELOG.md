@@ -10,6 +10,11 @@ Koenig, Tolbert Lanston…
 
 ## [Unreleased]
 
+### Security
+- Settings in a restored backup are now checked like those typed in the app: a crafted backup could
+  set the printer device to any path the service can write to (such as the update guard script in
+  `/opt/printr`). Invalid settings now make the restore fail, and are ignored at startup.
+
 ## [2.0.0] “Mergenthaler” - 2026-10-26
 
 Printr 2.0 looks after itself: flash a card, plug in the printer, set up the Wi-Fi from your phone, and

@@ -73,7 +73,11 @@ pub fn saved(data_file: &Path) -> BTreeMap<String, String> {
         Some(Value::Object(map)) => map
             .iter()
             .filter_map(|(k, v)| Some((k.clone(), v.as_str()?.to_owned())))
-            .filter(|(k, v)| kind(k).is_some() && !v.is_empty())
+            // Revérifiées comme à la saisie : une sauvegarde restaurée ne passe pas par l'appli.
+            .filter_map(|(k, v)| match check(&k, &v) {
+                Ok(v) if !v.is_empty() => Some((k, v)),
+                _ => None,
+            })
             .collect(),
         _ => BTreeMap::new(),
     }
@@ -199,7 +203,8 @@ mod tests {
         let path = std::env::temp_dir().join(format!("printr-settings-{}.json", std::process::id()));
         std::fs::write(
             &path,
-            r#"{"users":[],"settings":{"PRINTR_LANG":"en","PRINTR_DATA_DIR":"/x","PRINTR_CITY":""}}"#,
+            r#"{"users":[],"settings":{"PRINTR_LANG":"en","PRINTR_DATA_DIR":"/x","PRINTR_CITY":"",
+                "PRINTR_DEVICE":"/opt/printr/printr-update-guard.sh","PRINTR_QUEUE_HOURS":"0"}}"#,
         )
         .unwrap();
         let saved = saved(&path);
