@@ -29,12 +29,14 @@ Koenig, Tolbert Lanston…
   model, MQTT, API token, limits and update check. They are saved with the data and applied by a quick
   automatic restart (under systemd or Docker). Whatever `/etc/printr.env` sets still wins and is shown
   read-only; secrets are never sent back to the app.
-
 - **Date** (`date`): another day than today, as a set `date` or an `offset` in days, to print tickets ahead
   of a trip, one per day (#32, suggested by Fabwiss).
-
 - **Family birthdays**: a shared list that everyone fills in from the Birthdays block, added to each
   block's own list (`family`, on by default; `GET`/`PUT /api/birthdays`) (#27, suggested by Fabwiss).
+- **Claude blocks on any compatible endpoint**: `ANTHROPIC_BASE_URL` points the API path at
+  another Messages API endpoint (a local inference server, for instance), and
+  `PRINTR_CLAUDE_TIMEOUT_SECS` sets the call timeout (120 s by default) for slower local models
+  (#26, by salazr).
 
 ### Changed
 - **Weather** (`weather`): `wind` and `sun` hide the wind and UV line, and sunrise and sunset, to save paper
