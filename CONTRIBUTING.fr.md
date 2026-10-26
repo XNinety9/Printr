@@ -290,7 +290,10 @@ d'exemple (voir `barnum.rs`).
   langues (exemples des blocs, captures de l'appli, tickets vitrines, image de partage), puis
   construit le site ; `--sans-claude` évite tout appel à Claude (les blocs Claude gardent leur image).
 - Les captures du site et de la doc se régénèrent avec `docs/demo/photo-session.sh`, toujours
-  sur des données fictives. N'y mets jamais de vraies données personnelles.
+  sur des données fictives. N'y mets jamais de vraies données personnelles. Celles de la mise en
+  route (point d'accès Wi-Fi, assistant, réglages) viennent de `docs/demo/setup-session.sh`, qui fait
+  tourner Printr dans un espace réseau isolé (`unshare`, sans sudo) avec un faux réseau, un faux
+  `nmcli` et l'émulateur.
 - Les déclinaisons du logo se régénèrent avec
   `uv run --with pillow python docs/brand/make-assets.py`.
 - Le site se construit avec `docs/build.py` : la page d'accueil (`docs/index.html`) et la

@@ -699,6 +699,7 @@ Ses illustrations sont générées avec des données fictives uniquement :
 scripts/illustrations.sh                                # tout, dans les deux langues, puis le site
 scripts/illustrations.sh --sans-claude                  # pareil, sans aucun appel à Claude
 docs/demo/photo-session.sh                              # captures de l'appli + tickets de l'émulateur
+docs/demo/setup-session.sh                              # mise en route : point d'accès, assistant, réglages
 uv run --with pillow python docs/brand/make-assets.py   # déclinaisons du logo et icônes de l'appli
 ```
 

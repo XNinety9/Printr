@@ -284,7 +284,9 @@ sample response (see `barnum.rs`).
   (block examples, app screenshots, showcase tickets, link preview image), then builds the site;
   `--sans-claude` avoids any Claude call (Claude blocks keep their current image).
 - The screenshots for the site and the docs are regenerated with `docs/demo/photo-session.sh`,
-  always with fictional data. Never put real personal data in them.
+  always with fictional data. Never put real personal data in them. Those of the first start (Wi-Fi
+  hotspot, wizard, settings) come from `docs/demo/setup-session.sh`, which runs Printr in an
+  isolated network namespace (`unshare`, no sudo) with a fake network, fake `nmcli` and the emulator.
 - The logo variants are regenerated with `uv run --with pillow python docs/brand/make-assets.py`.
 - The site is built with `docs/build.py`: the home page (`docs/index.html`) and the documentation,
   rendered from `docs/guide.md` and `CONTRIBUTING.md`. A change to these files therefore also updates

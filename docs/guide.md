@@ -692,6 +692,7 @@ Its illustrations are generated with fictional data only:
 scripts/illustrations.sh                                # everything, in both languages, then the site
 scripts/illustrations.sh --sans-claude                  # same, without any Claude call
 docs/demo/photo-session.sh                              # app screenshots + emulator tickets
+docs/demo/setup-session.sh                              # first start: hotspot, wizard, settings
 uv run --with pillow python docs/brand/make-assets.py   # logo variants and app icons
 ```
 
