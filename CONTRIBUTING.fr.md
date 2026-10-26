@@ -330,6 +330,23 @@ en mise à jour automatique n'installent qu'une release signée. `scripts/labo-m
 le chemin de mise à jour en local (faux GitHub, faux systemd) : une bonne version, une qui plante
 (retour en arrière), une mauvaise clé, un binaire modifié.
 
+Les clés des releases se créent une fois, chacune avec un mot de passe :
+
+```sh
+cargo run -q --example signer -- keygen ~/.config/printr-release        # clé principale, sur cet ordinateur
+cargo run -q --example signer -- keygen /media/usb/printr-secours       # clé de secours, directement sur une clé USB
+```
+
+Les deux clés publiques vont dans `RELEASE_KEYS` (`src/update.rs`), la principale d'abord : Printr
+accepte une signature de l'une ou de l'autre. Sauvegarde la clé privée principale (`printr.key`,
+quelques lignes de texte déjà chiffrées par son mot de passe) dans un gestionnaire de mots de
+passe, et garde son mot de passe ailleurs. La clé de secours reste hors ligne, jamais sur
+l'ordinateur : une clé USB dans un tiroir, ou imprimée sur du papier ordinaire (pas sur un ticket :
+le papier thermique s'efface). Si la clé principale est perdue, signe avec celle de secours
+(`scripts/signer-release.sh vX.Y.Z --key /media/usb/printr-secours/printr.key`) une version dont
+`RELEASE_KEYS` contient une nouvelle clé principale et la même clé de secours : toutes les
+installations la prennent d'elles-mêmes.
+
 ## Proposer une modification
 
 1. Crée une branche à partir de `master`.

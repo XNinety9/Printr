@@ -321,6 +321,21 @@ updates only install a signed release. `scripts/labo-maj.sh` tests the whole upd
 (fake GitHub, fake systemd): a good version, a crashing one (rolled back), a wrong key, a tampered
 binary.
 
+The release keys are created once, with a password each:
+
+```sh
+cargo run -q --example signer -- keygen ~/.config/printr-release        # main key, on this computer
+cargo run -q --example signer -- keygen /media/usb/printr-spare         # spare key, straight to a USB stick
+```
+
+Both public keys go into `RELEASE_KEYS` (`src/update.rs`), the main one first: Printr accepts a
+signature from either. Back up the main private key (`printr.key` is a few lines of text, already
+encrypted by its password) in a password manager, and keep its password somewhere else. The spare
+key stays offline, never on the computer: a USB stick in a drawer, or printed on ordinary paper
+(not on receipts: thermal paper fades). If the main key is lost, sign with the spare one
+(`scripts/signer-release.sh vX.Y.Z --key /media/usb/printr-spare/printr.key`) a version whose
+`RELEASE_KEYS` holds a new main key and the same spare: every installation takes it by itself.
+
 ## Proposing a change
 
 1. Create a branch from `master`.

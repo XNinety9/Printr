@@ -36,9 +36,11 @@ use crate::i18n::t;
 
 const REPO: &str = "XNinety9/Printr";
 const GITHUB_API: &str = "https://api.github.com/repos/XNinety9/Printr";
-/// Clé publique des releases (minisign, ligne en base64). Vide tant qu'aucune release n'est
-/// signée : le mode automatique n'installe alors rien.
-const RELEASE_KEY: &str = "";
+/// Clés publiques des releases (minisign, ligne en base64) : la principale, sur le PC du mainteneur,
+/// puis celle de secours, rangée hors ligne, qui permet de publier une nouvelle clé si la principale
+/// est perdue. Une signature de l'une ou l'autre suffit. Sans clé, le mode automatique n'installe
+/// rien.
+const RELEASE_KEYS: &[&str] = &[];
 /// Première vérification peu après le démarrage.
 const FIRST_CHECK: Duration = Duration::from_secs(60);
 const DEFAULT_MINUTES: u64 = 24 * 60;
@@ -75,7 +77,7 @@ pub struct Settings {
     pub mode: Mode,
     /// API du dépôt (GitHub, ou un faux dépôt pour le laboratoire).
     base: String,
-    key: Option<String>,
+    keys: Vec<String>,
     pub interval: Duration,
     /// Plage horaire des installations ; `None` : à toute heure.
     window: Option<(NaiveTime, NaiveTime)>,
@@ -146,7 +148,10 @@ pub fn settings() -> Option<Settings> {
     let auto = env("PRINTR_AUTO_UPDATE").is_some_and(|v| v.trim() == "auto") && !in_container();
     Some(Settings {
         mode: if auto { Mode::Auto } else { Mode::Notify },
-        key: env("PRINTR_UPDATE_KEY").or_else(|| Some(RELEASE_KEY.to_owned()).filter(|k| !k.is_empty())),
+        keys: match env("PRINTR_UPDATE_KEY") {
+            Some(key) => vec![key],
+            None => RELEASE_KEYS.iter().filter(|k| !k.is_empty()).map(|k| (*k).to_owned()).collect(),
+        },
         interval: interval(env("PRINTR_UPDATE_INTERVAL").as_deref(), github),
         window: if matches!(window_setting.trim(), "toujours" | "always") { None } else { window(&window_setting) },
         base,
@@ -155,7 +160,7 @@ pub fn settings() -> Option<Settings> {
 
 /// L'installation automatique est-elle demandée, et possible (clé de signature présente) ?
 pub fn auto_installs() -> bool {
-    settings().is_some_and(|s| s.mode == Mode::Auto && s.key.is_some())
+    settings().is_some_and(|s| s.mode == Mode::Auto && !s.keys.is_empty())
 }
 
 /// Ligne de la bannière de démarrage.
@@ -168,7 +173,7 @@ pub fn summary() -> String {
         n if n % 60 == 0 => tr!("toutes les {} min", "every {} min", n / 60),
         n => tr!("toutes les {n} s", "every {n} s"),
     };
-    match (s.mode, &s.key) {
+    match (s.mode, s.keys.first()) {
         (Mode::Notify, _) => tr!(
             "vérification {every} sur GitHub, rien n'est installé tout seul",
             "checking {every} on GitHub, nothing is installed automatically"
@@ -274,6 +279,18 @@ fn verify_signature(key: &str, data: &[u8], signature: &str) -> Result<()> {
         .map_err(|e| anyhow::anyhow!("{}", tr!("signature refusée : {e}", "signature refused: {e}")))
 }
 
+/// Une signature de l'une des clés (la principale, ou celle de secours).
+fn verify_any(keys: &[String], data: &[u8], signature: &str) -> Result<()> {
+    let mut refused = None;
+    for key in keys {
+        match verify_signature(key, data, signature) {
+            Ok(()) => return Ok(()),
+            Err(e) => refused = Some(e),
+        }
+    }
+    Err(refused.unwrap_or_else(|| anyhow::anyhow!("{}", t("aucune clé de signature", "no signing key"))))
+}
+
 /// Nouveau programme vérifié, prêt à remplacer l'actuel.
 pub struct Prepared {
     pub from: String,
@@ -295,10 +312,11 @@ fn prepare(http: &ureq::Agent, s: &Settings, release: &Release) -> Result<Option
     if refused(&state).contains(&to) {
         return Ok(None); // déjà essayée, et ramenée en arrière : on ne réessaie pas
     }
-    let key = s
-        .key
-        .as_deref()
-        .context(t("aucune clé de signature : installation impossible", "no signing key: cannot install"))?;
+    ensure!(
+        !s.keys.is_empty(),
+        "{}",
+        t("aucune clé de signature : installation impossible", "no signing key: cannot install")
+    );
     let asset = |name: &str| {
         release
             .assets
@@ -309,7 +327,7 @@ fn prepare(http: &ureq::Agent, s: &Settings, release: &Release) -> Result<Option
     let binary_name = asset_name();
     let sums = get(http, &asset("SHA256SUMS")?.browser_download_url, 64 * 1024)?;
     let signature = get(http, &asset("SHA256SUMS.minisig")?.browser_download_url, 8 * 1024)?;
-    verify_signature(key, &sums, &String::from_utf8_lossy(&signature))?;
+    verify_any(&s.keys, &sums, &String::from_utf8_lossy(&signature))?;
     let expected = expected_hash(&String::from_utf8_lossy(&sums), &binary_name)
         .with_context(|| tr!("{binary_name} absent de SHA256SUMS", "{binary_name} missing from SHA256SUMS"))?;
     let binary = get(http, &asset(&binary_name)?.browser_download_url, MAX_BINARY)?;
@@ -569,5 +587,9 @@ BQcuKLvRd5wodCubHFheHqNpXStqRmjTYii3guALe1l9ai9vGTWWDy7ELF0aUXfPQMQLDSIpRlg2nQzx
         assert!(verify_signature(key, b"bonjour !\n", signature).is_err(), "contenu modifié");
         let other = "RWQQ94JtAPgIQ+/cgIAXOSRqXR5GcJ2DidCvvKq73pTLErY7h4DyslGJ";
         assert!(verify_signature(other, b"bonjour\n", signature).is_err(), "autre clé");
+        // La clé de secours suffit, quel que soit son rang ; aucune des clés : refus.
+        assert!(verify_any(&[other.to_owned(), key.to_owned()], b"bonjour\n", signature).is_ok());
+        assert!(verify_any(&[other.to_owned()], b"bonjour\n", signature).is_err());
+        assert!(verify_any(&[], b"bonjour\n", signature).is_err());
     }
 }

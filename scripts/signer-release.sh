@@ -3,13 +3,14 @@
 # La clé privée ne quitte jamais ce PC : un compte GitHub piraté ne suffit pas à pousser une mise
 # à jour sur les machines.
 #   scripts/signer-release.sh vX.Y.Z [--key FICHIER]   (défaut : ~/.config/printr-release/printr.key)
+#   (--key avec la clé de secours, si la principale est perdue : voir CONTRIBUTING)
 # 1. télécharge SHA256SUMS et tous les fichiers qu'elle liste ;
 # 2. vérifie leurs empreintes : ce qui est signé est bien ce qui est publié ;
-# 3. signe SHA256SUMS (le mot de passe de la clé est demandé), vérifie la signature avec la clé
-#    publique compilée dans printr (src/update.rs), puis l'ajoute à la release (SHA256SUMS.minisig).
-# Première fois : cargo run -q --example signer -- keygen ~/.config/printr-release
-# puis la clé publique affichée va dans RELEASE_KEY (src/update.rs). Sauvegarder la clé privée
-# hors de ce PC : perdue, plus aucune mise à jour automatique ne passerait.
+# 3. signe SHA256SUMS (le mot de passe de la clé est demandé), vérifie la signature avec les clés
+#    publiques compilées dans printr (RELEASE_KEYS, src/update.rs), puis l'ajoute à la release
+#    (SHA256SUMS.minisig).
+# Les clés se créent une fois (voir CONTRIBUTING) : la principale dans ~/.config/printr-release,
+# celle de secours rangée hors ligne ; leurs clés publiques vont dans RELEASE_KEYS.
 # shellcheck disable=SC1112  # apostrophes typographiques voulues dans les messages
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -33,8 +34,8 @@ done
 [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "usage : scripts/signer-release.sh vX.Y.Z"
 command -v gh >/dev/null || fail "gh (GitHub CLI) est nécessaire"
 [ -f "$KEY" ] || fail "clé privée introuvable : $KEY (voir --help pour la créer)"
-PUB=$(sed -n 's/^const RELEASE_KEY: &str = "\(.*\)";/\1/p' src/update.rs)
-[ -n "$PUB" ] || fail "RELEASE_KEY est vide dans src/update.rs : les Pi n'accepteraient aucune signature"
+mapfile -t PUBS < <(sed -n '/^const RELEASE_KEYS/,/];/p' src/update.rs | grep -o '"[A-Za-z0-9+/=]\{40,\}"' | tr -d '"')
+[ "${#PUBS[@]}" -gt 0 ] || fail "RELEASE_KEYS est vide dans src/update.rs : les Pi n'accepteraient aucune signature"
 
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
@@ -50,9 +51,12 @@ ok "${#files[@]} fichiers, empreintes vérifiées"
 
 step "Signature"
 cargo run -q --example signer -- sign "$KEY" "$WORK/SHA256SUMS" >/dev/null
-cargo run -q --example signer -- verify "$PUB" "$WORK/SHA256SUMS" >/dev/null \
-  || fail "la signature ne correspond pas à la clé publique de printr (RELEASE_KEY) : rien n'est envoyé"
-ok "SHA256SUMS signée, et vérifiée avec la clé compilée dans printr"
+valid=0
+for pub in "${PUBS[@]}"; do
+  cargo run -q --example signer -- verify "$pub" "$WORK/SHA256SUMS" >/dev/null 2>&1 && valid=1
+done
+[ "$valid" = 1 ] || fail "la signature ne correspond à aucune clé publique de printr (RELEASE_KEYS) : rien n'est envoyé"
+ok "SHA256SUMS signée, et vérifiée avec les clés compilées dans printr"
 gh release upload "$TAG" "$WORK/SHA256SUMS.minisig" --repo "$REPO" --clobber
 ok "SHA256SUMS.minisig ajoutée à la release : les Pi en mise à jour automatique l'installeront"
 echo
