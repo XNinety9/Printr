@@ -130,6 +130,6 @@ jobs:
     needs: release
     permissions:
       contents: write
-    uses: ./.github/workflows/image.yml
+    uses: $/.github/workflows/image.yml
     with:
       tag: ${{ inputs.tag || github.ref_name }}

@@ -127,7 +127,7 @@ for name in ('mobile-wifi', 'mobile-wizard', 'mobile-settings'):
 for txt in "$DEMO"/emu/receipts/*.txt; do
   case "$(cat "$txt")" in
     *Printr-*) name=wifi ;;
-    *12,50*) name=test ;;
+    *12,50*) name='test' ;;
     *) continue ;;
   esac
   cp "${txt%.txt}.png" "$TICKETS/$name.png"
