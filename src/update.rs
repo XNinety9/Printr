@@ -40,7 +40,10 @@ const GITHUB_API: &str = "https://api.github.com/repos/XNinety9/Printr";
 /// puis celle de secours, rangée hors ligne, qui permet de publier une nouvelle clé si la principale
 /// est perdue. Une signature de l'une ou l'autre suffit. Sans clé, le mode automatique n'installe
 /// rien.
-const RELEASE_KEYS: &[&str] = &[];
+const RELEASE_KEYS: &[&str] = &[
+    "RWRIN2zEgDpje3QxNPTg22HNP4s60jR0Dc6N4zw0oLyuUysCbJGEs7/n", // principale
+    "RWQHgDOUKqaMsuFufsLr8suDK3VHNHxYlrk5L/tehgVsLWsVzzzLZCp/", // secours
+];
 /// Première vérification peu après le démarrage.
 const FIRST_CHECK: Duration = Duration::from_secs(60);
 const DEFAULT_MINUTES: u64 = 24 * 60;
@@ -564,6 +567,15 @@ mod tests {
         assert_eq!(announced_version("printr 2.0.1"), Some("2.0.1"));
         assert_eq!(announced_version("autre 2.0.1"), None);
         assert_eq!(announced_version(""), None);
+    }
+
+    #[test]
+    fn release_keys_are_valid_and_distinct() {
+        assert_eq!(RELEASE_KEYS.len(), 2, "la principale et celle de secours");
+        assert_ne!(RELEASE_KEYS[0], RELEASE_KEYS[1]);
+        for key in RELEASE_KEYS {
+            assert!(minisign_verify::PublicKey::from_base64(key).is_ok(), "clé invalide : {key}");
+        }
     }
 
     #[test]
