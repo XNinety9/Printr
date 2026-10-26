@@ -381,6 +381,10 @@ impl Prepared {
     /// Met le nouveau programme en place ; l'ancien reste dans `printr.old`.
     pub fn swap(&self) -> Result<()> {
         let old = self.exe.with_file_name("printr.old");
+        // Un `printr.old` laissé par install.sh (root) ou deploy.sh : `fs::copy` l'ouvrirait puis
+        // changerait ses permissions, ce qui est refusé à qui n'en est pas propriétaire (EPERM). On
+        // l'enlève donc d'abord, ce que permet le dossier, ouvert en écriture au groupe printr.
+        let _ = fs::remove_file(&old);
         fs::copy(&self.exe, &old).with_context(|| tr!("impossible de garder {}", "cannot keep {}", old.display()))?;
         fs::write(self.state.join(PENDING), format!("from={}\nto={}\n", self.from, self.to))?;
         let _ = fs::remove_file(self.state.join(format!("{PENDING}.starts")));
@@ -559,6 +563,33 @@ mod tests {
         assert!(in_window(t("23:00"), late) && in_window(t("01:00"), late) && !in_window(t("03:00"), late));
         assert!(in_window(t("12:00"), None));
         assert_eq!(window("n'importe quoi"), None);
+    }
+
+    #[test]
+    fn swap_replaces_a_previous_old_it_cannot_write() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = std::env::temp_dir().join(format!("printr-swap-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let exe = dir.join("printr");
+        fs::write(&exe, "2.0.0").unwrap();
+        fs::write(dir.join("printr.new"), "2.0.1").unwrap();
+        // Comme celui d'install.sh, à root : printr ne peut pas l'écrire, seulement l'enlever.
+        let old = dir.join("printr.old");
+        fs::write(&old, "1.11.1").unwrap();
+        fs::set_permissions(&old, fs::Permissions::from_mode(0o444)).unwrap();
+        let update = Prepared {
+            from: "2.0.0".into(),
+            to: "2.0.1".into(),
+            new: dir.join("printr.new"),
+            exe: exe.clone(),
+            state: dir.clone(),
+        };
+        update.swap().unwrap();
+        assert_eq!(fs::read_to_string(&exe).unwrap(), "2.0.1");
+        assert_eq!(fs::read_to_string(&old).unwrap(), "2.0.0");
+        assert!(dir.join(PENDING).exists());
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
