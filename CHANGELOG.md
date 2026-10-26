@@ -10,6 +10,8 @@ Koenig, Tolbert Lanston…
 
 ## [Unreleased]
 
+## [2.0.0] “Mergenthaler” - 2026-10-26
+
 Printr 2.0 looks after itself: flash a card, plug in the printer, set up the Wi-Fi from your phone, and
 everything else happens in the app, up to signed updates at night. No terminal needed any more.
 
@@ -385,7 +387,8 @@ First release.
 - One-command installation on a Raspberry Pi, no sudo needed afterwards.
 - Windows development with a dev container and a printing relay.
 
-[Unreleased]: https://github.com/XNinety9/Printr/compare/v1.11.1...HEAD
+[Unreleased]: https://github.com/XNinety9/Printr/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/XNinety9/Printr/compare/v1.11.1...v2.0.0
 [1.11.1]: https://github.com/XNinety9/Printr/compare/v1.11.0...v1.11.1
 [1.11.0]: https://github.com/XNinety9/Printr/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/XNinety9/Printr/compare/v1.9.0...v1.10.0
