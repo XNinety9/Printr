@@ -2540,7 +2540,7 @@ function WifiSetup({ state }) {
 // Assistant de premier lancement (administrateur)
 // ============================================================================
 
-const ACCENTS = 'é è à ç ù œ €';
+const ACCENTS = 'é è à ç ù €';
 
 // Étape « imprimante » : détection, ticket de test, puis la page de code selon les accents.
 function WizardPrinter({ settings, values, onValues }) {

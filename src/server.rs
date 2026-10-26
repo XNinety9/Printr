@@ -753,7 +753,7 @@ fn test_ticket_doc() -> crate::doc::Doc {
     doc.text(t("Ça marche !", "It works!"), Style::default().center());
     doc.feed(1);
     doc.text(t("Les accents doivent être lisibles :", "Accents should be readable:"), Style::default());
-    doc.text("é è ê à â ç ù û ô î ï œ", Style::default().bold());
+    doc.text("é è ê à â ç ù û ô î ï", Style::default().bold());
     doc.text("É È À Ç · 12,50 €", Style::default().bold());
     doc
 }
