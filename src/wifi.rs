@@ -205,7 +205,8 @@ fn new_password() -> String {
 
 /// Ouvre le point d'accès. Réglages explicites plutôt que `nmcli device wifi hotspot` : WPA2 (CCMP)
 /// sur 2,4 GHz et sans PMF, ce que la puce Wi-Fi des Raspberry Pi (brcmfmac) accepte en point
-/// d'accès ; et pas de retour automatique au démarrage.
+/// d'accès ; canal 6, permis partout (seul, NetworkManager a pris le 13, que des iPhone refusent) ;
+/// et pas de retour automatique au démarrage.
 fn open_hotspot(ifname: &str, ssid: &str, password: &str) -> Result<()> {
     let _ = nmcli(&["radio", "wifi", "on"]);
     let _ = nmcli(&["connection", "delete", HOTSPOT]);
@@ -226,6 +227,8 @@ fn open_hotspot(ifname: &str, ssid: &str, password: &str) -> Result<()> {
         "ap",
         "802-11-wireless.band",
         "bg",
+        "802-11-wireless.channel",
+        "6",
         "ipv4.method",
         "shared",
         "ipv6.method",
