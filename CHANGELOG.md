@@ -33,6 +33,9 @@ Koenig, Tolbert Lanston…
 - **Date** (`date`): another day than today, as a set `date` or an `offset` in days, to print tickets ahead
   of a trip, one per day (#32, suggested by Fabwiss).
 
+- **Family birthdays**: a shared list that everyone fills in from the Birthdays block, added to each
+  block's own list (`family`, on by default; `GET`/`PUT /api/birthdays`) (#27, suggested by Fabwiss).
+
 ### Changed
 - **Weather** (`weather`): `wind` and `sun` hide the wind and UV line, and sunrise and sunset, to save paper
   (#29, suggested by Fabwiss).

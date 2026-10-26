@@ -116,7 +116,7 @@ Un paramètre inconnu est une erreur, pour repérer les fautes de frappe.
 | `fortune` | `cow` (ou `vache`, false), `source` (`builtin`, ou `system` pour la commande `fortune`), `seed` | Un petit papier façon biscuit chinois, hors ligne ; `cow` le fait dire par la vache de cowsay. `system` demande `fortune-mod` sur le serveur |
 | `holidays` | `zone` (`metropole`/`alsace-moselle`), `count` (1) | Calcul local, vérifié contre calendrier.api.gouv.fr |
 | `countdown` | `label`, `date` (`AAAA-MM-JJ`) | « J-79 avant : Noël » |
-| `birthdays` (ou `anniversaires`) | `list` (une ligne par personne : `Léo, 12/03/2014`, année facultative), `upcoming` (3) | « Joyeux anniversaire Léo ! » avec l'âge le jour J, puis le compte à rebours des suivants. Jour d'abord en français, mois d'abord en anglais, date ISO partout |
+| `birthdays` (ou `anniversaires`) | `list` (une ligne par personne : `Léo, 12/03/2014`, année facultative), `upcoming` (3), `family` (true) | « Joyeux anniversaire Léo ! » avec l'âge le jour J, puis le compte à rebours des suivants. Jour d'abord en français, mois d'abord en anglais, date ISO partout. `family` ajoute la liste commune de la famille, que chacun remplit depuis l'appli (`GET`/`PUT /api/birthdays`) |
 | `moon` | — | Phase, illumination, prochaines pleine et nouvelle lunes. Calcul local |
 | `on_this_day` | `count` (3) | Éphéméride, Wikipédia en français |
 | `air_quality` | `location`, `pollutants` (true), `pollen` (true) | Indice européen, particules, pollens (Open-Meteo) ; `pollutants` et `pollen` affichent leurs lignes |

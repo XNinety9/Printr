@@ -393,12 +393,15 @@ const BLOCKS = [
   },
   {
     type: 'birthdays', label: T('Anniversaires', 'Birthdays'), emoji: '🎂', group: G.daily, desc: T('« Aujourd’hui, Léo a 12 ans ! », et les suivants', '“Today, Leo turns 12!”, and the next ones'),
-    defaults: { list: '', upcoming: 3 },
+    defaults: { list: '', upcoming: 3, family: true },
     fields: [
-      { key: 'list', label: T('Les anniversaires', 'Birthdays'), kind: 'textarea', placeholder: T('Léo, 12/03/2014\nCamille, 14/11', 'Leo, 03/12/2014\nCamille, 11/14'), help: T('Une personne par ligne, la date à la fin (jour/mois, l’année pour l’âge).', 'One person per line, the date last (month/day, the year for the age).') },
+      { key: 'family', label: T('Avec ceux de la famille', 'With the family’s'), kind: 'toggle', help: T('La liste commune, que chacun complète.', 'The shared list, which everyone adds to.') },
+      { key: 'family_list', label: T('Anniversaires de la famille', 'Family birthdays'), kind: 'familyBirthdays', when: (b) => b.family !== false },
+      { key: 'list', label: T('Rien que pour ce ticket', 'Just for this ticket'), kind: 'textarea', placeholder: T('Léo, 12/03/2014\nCamille, 14/11', 'Leo, 03/12/2014\nCamille, 11/14'), help: T('Une personne par ligne, la date à la fin (jour/mois, l’année pour l’âge).', 'One person per line, the date last (month/day, the year for the age).') },
       { key: 'upcoming', label: T('Combien des suivants', 'How many next ones'), kind: 'number', min: 1, max: 10 },
     ],
-    summary: (b) => (b.list || '').split('\n').map((l) => l.split(/[,:]/)[0].trim()).filter(Boolean).slice(0, 4).join(', ') || T('Personne', 'Nobody'),
+    summary: (b) => (b.list || '').split('\n').map((l) => l.split(/[,:]/)[0].trim()).filter(Boolean).slice(0, 4).join(', ')
+      || (b.family !== false ? T('La famille', 'The family') : T('Personne', 'Nobody')),
   },
   {
     type: 'riddle', label: T('Énigme', 'Riddle'), emoji: '🧩', group: G.challenges, desc: T('125 énigmes, réponse à l’envers', 'Riddles, charades, logic, the answer upside down'),
@@ -926,6 +929,36 @@ function ListEdit({ value, onChange, placeholder, add }) {
 }
 
 // Ramassages des poubelles : un nom, un jour, une fréquence (et une date de référence).
+// La liste des anniversaires commune à la famille, enregistrée sur le serveur (bloc Anniversaires).
+function FamilyBirthdays() {
+  const [list, setList] = useState(null);
+  const [draft, setDraft] = useState('');
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { api('GET', '/api/birthdays').then((r) => setList(r.list || '')).catch(() => setList('')); }, []);
+  const count = (list || '').split('\n').filter((l) => l.trim()).length;
+  const save = async () => {
+    setBusy(true);
+    try {
+      const r = await api('PUT', '/api/birthdays', { list: draft });
+      setList(r.list); setOpen(false);
+      toast(T('Anniversaires de la famille enregistrés', 'Family birthdays saved'), 'ok', '🎂');
+    } catch (e) { toast(e.message, 'error'); } finally { setBusy(false); }
+  };
+  return html`<button type="button" class="btn secondary small" disabled=${list === null} onClick=${() => { setDraft(list || ''); setOpen(true); }}>
+      ${count ? T(`${count} personne${count > 1 ? 's' : ''} · Modifier`, `${count} ${count > 1 ? 'people' : 'person'} · Edit`) : T('Ajouter des anniversaires', 'Add birthdays')}</button>
+    ${open && html`<${Sheet} title=${T('Anniversaires de la famille', 'Family birthdays')} onClose=${() => setOpen(false)} footer=${html`
+      <button class="btn secondary" onClick=${() => setOpen(false)}>${T('Annuler', 'Cancel')}</button>
+      <button class="btn primary grow" disabled=${busy} onClick=${save}><${Icon} name="check" /> ${T('Enregistrer', 'Save')}</button>`}>
+      <p class="muted" style="margin:0 0 10px">${T(
+        'Une liste pour toute la famille : chacun la complète, et tous les blocs Anniversaires l’utilisent. Une personne par ligne, la date à la fin (jour/mois, l’année pour l’âge).',
+        'One list for the whole family: everyone adds to it, and every Birthdays block uses it. One person per line, the date last (month/day, the year for the age).',
+      )}</p>
+      <textarea class="input" rows="10" value=${draft} placeholder=${T('Mamie, 02/01/1950\nLéo, 12/03/2014', 'Grandma, 01/02/1950\nLeo, 03/12/2014')}
+        onInput=${(e) => setDraft(e.target.value)}></textarea>
+    </${Sheet}>`}`;
+}
+
 function BinsEdit({ value, onChange }) {
   const rows = value?.length ? value : [{ name: '', days: ['lundi'], every: 1 }];
   const set = (i, patch) => onChange(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
@@ -1155,6 +1188,8 @@ function FieldInput({ field, value, onChange }) {
       return html`<input class="input" type="month" value=${value ?? ''} onInput=${(e) => onChange(e.target.value)} />`;
     case 'bins':
       return html`<${BinsEdit} value=${value} onChange=${onChange} />`;
+    case 'familyBirthdays':
+      return html`<${FamilyBirthdays} />`;
     case 'image':
       return html`<${PhotoField} value=${value} onChange=${onChange} />`;
     default:

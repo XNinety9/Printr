@@ -232,6 +232,10 @@ pub struct Data {
     pub history: Vec<HistoryEntry>,
     #[serde(default)]
     pub shopping: Vec<ShoppingItem>,
+    /// Anniversaires communs à la famille, que chacun complète : une personne par ligne, comme
+    /// dans le bloc Anniversaires, qui les ajoute aux siens.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub family_birthdays: String,
     /// Tickets qui attendent le retour de l'imprimante, du plus ancien au plus récent ; leurs
     /// octets ESC/POS sont dans `queue/`.
     #[serde(default)]

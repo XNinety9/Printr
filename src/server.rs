@@ -726,6 +726,12 @@ struct SetupInput {
     lang: Option<String>,
 }
 
+/// La liste des anniversaires de la famille.
+#[derive(Deserialize)]
+struct BirthdaysInput {
+    list: String,
+}
+
 /// Le Wi-Fi de la maison, choisi pendant la première connexion.
 #[derive(Deserialize)]
 struct WifiInput {
@@ -1545,6 +1551,25 @@ fn handle(app: &App, request: &mut Request) -> Reply {
                 return refused;
             }
             printed_reply(app.print(&ticket, &by, &preset.name), &preset.name)
+        }
+        (Method::Get, ["api", "birthdays"]) => {
+            let store = app.lock_store();
+            Reply::ok(json!({ "list": store.data.family_birthdays }))
+        }
+        // La liste commune : tout le monde la complète.
+        (Method::Put, ["api", "birthdays"]) => {
+            let input: BirthdaysInput = try_reply!(json_body(request));
+            let list = input.list.replace("\r\n", "\n");
+            if list.len() > 10_000 || list.lines().count() > 200 || list.chars().any(|c| c.is_control() && c != '\n') {
+                return Reply::error(400, t("liste trop longue ou invalide", "list too long or invalid"));
+            }
+            let mut store = app.lock_store();
+            store.data.family_birthdays = list.trim().to_owned();
+            match store.save() {
+                Ok(()) => Reply::ok(json!({ "ok": true, "list": store.data.family_birthdays }))
+                    .note(t("anniversaires de la famille", "family birthdays")),
+                Err(e) => Reply::error(500, format!("{e:#}")),
+            }
         }
         (Method::Get, ["api", "shopping"]) => {
             let store = app.lock_store();
