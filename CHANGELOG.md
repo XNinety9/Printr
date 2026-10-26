@@ -10,6 +10,13 @@ Koenig, Tolbert Lanston…
 
 ## [Unreleased]
 
+## [2.0.1] “Mergenthaler” - 2026-10-26
+
+### Security
+- Settings in a restored backup are now checked like those typed in the app: a crafted backup could
+  set the printer device to any path the service can write to (such as the update guard script in
+  `/opt/printr`). Invalid settings now make the restore fail, and are ignored at startup.
+
 ## [2.0.0] “Mergenthaler” - 2026-10-26
 
 Printr 2.0 looks after itself: flash a card, plug in the printer, set up the Wi-Fi from your phone, and
@@ -387,7 +394,8 @@ First release.
 - One-command installation on a Raspberry Pi, no sudo needed afterwards.
 - Windows development with a dev container and a printing relay.
 
-[Unreleased]: https://github.com/XNinety9/Printr/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/XNinety9/Printr/compare/v2.0.1...HEAD
+[2.0.1]: https://github.com/XNinety9/Printr/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/XNinety9/Printr/compare/v1.11.1...v2.0.0
 [1.11.1]: https://github.com/XNinety9/Printr/compare/v1.11.0...v1.11.1
 [1.11.0]: https://github.com/XNinety9/Printr/compare/v1.10.0...v1.11.0

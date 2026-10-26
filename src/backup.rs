@@ -94,6 +94,10 @@ fn parse(bytes: &[u8]) -> Result<(Data, Vec<Image>)> {
     if data.users_count() == 0 {
         bail!("{}", t("la sauvegarde ne contient aucun compte", "the backup has no account"));
     }
+    // Les réglages, vérifiés comme s'ils étaient saisis dans l'appli (chemin de l'imprimante, etc.).
+    for (key, value) in &data.settings {
+        crate::settings::check(key, value)?;
+    }
     let mut images = Vec::new();
     for (name, content) in backup.images {
         if !image_name_ok(&name) {
@@ -188,6 +192,13 @@ mod tests {
         assert_eq!(other.users()[0].name, "Camille");
         assert_eq!(other.data.family_birthdays, "Mamie, 02/01/1950");
         assert!(dir.join("backups").read_dir().unwrap().count() == 1, "l'état d'avant est gardé");
+
+        // Une sauvegarde modifiée à la main ne fait pas écrire les tickets hors de /dev.
+        let mut tampered: Value = serde_json::from_slice(&bytes).unwrap();
+        tampered["data"]["settings"] = serde_json::json!({ "PRINTR_DEVICE": "/opt/printr/printr-update-guard.sh" });
+        assert!(parse(tampered.to_string().as_bytes()).is_err(), "imprimante hors de /dev");
+        tampered["data"]["settings"] = serde_json::json!({ "PRINTR_DEVICE": "/dev/usb/lp0" });
+        assert!(parse(tampered.to_string().as_bytes()).is_ok());
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
