@@ -13,7 +13,12 @@ cargo run --release -- --device /dev/usb/lp0 serve             # interface sur h
 scripts/deploy.sh pi@printer.local                             # installation sur un Raspberry Pi (ou --local)
 ```
 
-Au premier lancement, l'interface propose de créer son compte, puis ceux de la famille.
+Au premier lancement, l'interface propose de créer son compte, puis un court
+[assistant](#premier-lancement) règle l'imprimante, la ville et Claude ; viennent ensuite les comptes
+de la famille.
+
+**Le plus simple, sur un Raspberry Pi** : écrire l'[image prête à flasher](#image-prête-à-flasher)
+sur une carte microSD, brancher l'imprimante et allumer. Même le Wi-Fi se règle depuis le téléphone.
 
 Pas encore d'imprimante ? `scripts/demo.sh` imprime le ticket complet dans un
 [émulateur](#tester-sans-imprimante-émulateur) et en donne une image PNG.
@@ -247,7 +252,8 @@ mêmes résultats, sans nouvel appel. `--refresh` force une nouvelle génératio
 
 Printr parle français par défaut. `PRINTR_LANG=en` (dans `/etc/printr.env` pour le service) passe
 toute l'installation en anglais : l'interface web, la ligne de commande, les messages et les
-tickets. Les blocs à contenu (énigmes, citations, mots mêlés, défis sportifs, bons à offrir…) ont
+tickets. La langue se choisit aussi sur l'écran du premier compte, ou plus tard dans
+[les réglages](#réglages). Les blocs à contenu (énigmes, citations, mots mêlés, défis sportifs, bons à offrir…) ont
 leur propre liste anglaise, et Claude écrit l'horoscope et le mot du jour en anglais.
 
 Les **mots fléchés** viennent du dictionnaire anglais de CrossWords, avec des définitions anglaises
@@ -297,7 +303,46 @@ en page, attendent son retour puis sortent tout seuls, planifications comprises 
 retard » dans l'historique). Au-delà de 12 heures (`PRINTR_QUEUE_HOURS`), un ticket en attente est
 abandonné : le brief du matin n'a plus d'intérêt le soir.
 
-Les données (comptes, presets, historique, photos) vivent dans `$PRINTR_DATA_DIR`, sinon
+### Premier lancement
+
+Sur une installation neuve, l'écran d'accueil propose de créer le premier compte, celui de
+l'administrateur, et de choisir la langue. Un court assistant suit :
+
+<p align="center">
+  <img src="shots/mobile-wizard.png" alt="Assistant : l'imprimante trouvée sur le réseau, et la question des accents" width="250">
+  &nbsp;
+  <img src="tickets/test.png" alt="Ticket de test avec des lettres accentuées et le signe euro" width="250">
+</p>
+
+1. **L'imprimante** : Printr liste les imprimantes USB (`/dev/tm88`, `/dev/usb/lp*`) et celles qui
+   répondent sur le port 9100 dans le réseau local ; une autre adresse peut être saisie. Un ticket
+   de test la vérifie : si les accents sortent en symboles bizarres, « Non » le réimprime avec
+   l'autre page de code (PC850, pour les imprimantes sans PC858), et garde celle qui marche.
+2. **La ville**, pour la météo, la qualité de l'air et les horaires du soleil.
+3. **Claude** (facultatif) : une clé d'API Anthropic, pour les histoires, l'horoscope, les recettes
+   et le mot du jour.
+
+Tout est enregistré à la fin, d'un coup, et chaque étape peut être passée. Il reste à ajouter la
+famille depuis **Mon compte**.
+
+### Réglages
+
+L'administrateur modifie l'installation depuis **Mon compte → Réglages** : langue, ville,
+imprimante (avec détection et ticket de test), page de code, clé et modèle Claude, MQTT, jeton
+d'API, tickets par heure, attente des tickets quand l'imprimante est absente, et vérification des
+nouvelles versions.
+
+<p align="center"><img src="shots/mobile-settings.png" alt="Réglages" width="250"></p>
+
+Les réglages sont enregistrés avec les données (`printr.json`) et appliqués par un redémarrage
+rapide, automatique sous systemd ou Docker (sinon au prochain démarrage). Ce que fixent
+`/etc/printr.env` ou l'environnement du conteneur l'emporte : l'appli le montre en lecture seule,
+avec la mention « Fixé dans /etc/printr.env ». Les secrets (clé Claude, adresse MQTT, jeton) ne
+repartent jamais vers l'appli, qui indique seulement s'ils sont définis.
+
+### Données
+
+Les données (comptes, presets, historique, photos, réglages) vivent dans `$PRINTR_DATA_DIR`, sinon
 `~/.local/share/printr`, ou `/var/lib/printr` avec le service systemd. Pour travailler sur
 l'interface sans recompiler : `PRINTR_WEB_DIR=web printr serve`.
 
@@ -698,6 +743,66 @@ papier.
 
 ## Installation
 
+Deux façons :
+
+- sur un **Raspberry Pi**, l'[image prête à flasher](#image-prête-à-flasher) : rien à installer,
+  même le Wi-Fi se règle depuis le téléphone ;
+- sur **n'importe quel Linux**, Raspberry Pi compris, le [script d'installation](#script-dinstallation),
+  qui ajoute Printr comme service systemd.
+
+### Image prête à flasher
+
+Chaque [version](https://github.com/XNinety9/Printr/releases) est accompagnée d'une image pour
+Raspberry Pi 3, 4, 5 et Zero 2 W (64 bits) : Raspberry Pi OS Lite avec Printr prêt à l'emploi
+(`printr-X.Y.Z-raspberrypi-arm64.img.xz`).
+
+1. L'écrire sur une carte microSD avec [Raspberry Pi Imager](https://www.raspberrypi.com/software/) :
+   **Choisir l'OS → Use custom**. Sa personnalisation (roue dentée) est facultative : un compte et
+   SSH, pour se connecter à la machine ; le Wi-Fi, pour se passer de la
+   [première connexion au réseau](#première-connexion-au-réseau).
+2. Brancher l'imprimante en USB, et un câble Ethernet s'il y en a un, puis allumer.
+3. En Ethernet, ou avec le Wi-Fi donné à Imager, l'appli est sur `http://printr.local` (ou à
+   l'adresse indiquée par la box). Sinon, Printr imprime un ticket pour régler le Wi-Fi.
+
+L'image sert l'appli sur le port 80, sous le nom `printr`, avec la langue et le clavier français,
+le fuseau de Paris et le pays Wi-Fi FR (Imager les change), Barnum pour l'horoscope hors ligne, et
+ni compte ni SSH sauf si Imager les ajoute. Tout le reste se règle dans l'appli : le
+[premier lancement](#premier-lancement), puis les [réglages](#réglages). Pour construire l'image
+soi-même : [image/README.md](../image/README.md).
+
+### Première connexion au réseau
+
+Sans réseau une minute après l'allumage, Printr ouvre son propre Wi-Fi, **Printr-XXXX**, et imprime
+un ticket :
+
+<p align="center">
+  <img src="tickets/wifi.png" alt="Ticket avec deux QR codes : rejoindre le Wi-Fi de Printr, puis ouvrir la page de configuration" width="250">
+  &nbsp;
+  <img src="shots/mobile-wifi.png" alt="Page de configuration : les réseaux Wi-Fi à portée" width="250">
+</p>
+
+1. Scanner le premier QR code pour rejoindre ce Wi-Fi (son mot de passe est imprimé dessous).
+2. La page de configuration s'ouvre en général toute seule, comme sur un Wi-Fi d'hôtel ; sinon,
+   scanner le second QR code (`http://10.42.0.1`).
+3. Choisir le Wi-Fi de la maison et taper son mot de passe : Printr le rejoint et imprime un second
+   ticket avec l'adresse de l'appli. Remettre le téléphone sur le Wi-Fi de la maison, et ouvrir
+   cette adresse.
+
+Un mauvais mot de passe ? Printr le dit sur un nouveau ticket et rouvre son Wi-Fi, avec le même nom
+et le même mot de passe. Ce Wi-Fi est protégé (WPA2) par le mot de passe du ticket, qui reste le
+même d'un démarrage à l'autre, et n'existe que tant que Printr n'a pas de réseau.
+
+Quand le Wi-Fi de la maison est déjà connu mais absent au démarrage (après une coupure de courant,
+la box redémarre souvent moins vite que le Pi), Printr attend cinq minutes avant d'ouvrir son
+propre Wi-Fi, puis retente celui de la maison toutes les cinq minutes. Certaines box bloquent les
+noms `.local` entre appareils en Wi-Fi : c'est pourquoi le ticket donne d'abord l'adresse IP.
+
+Sous le capot : `PRINTR_WIFI_SETUP=1` (posé par l'image) active ce mode ; le point d'accès tourne
+sur hostapd en WPA2 classique (celui de NetworkManager est refusé par les téléphones sur la puce
+Wi-Fi des Raspberry Pi), NetworkManager s'occupe du reste.
+
+### Script d'installation
+
 printr s'installe comme service systemd sur n'importe quel Linux : Raspberry Pi (Raspberry Pi
 OS Lite 64 bits conseillé), serveur ou PC, en ARM 64 bits, ARM 32 bits ou x86_64. L'imprimante
 peut être en USB ou sur le réseau.
@@ -734,6 +839,9 @@ nano /etc/printr.env                    # configuration (clé Claude, imprimante
 systemctl restart printr                # redémarrage
 journalctl -u printr -f                 # suivre les impressions
 ```
+
+La plupart de la configuration se change aussi dans l'appli ([réglages](#réglages)) ; ce que fixe
+`/etc/printr.env` l'emporte.
 
 `--install` relance l'installation complète (nouveau fichier de service, nouvelle règle udev…).
 Pour une imprimante réseau, définir `PRINTR_TCP=adresse:9100` dans `/etc/printr.env`. Sur la

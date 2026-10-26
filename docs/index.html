@@ -216,6 +216,7 @@
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.4-1.8-1.4-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.7 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5z"/></svg>
           <span class="fr">Voir sur GitHub</span><span class="en">View on GitHub</span></a>
         <a class="btn" href="#install"><span class="fr">L'installer</span><span class="en">Install it</span></a>
+        <a class="btn" href="https://github.com/XNinety9/Printr/releases/latest"><span class="fr">Image Raspberry Pi</span><span class="en">Raspberry Pi image</span></a>
       </div>
     </div>
     <div class="stage" aria-hidden="true">
@@ -368,27 +369,32 @@
 <section id="install">
   <div class="wrap">
     <div class="eyebrow"><span class="fr">Installation</span><span class="en">Install</span></div>
-    <h2 class="fr">Un Raspberry Pi, une TM-T88V, dix minutes.</h2>
-    <h2 class="en">A Raspberry Pi, a TM-T88V, ten minutes.</h2>
+    <h2 class="fr">Une carte microSD, une TM-T88V, cinq minutes.</h2>
+    <h2 class="en">A microSD card, a TM-T88V, five minutes.</h2>
     <div class="steps">
       <div class="step"><div>
-        <h3 class="fr">Préparer la machine</h3><h3 class="en">Prepare the machine</h3>
-        <p class="fr">Un Raspberry Pi sous Raspberry Pi OS Lite 64 bits, ou n'importe quel Linux avec systemd, joignable en SSH par clé. L'imprimante en USB, ou sur le réseau.</p>
-        <p class="en">A Raspberry Pi running Raspberry Pi OS Lite 64-bit, or any Linux with systemd, reachable over SSH with a key. The printer on USB, or on the network.</p>
-        <pre>ssh pi@printer.local   <span class="c"># ça répond ? / does it answer?</span></pre></div></div>
+        <h3 class="fr">Flasher la carte</h3><h3 class="en">Flash the card</h3>
+        <p class="fr">L'image prête à flasher de la dernière version, pour Raspberry Pi 3, 4, 5 et Zero 2 W, s'écrit avec Raspberry Pi Imager (« Use custom »). Raspberry Pi OS et Printr, déjà installés.</p>
+        <p class="en">The ready-to-flash image of the latest release, for the Raspberry Pi 3, 4, 5 and Zero 2 W, goes on the card with Raspberry Pi Imager (“Use custom”). Raspberry Pi OS and Printr, already installed.</p>
+        <pre>printr-2.0.0-raspberrypi-arm64.img.xz</pre></div></div>
       <div class="step"><div>
-        <h3 class="fr">Déployer</h3><h3 class="en">Deploy</h3>
-        <p class="fr">Le script compile pour la bonne architecture, envoie tout et installe le service. Il demande le mot de passe <code>sudo</code> une seule fois ; ensuite, les mises à jour s'en passent.</p>
-        <p class="en">The script builds for the right architecture, sends everything and installs the service. It asks for the <code>sudo</code> password once; updates don't need it afterwards.</p>
-        <pre>scripts/deploy.sh pi@printer.local
-scripts/deploy.sh pi@printer.local   <span class="c"># mise à jour / update</span></pre></div></div>
+        <h3 class="fr">Brancher, allumer</h3><h3 class="en">Plug in, power on</h3>
+        <p class="fr">Pas de réseau ? Printr ouvre son propre Wi-Fi et imprime un ticket avec deux QR codes. On s'y connecte, on choisit le Wi-Fi de la maison depuis le téléphone, et un second ticket donne l'adresse de l'appli.</p>
+        <p class="en">No network? Printr opens its own Wi-Fi and prints a ticket with two QR codes. Join it, pick the home Wi-Fi from your phone, and a second ticket gives the app's address.</p>
+        <pre>http://printr.local</pre></div></div>
       <div class="step"><div>
-        <h3 class="fr">Créer son compte</h3><h3 class="en">Create your account</h3>
-        <p class="fr">Au premier lancement, l'appli propose de créer son compte, puis ceux de la famille. La clé Claude est facultative, et un abonnement Claude peut la remplacer.</p>
-        <p class="en">On first launch, the app offers to create your account, then the family's. The Claude key is optional, and a Claude subscription can stand in for it.</p>
-        <pre>http://printer.local:8080</pre></div></div>
+        <h3 class="fr">Se laisser guider</h3><h3 class="en">Follow the wizard</h3>
+        <p class="fr">Le premier compte, puis l'assistant : il trouve l'imprimante, vérifie les accents sur un ticket de test, demande la ville et, si on veut, une clé Claude. La suite se règle dans l'appli, et la famille s'ajoute depuis « Mon compte ».</p>
+        <p class="en">The first account, then the wizard: it finds the printer, checks the accents on a test ticket, asks for the city and, if you like, a Claude key. Everything else is set in the app, and the family joins from “My account”.</p></div></div>
     </div>
-    <p class="intro" style="margin-top:30px"><a class="fr" href="guide.html#installation">Le guide d'installation complet →</a><a class="en" href="guide.en.html#installation">Full installation guide →</a></p>
+    <div class="phones">
+      <figure><img src="shots/mobile-wifi.png" alt="Choix du Wi-Fi" loading="lazy"><figcaption class="fr">Le Wi-Fi, depuis le téléphone</figcaption><figcaption class="en">The Wi-Fi, from your phone</figcaption></figure>
+      <figure><img src="shots/mobile-wizard.png" alt="Assistant" loading="lazy"><figcaption class="fr">L'assistant vérifie les accents</figcaption><figcaption class="en">The wizard checks the accents</figcaption></figure>
+      <figure><img src="shots/mobile-settings.png" alt="Réglages" loading="lazy"><figcaption class="fr">Tout se règle dans l'appli</figcaption><figcaption class="en">Everything is set in the app</figcaption></figure>
+    </div>
+    <p class="intro fr" style="margin-top:34px">Déjà un Raspberry Pi ou un serveur Linux ? Le script d'installation compile, envoie et installe le service en une commande : <code>scripts/deploy.sh pi@printer.local</code>.</p>
+    <p class="intro en" style="margin-top:34px">Already have a Raspberry Pi or a Linux server? The install script builds, sends and installs the service in one command: <code>scripts/deploy.sh pi@printer.local</code>.</p>
+    <p class="intro"><a class="fr" href="guide.html#installation">Le guide d'installation complet →</a><a class="en" href="guide.en.html#installation">Full installation guide →</a></p>
   </div>
 </section>
 

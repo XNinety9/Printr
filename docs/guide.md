@@ -14,7 +14,11 @@ cargo run --release -- --device /dev/usb/lp0 serve             # interface at ht
 scripts/deploy.sh pi@printer.local                             # install on a Raspberry Pi (or --local)
 ```
 
-On first launch, the interface asks you to create your account, then the accounts of the family.
+On first launch, the interface asks you to create your account, then a short [wizard](#first-launch)
+sets up the printer, the city and Claude; the family's accounts come next.
+
+**Simplest of all, on a Raspberry Pi**: write the [ready-to-flash image](#ready-to-flash-image) to a
+microSD card, plug in the printer and power on. Even the Wi-Fi is set up from the phone.
 
 No printer yet? `scripts/demo.sh` prints the full ticket in an
 [emulator](#testing-without-a-printer-emulator) and gives you a PNG image of it.
@@ -249,7 +253,8 @@ raw API responses.
 
 Printr speaks French by default. Setting `PRINTR_LANG=en` (in `/etc/printr.env` for the service)
 switches the whole installation to English: the web interface, the command line, messages and
-tickets. Blocks with content (riddles, quotes, word searches, workouts, gift coupons…) have their
+tickets. The language can also be picked on the first account's screen, or later in
+[the settings](#settings). Blocks with content (riddles, quotes, word searches, workouts, gift coupons…) have their
 own English list, and Claude writes the horoscope and the word of the day in English.
 
 **Arrow words** come from CrossWords' English dictionary, with English clues (its
@@ -299,7 +304,44 @@ wait for it to come back, then print on their own, schedules included (“came o
 history). After 12 hours (`PRINTR_QUEUE_HOURS`), a waiting ticket is dropped: the morning brief is of
 no use in the evening.
 
-Data (accounts, presets, history, photos) lives in `$PRINTR_DATA_DIR`, otherwise
+### First launch
+
+On a fresh installation, the home screen offers to create the first account, the administrator's,
+and to pick the language. A short wizard follows:
+
+<p align="center">
+  <img src="shots/en/mobile-wizard.png" alt="Wizard: the printer found on the network, and the accents question" width="250">
+  &nbsp;
+  <img src="tickets/en/test.png" alt="Test ticket with accented letters and the euro sign" width="250">
+</p>
+
+1. **The printer**: Printr lists the USB printers (`/dev/tm88`, `/dev/usb/lp*`) and the printers that
+   answer on port 9100 on the local network; another address can be typed in. A test ticket checks
+   it: if the accents come out as odd symbols, “No” prints it again with the other code page
+   (PC850, for printers without PC858), and keeps the one that works.
+2. **The city**, for the weather, air quality and sun times.
+3. **Claude** (optional): an Anthropic API key, for stories, the horoscope, recipes and the word of
+   the day.
+
+Everything is saved at the end, in one go, and every step can be skipped. Then add the family from
+**My account**.
+
+### Settings
+
+The administrator changes the installation from **My account → Settings**: language, city, printer
+(with detection and test ticket), code page, Claude key and model, MQTT, API token, tickets per hour,
+how long tickets wait for a missing printer, and the check for new versions.
+
+<p align="center"><img src="shots/en/mobile-settings.png" alt="Settings" width="250"></p>
+
+Settings are saved with the data (`printr.json`) and applied by a quick restart, automatic under
+systemd or Docker (otherwise at the next start). Whatever `/etc/printr.env` or the container's
+environment sets wins: the app shows it read-only, as “Set in /etc/printr.env”. Secrets (Claude
+key, MQTT address, token) never go back to the app, which only shows whether they are set.
+
+### Data
+
+Data (accounts, presets, history, photos, settings) lives in `$PRINTR_DATA_DIR`, otherwise
 `~/.local/share/printr`, or `/var/lib/printr` with the systemd service. To work on the interface
 without recompiling: `PRINTR_WEB_DIR=web printr serve`.
 
@@ -692,6 +734,64 @@ recycling bin in most places.
 
 ## Installation
 
+Two ways:
+
+- on a **Raspberry Pi**, the [ready-to-flash image](#ready-to-flash-image): nothing to install,
+  even the Wi-Fi is set up from the phone;
+- on **any Linux machine**, Raspberry Pi included, the [install script](#install-script), which adds
+  Printr as a systemd service.
+
+### Ready-to-flash image
+
+Each [release](https://github.com/XNinety9/Printr/releases) comes with an image for the Raspberry Pi
+3, 4, 5 and Zero 2 W (64-bit): Raspberry Pi OS Lite with Printr ready to use
+(`printr-X.Y.Z-raspberrypi-arm64.img.xz`).
+
+1. Write it to a microSD card with [Raspberry Pi Imager](https://www.raspberrypi.com/software/):
+   **Choose OS → Use custom**. Its customization (gear icon) is optional: an account and SSH, to log
+   in to the machine; the Wi-Fi, to skip the [first network connection](#first-network-connection).
+2. Plug in the printer over USB, and an Ethernet cable if there is one, then power on.
+3. On Ethernet, or with the Wi-Fi given to Imager, the app is at `http://printr.local` (or at the
+   address shown by the router). Otherwise, Printr prints a ticket to set up the Wi-Fi.
+
+The image serves the app on port 80, under the host name `printr`, with a French locale and
+keyboard, the Paris time zone and the FR Wi-Fi country (Imager changes them), Barnum for the
+offline horoscope, and neither account nor SSH unless Imager adds them. Everything else is set in
+the app: the [first launch](#first-launch), then the [settings](#settings). To build the image
+yourself: [image/README.md](../image/README.md).
+
+### First network connection
+
+With no network a minute after power-on, Printr opens its own Wi-Fi, **Printr-XXXX**, and prints a
+ticket:
+
+<p align="center">
+  <img src="tickets/en/wifi.png" alt="Ticket with two QR codes: join Printr's Wi-Fi, then open the setup page" width="250">
+  &nbsp;
+  <img src="shots/en/mobile-wifi.png" alt="Setup page: the Wi-Fi networks in range" width="250">
+</p>
+
+1. Scan the first QR code to join that Wi-Fi (its password is printed below it).
+2. The setup page usually opens by itself, as on a hotel Wi-Fi; otherwise, scan the second QR code
+   (`http://10.42.0.1`).
+3. Pick the home Wi-Fi and type its password: Printr joins it and prints a second ticket with the
+   app's address. Put the phone back on the home Wi-Fi, and open that address.
+
+A wrong password? Printr says so on a new ticket and opens its Wi-Fi again, with the same name and
+password. That Wi-Fi is protected (WPA2) by the password on the ticket, which stays the same from
+one start to the next, and only exists while Printr has no network.
+
+When the home Wi-Fi is already known but missing at startup (after a power cut, the router often
+restarts more slowly than the Pi), Printr waits five minutes before opening its own Wi-Fi, then
+tries the home one again every five minutes. Some routers block `.local` names between Wi-Fi
+devices: the ticket gives the IP address first for that reason.
+
+Under the hood: `PRINTR_WIFI_SETUP=1` (set by the image) turns this on; the hotspot runs on hostapd
+in plain WPA2 (NetworkManager's own hotspot is refused by phones on the Raspberry Pi Wi-Fi chip),
+NetworkManager handles the rest.
+
+### Install script
+
 printr installs as a systemd service on any Linux machine: Raspberry Pi (Raspberry Pi OS Lite 64-bit
 recommended), server or PC, on 64-bit ARM, 32-bit ARM or x86_64. The printer can be connected
 by USB or be on the network.
@@ -728,6 +828,9 @@ nano /etc/printr.env                    # configuration (Claude key, printer, po
 systemctl restart printr                # restart
 journalctl -u printr -f                 # follow the prints
 ```
+
+Most of the configuration can also be changed in the app ([settings](#settings)); what
+`/etc/printr.env` sets wins.
 
 `--install` runs the full installation again (new service file, new udev rule…).
 For an English installation, set `PRINTR_LANG=en` in `/etc/printr.env` and restart the service.
