@@ -223,15 +223,23 @@ Le chemin se choisit avec `PRINTR_CLAUDE_BACKEND` :
 Avec la CLI, printr lance `claude -p` en le réduisant à un simple appel au modèle : ni outils, ni
 réglages, ni `CLAUDE.md`, ni serveurs MCP, ni skills, ni session gardée. Le contexte envoyé reste
 ainsi aussi léger qu'avec l'API. La CLI utilise sa propre connexion : printr lui retire
-`ANTHROPIC_API_KEY`. Les appels passent un par un, et un appel qui dépasse deux minutes est abandonné.
+`ANTHROPIC_API_KEY`. Les appels passent un par un, et un appel qui dépasse
+`PRINTR_CLAUDE_TIMEOUT_SECS` (120 s par défaut) est abandonné.
+
+Le chemin API parle à l'API Messages : par défaut à `https://api.anthropic.com`, ou à n'importe
+quel point de terminaison compatible — un serveur d'inférence local, par exemple — défini dans
+`ANTHROPIC_BASE_URL`. La clé, si elle est définie, est envoyée en `x-api-key` — un serveur local
+n'en a pas besoin — : ne pointez `ANTHROPIC_BASE_URL` que vers un serveur de confiance.
 
 | Variable | Rôle |
 |---|---|
-| `ANTHROPIC_API_KEY` | Clé de l'API Claude |
+| `ANTHROPIC_API_KEY` | Clé de l'API Claude (inutile pour un serveur compatible dans `ANTHROPIC_BASE_URL`) |
+| `ANTHROPIC_BASE_URL` | Point de terminaison de l'API Messages (par défaut `https://api.anthropic.com`) : tout serveur compatible Claude, y compris les serveurs d'inférence locaux (de confiance) |
 | `PRINTR_CLAUDE_BACKEND` | `auto`, `api` ou `cli` |
 | `PRINTR_CLAUDE_CLI` | Programme de la CLI : nom cherché dans le `PATH` ou chemin complet (`claude` par défaut) |
 | `CLAUDE_CODE_OAUTH_TOKEN` | Jeton de la CLI, pour une machine sans session ouverte (le service systemd) |
 | `PRINTR_CLAUDE_MODEL` | Modèle, `claude-haiku-5-5` par défaut (les deux chemins) |
+| `PRINTR_CLAUDE_TIMEOUT_SECS` | Délai d'un appel Claude, 120 s par défaut (les deux chemins) ; à augmenter pour un modèle local lent |
 
 Sur un poste où tu es déjà connecté à Claude Code, il n'y a rien à faire : sans clé API, printr
 trouve `claude` et l'utilise. Pour le service systemd, voir

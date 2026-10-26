@@ -224,15 +224,23 @@ Claude blocks (`horoscope`, `word_of_the_day`, `recipe_claude`, `recipe_from_ing
 With the CLI, printr runs `claude -p` cut down to a plain model call: no tools, no settings, no
 `CLAUDE.md`, no MCP servers, no skills, no saved session. The context sent stays as light as with
 the API. The CLI uses its own login: printr removes `ANTHROPIC_API_KEY` from its environment.
-Calls run one at a time, and a call that takes more than two minutes is given up.
+Calls run one at a time, and a call that takes more than `PRINTR_CLAUDE_TIMEOUT_SECS`
+(120 s by default) is given up.
+
+The API path speaks the Messages API: by default to `https://api.anthropic.com`, or to any
+compatible endpoint — a local inference server, for instance — set in `ANTHROPIC_BASE_URL`.
+The API key, if set, is sent as `x-api-key` — a local server needs no key — so point
+`ANTHROPIC_BASE_URL` only at a server you trust.
 
 | Variable | Role |
 |---|---|
-| `ANTHROPIC_API_KEY` | Claude API key |
+| `ANTHROPIC_API_KEY` | Claude API key (not needed for a compatible server in `ANTHROPIC_BASE_URL`) |
+| `ANTHROPIC_BASE_URL` | Messages API endpoint (default `https://api.anthropic.com`): any Claude-compatible server, including local inference servers (one you trust) |
 | `PRINTR_CLAUDE_BACKEND` | `auto`, `api` or `cli` |
 | `PRINTR_CLAUDE_CLI` | CLI program: a name looked up in `PATH`, or a full path (`claude` by default) |
 | `CLAUDE_CODE_OAUTH_TOKEN` | CLI token, for a machine with no logged-in session (the systemd service) |
 | `PRINTR_CLAUDE_MODEL` | Model, `claude-haiku-5-5` by default (both ways) |
+| `PRINTR_CLAUDE_TIMEOUT_SECS` | Timeout of a Claude call, 120 s by default (both ways); raise it for slow local models |
 
 On a computer where you are already logged in to Claude Code, there is nothing to do: with no API
 key, printr finds `claude` and uses it. For the systemd service, see

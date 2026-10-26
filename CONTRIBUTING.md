@@ -22,7 +22,8 @@ A few useful environment variables:
 
 | Variable | What it does |
 | --- | --- |
-| `ANTHROPIC_API_KEY` | Claude blocks (`horoscope`, `word_of_the_day`); without it, the Claude Code CLI is used if installed (`PRINTR_CLAUDE_BACKEND`, `PRINTR_CLAUDE_CLI`). Optional: without it, these blocks show an error and the rest of the ticket prints normally. `--preview` never calls Claude (Claude blocks show a placeholder); add `--claude` to get the real text. |
+| `ANTHROPIC_API_KEY` | Claude blocks (`horoscope`, `word_of_the_day`); without it, the API is used when `ANTHROPIC_BASE_URL` points to a compatible server, otherwise the Claude Code CLI is used if installed (`PRINTR_CLAUDE_BACKEND`, `PRINTR_CLAUDE_CLI`). Optional: without it, these blocks show an error and the rest of the ticket prints normally. `--preview` never calls Claude (Claude blocks show a placeholder); add `--claude` to get the real text. |
+| `ANTHROPIC_BASE_URL` | Points the Claude API path at another endpoint — any Claude-compatible server, including a local inference server (a local one needs no key). Slow local model: raise `PRINTR_CLAUDE_TIMEOUT_SECS`. The API key, if set, is sent to that server: point it only at a server you trust. |
 | `PRINTR_BARNUM` | Command for [Barnum](https://github.com/XNinety9/Barnum) used by the `barnum` block, for example `python3 ../Barnum/main.py`. |
 | `PRINTR_DATA_DIR` | Accounts, presets and history of the web interface. Use a throwaway folder for your tests. |
 | `PRINTR_GLITCH` | How often glitches happen (one print in N, 20 by default, 0: never). |

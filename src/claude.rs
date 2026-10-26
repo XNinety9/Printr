@@ -1,5 +1,7 @@
 //! Client minimal de Claude, par deux chemins au choix :
-//! - l'API (Messages API, HTTP direct : pas de SDK Rust officiel), avec `ANTHROPIC_API_KEY` ;
+//! - l'API (Messages API, HTTP direct : pas de SDK Rust officiel) : `ANTHROPIC_API_KEY` pour
+//!   l'API d'Anthropic, ou `ANTHROPIC_BASE_URL` vers un serveur compatible (sans clé pour un
+//!   serveur local) ;
 //! - la CLI Claude Code (`claude -p`), qui utilise sa propre connexion (abonnement Claude).
 
 use std::io::{Read, Write};
@@ -13,9 +15,41 @@ use serde_json::{Value, json};
 
 use crate::i18n::t;
 
-const API_URL: &str = "https://api.anthropic.com/v1/messages";
+const DEFAULT_API_URL: &str = "https://api.anthropic.com/v1/messages";
 const DEFAULT_MODEL: &str = "claude-haiku-5-5";
-const TIMEOUT: Duration = Duration::from_secs(120);
+const DEFAULT_TIMEOUT: Duration = Duration::from_secs(120);
+
+/// URL des messages : `ANTHROPIC_BASE_URL` (compatible Claude Code) ou Anthropic par défaut.
+fn api_url() -> String {
+    api_url_from(std::env::var("ANTHROPIC_BASE_URL").ok().as_deref())
+}
+
+/// Sans `ANTHROPIC_BASE_URL` (ou avec une valeur vide) : l'API d'Anthropic. Sinon `/v1/messages`
+/// est ajouté quand la valeur ne le termine pas (la barre oblique finale est tolérée).
+fn api_url_from(value: Option<&str>) -> String {
+    match value.map(str::trim).filter(|u| !u.is_empty()) {
+        Some(u) => {
+            let u = u.trim_end_matches('/');
+            if u.ends_with("/v1/messages") { u.to_owned() } else { format!("{u}/v1/messages") }
+        }
+        None => DEFAULT_API_URL.to_owned(),
+    }
+}
+
+/// Délai d'un appel Claude : `PRINTR_CLAUDE_TIMEOUT_SECS` (défaut 120 s).
+fn api_timeout() -> Duration {
+    timeout_from(std::env::var("PRINTR_CLAUDE_TIMEOUT_SECS").ok().as_deref())
+}
+
+/// Valeur absente, illisible ou nulle : le défaut est conservé (un délai de 0 s ferait échouer
+/// chaque appel).
+fn timeout_from(value: Option<&str>) -> Duration {
+    value
+        .and_then(|s| s.trim().parse::<u64>().ok())
+        .filter(|&s| s > 0)
+        .map(Duration::from_secs)
+        .unwrap_or(DEFAULT_TIMEOUT)
+}
 
 /// Une seule CLI à la fois : chaque appel lance un processus Node complet, gourmand en mémoire.
 static CLI_LOCK: Mutex<()> = Mutex::new(());
@@ -26,28 +60,37 @@ pub struct Claude {
 }
 
 enum Backend {
-    Api { api_key: String, agent: ureq::Agent },
-    Cli { program: String },
+    /// `api_key` : `None` pour un serveur compatible sans clé (`ANTHROPIC_BASE_URL` local).
+    Api {
+        api_key: Option<String>,
+        agent: ureq::Agent,
+    },
+    Cli {
+        program: String,
+    },
 }
 
 impl Claude {
     /// Choisit le chemin selon `PRINTR_CLAUDE_BACKEND` (`auto` par défaut, `api` ou `cli`) :
-    /// en `auto`, l'API si `ANTHROPIC_API_KEY` est définie, sinon la CLI si elle est installée
-    /// (`PRINTR_CLAUDE_CLI`, `claude` par défaut). `PRINTR_CLAUDE_MODEL` choisit le modèle.
+    /// l'API si `ANTHROPIC_API_KEY` ou `ANTHROPIC_BASE_URL` est définie (un serveur compatible
+    /// local n'a pas besoin de clé), sinon la CLI si elle est installée (`PRINTR_CLAUDE_CLI`,
+    /// `claude` par défaut). `PRINTR_CLAUDE_MODEL` choisit le modèle.
     pub fn from_env() -> Option<Self> {
         let model = std::env::var("PRINTR_CLAUDE_MODEL").unwrap_or_else(|_| DEFAULT_MODEL.to_owned());
         let api_key = std::env::var("ANTHROPIC_API_KEY").ok().filter(|k| !k.is_empty());
+        let custom_url = std::env::var("ANTHROPIC_BASE_URL").ok().is_some_and(|u| !u.trim().is_empty());
         let wanted = std::env::var("PRINTR_CLAUDE_BACKEND").unwrap_or_default().trim().to_ascii_lowercase();
-        let backend = match (wanted.as_str(), api_key) {
-            ("cli", _) | ("" | "auto", None) => {
+        let backend = match (wanted.as_str(), api_key.is_some(), custom_url) {
+            ("cli", _, _) | ("" | "auto", false, false) => {
                 let program = cli_program();
                 if !installed(&program) {
                     return None;
                 }
                 Backend::Cli { program }
             }
-            (_, Some(api_key)) => Backend::Api { api_key, agent: api_agent() },
-            (_, None) => return None,
+            (_, true, _) => Backend::Api { api_key, agent: api_agent() },
+            (_, false, true) => Backend::Api { api_key: None, agent: api_agent() },
+            (_, false, false) => return None,
         };
         Some(Self { model, backend })
     }
@@ -67,7 +110,9 @@ impl Claude {
     /// Envoie une requête et décode la réponse selon le schéma JSON fourni (sorties structurées).
     pub fn generate<T: DeserializeOwned>(&self, system: &str, prompt: &str, schema: Value, effort: &str) -> Result<T> {
         let value = match &self.backend {
-            Backend::Api { api_key, agent } => self.generate_api(agent, api_key, system, prompt, schema, effort)?,
+            Backend::Api { api_key, agent } => {
+                self.generate_api(agent, api_key.as_deref(), system, prompt, schema, effort)?
+            }
             Backend::Cli { program } => self.generate_cli(program, system, prompt, &schema, effort)?,
         };
         serde_json::from_value(value.clone())
@@ -77,7 +122,7 @@ impl Claude {
     fn generate_api(
         &self,
         agent: &ureq::Agent,
-        api_key: &str,
+        api_key: Option<&str>,
         system: &str,
         prompt: &str,
         schema: Value,
@@ -93,7 +138,11 @@ impl Claude {
             },
             "messages": [{ "role": "user", "content": prompt }],
         });
-        let mut request = agent.post(API_URL).header("x-api-key", api_key).header("anthropic-version", "2023-06-01");
+        let mut request = agent.post(api_url()).header("anthropic-version", "2023-06-01");
+        // La clé, si elle existe : un serveur compatible local n'en a pas besoin.
+        if let Some(key) = api_key {
+            request = request.header("x-api-key", key);
+        }
         // Relance automatique sur un autre modèle si le modèle principal refuse la requête.
         if supports_default_fallbacks(&self.model) {
             body["fallbacks"] = json!("default");
@@ -177,11 +226,12 @@ impl Claude {
         let stderr = reader(child.stderr.take().map(|s| Box::new(s) as _));
 
         let start = Instant::now();
+        let timeout = api_timeout();
         let status = loop {
             if let Some(status) = child.try_wait()? {
                 break status;
             }
-            if start.elapsed() > TIMEOUT {
+            if start.elapsed() > timeout {
                 let _ = child.kill();
                 let _ = child.wait();
                 bail!("{}", t("la CLI Claude ne répond pas", "the Claude CLI is not responding"));
@@ -214,7 +264,7 @@ impl Claude {
 }
 
 fn api_agent() -> ureq::Agent {
-    ureq::Agent::config_builder().timeout_global(Some(TIMEOUT)).http_status_as_error(false).build().into()
+    ureq::Agent::config_builder().timeout_global(Some(api_timeout())).http_status_as_error(false).build().into()
 }
 
 fn cli_program() -> String {
@@ -239,10 +289,38 @@ fn supports_default_fallbacks(model: &str) -> bool {
     ["claude-opus-5", "claude-fable-5", "claude-sonnet-5-5"].iter().any(|p| model.starts_with(p))
 }
 
-/// Message quand Claude n'est pas disponible (ni clé API, ni CLI).
+/// Message quand Claude n'est pas disponible (ni clé API, ni point de terminaison, ni CLI).
 pub fn missing() -> &'static str {
     t(
-        "Claude indisponible : définis ANTHROPIC_API_KEY ou installe la CLI Claude",
-        "Claude unavailable: set ANTHROPIC_API_KEY or install the Claude CLI",
+        "Claude indisponible : définis ANTHROPIC_API_KEY, pointe ANTHROPIC_BASE_URL vers un serveur compatible, ou installe la CLI Claude",
+        "Claude unavailable: set ANTHROPIC_API_KEY, point ANTHROPIC_BASE_URL at a compatible server, or install the Claude CLI",
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn api_url_resolution() {
+        assert_eq!(api_url_from(None), DEFAULT_API_URL);
+        assert_eq!(api_url_from(Some("   ")), DEFAULT_API_URL);
+        assert_eq!(api_url_from(Some("http://127.0.0.1:8000")), "http://127.0.0.1:8000/v1/messages");
+        assert_eq!(api_url_from(Some("http://127.0.0.1:8000/")), "http://127.0.0.1:8000/v1/messages");
+        assert_eq!(api_url_from(Some("http://127.0.0.1:8000/v1/messages")), "http://127.0.0.1:8000/v1/messages");
+        assert_eq!(api_url_from(Some("http://127.0.0.1:8000/v1/messages/")), "http://127.0.0.1:8000/v1/messages");
+        assert_eq!(api_url_from(Some("  https://api.anthropic.com/ ")), "https://api.anthropic.com/v1/messages");
+    }
+
+    #[test]
+    fn api_timeout_resolution() {
+        assert_eq!(timeout_from(None), DEFAULT_TIMEOUT);
+        assert_eq!(timeout_from(Some("600")), Duration::from_secs(600));
+        assert_eq!(timeout_from(Some("  45 ")), Duration::from_secs(45));
+        // Zéro, vide ou illisible : le défaut est conservé (un délai de 0 s ferait échouer
+        // chaque appel).
+        assert_eq!(timeout_from(Some("0")), DEFAULT_TIMEOUT);
+        assert_eq!(timeout_from(Some("")), DEFAULT_TIMEOUT);
+        assert_eq!(timeout_from(Some("soon")), DEFAULT_TIMEOUT);
+    }
 }
