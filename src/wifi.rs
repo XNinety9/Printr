@@ -198,6 +198,24 @@ fn hotspot_name() -> String {
     if suffix.len() == 4 { format!("Printr-{}", suffix.to_uppercase()) } else { "Printr".to_owned() }
 }
 
+/// Le mot de passe du point d'accès : tiré une fois puis gardé avec les données, pour qu'un ancien
+/// ticket reste valable d'un démarrage à l'autre.
+fn hotspot_password() -> String {
+    let file = crate::store::data_dir().map(|d| d.join("hotspot-password"));
+    let saved = file.as_ref().and_then(|f| std::fs::read_to_string(f).ok()).map(|p| p.trim().to_owned());
+    if let Some(password) = saved.filter(|p| p.len() >= 8 && p.bytes().all(|b| PASSWORD_LETTERS.contains(&b))) {
+        return password;
+    }
+    let password = new_password();
+    if let Some(file) = file {
+        let _ = std::fs::create_dir_all(file.parent().unwrap_or(&file));
+        if let Err(e) = std::fs::write(&file, &password) {
+            eprintln!("{}", tr!("mot de passe du point d'accès non gardé : {e}", "hotspot password not kept: {e}"));
+        }
+    }
+    password
+}
+
 fn new_password() -> String {
     let mut rng = rand::rng();
     (0..10).map(|_| *PASSWORD_LETTERS.choose(&mut rng).unwrap() as char).collect()
@@ -456,7 +474,7 @@ pub fn spawn(app: Arc<App>, port: u16) {
             }
         };
         let ssid = hotspot_name();
-        let password = new_password();
+        let password = hotspot_password();
         // On regarde les réseaux avant : la puce Wi-Fi ne cherche plus guère une fois en point d'accès.
         let networks = scan();
         eprintln!(
