@@ -51,6 +51,9 @@ the printer.
 to a microSD card with Raspberry Pi Imager, plug in the printer and power on
 ([details](https://xninety9.github.io/Printr/guide.en.html#ready-to-flash-image)).
 
+**On a machine already running** (Raspberry Pi OS or any Linux with systemd):
+`curl -fsSL https://xninety9.github.io/Printr/install.sh | bash`, then the wizard in the browser.
+
 **From the source code**:
 
 ```sh

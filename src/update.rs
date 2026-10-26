@@ -579,6 +579,15 @@ mod tests {
     }
 
     #[test]
+    fn online_installer_trusts_the_same_keys() {
+        // deploy/get.sh vérifie les releases avec sa propre copie des clés.
+        let script = include_str!("../deploy/get.sh");
+        for key in RELEASE_KEYS {
+            assert!(script.contains(key), "clé absente de deploy/get.sh : {key}");
+        }
+    }
+
+    #[test]
     fn checksum_list_is_read_like_sha256sum() {
         let sums = "aa11  printr-aarch64\nBB22 *printr-x86_64\n";
         assert_eq!(expected_hash(sums, "printr-aarch64").as_deref(), Some("aa11"));

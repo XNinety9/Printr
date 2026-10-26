@@ -55,6 +55,9 @@ sur un Raspberry Pi, qui parle ESC/POS directement à l'imprimante.
 sur une carte microSD avec Raspberry Pi Imager, brancher l'imprimante et allumer
 ([détails](https://xninety9.github.io/Printr/guide.html#image-prête-à-flasher)).
 
+**Sur une machine déjà en service** (Raspberry Pi OS, ou tout Linux avec systemd) :
+`curl -fsSL https://xninety9.github.io/Printr/install.sh | bash`, puis l'assistant dans le navigateur.
+
 **Depuis le code source** :
 
 ```sh

@@ -2,7 +2,9 @@
 
 Raspberry Pi OS Lite (64-bit) with Printr ready to use, for the Pi 3, 4, 5 and Zero 2 W, built with
 [pi-gen](https://github.com/RPi-Distro/pi-gen). It is attached to every release
-(`printr-X.Y.Z-raspberrypi-arm64.img.xz`).
+(`printr-X.Y.Z-raspberrypi-arm64.img.xz`), with `printr-imager.json`, which lists it in Raspberry Pi
+Imager when its content repository is set to
+`https://github.com/XNinety9/Printr/releases/latest/download/printr-imager.json`.
 
 ## What it contains
 

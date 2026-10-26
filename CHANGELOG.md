@@ -14,6 +14,11 @@ Koenig, Tolbert Lanston…
 - **Ready-to-flash image for Raspberry Pi** (Pi 3, 4, 5 and Zero 2 W, 64-bit): Raspberry Pi OS Lite with
   Printr installed, the printer's udev rule, `http://printr.local` on port 80 and Barnum. Write it with
   Raspberry Pi Imager, plug in the printer, power on. Built with pi-gen (`image/build.sh`).
+- **Install in one command** on a machine already running: `curl -fsSL https://xninety9.github.io/Printr/install.sh | bash`
+  downloads the archive for the machine, checks the release signature (with `openssl`) and the archive's
+  checksum, and runs `install.sh`; the wizard does the rest.
+- **Printr in Raspberry Pi Imager**: each release carries `printr-imager.json`; set Imager's content
+  repository to its `releases/latest/download` address and Printr shows up in the list.
 - **First network connection without a screen**: on the image, when no network shows up within a minute
   of boot, Printr opens a `Printr-XXXX` Wi-Fi hotspot and prints a ticket with QR codes to join it and open
   the setup page (phones open it by themselves, like a hotel Wi-Fi). Pick the home Wi-Fi, type its

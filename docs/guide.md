@@ -781,7 +781,9 @@ Each [release](https://github.com/XNinety9/Printr/releases) comes with an image 
 (`printr-X.Y.Z-raspberrypi-arm64.img.xz`).
 
 1. Write it to a microSD card with [Raspberry Pi Imager](https://www.raspberrypi.com/software/):
-   **Choose OS → Use custom**. Its customization (gear icon) is optional: an account and SSH, to log
+   **Choose OS → Use custom**. Or have Printr listed in Imager itself: in its options, set the
+   content repository to
+   `https://github.com/XNinety9/Printr/releases/latest/download/printr-imager.json`. Its customization (gear icon) is optional: an account and SSH, to log
    in to the machine; the Wi-Fi, to skip the [first network connection](#first-network-connection).
 2. Plug in the printer over USB, and an Ethernet cable if there is one, then power on.
 3. On Ethernet, or with the Wi-Fi given to Imager, the app is at `http://printr.local` (or at the
@@ -822,6 +824,21 @@ devices: the ticket gives the IP address first for that reason.
 Under the hood: `PRINTR_WIFI_SETUP=1` (set by the image) turns this on; the hotspot runs on hostapd
 in plain WPA2 (NetworkManager's own hotspot is refused by phones on the Raspberry Pi Wi-Fi chip),
 NetworkManager handles the rest.
+
+### One command
+
+On a machine that is already running (Raspberry Pi OS or any Linux with systemd), from your
+account:
+
+```sh
+curl -fsSL https://xninety9.github.io/Printr/install.sh | bash
+```
+
+It downloads the archive of the latest version for this machine, checks the release signature
+(the same keys as automatic updates, with `openssl`) and the archive's checksum, then runs its
+`install.sh`; the `sudo` password is asked once. The rest happens in the browser, with the
+[first launch](#first-launch) wizard. Running it again updates Printr.
+`curl … | bash -s -- --download-only` only downloads and checks.
 
 ### Install script
 

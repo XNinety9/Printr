@@ -47,11 +47,42 @@ jobs:
         run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup || true
       - name: Image
         run: bash image/build.sh --binary target/release/printr --out out
+      # Raspberry Pi Imager : « Printr » dans sa liste, avec un dépôt personnalisé pointant vers
+      # https://github.com/XNinety9/Printr/releases/latest/download/printr-imager.json
+      - name: Description pour Raspberry Pi Imager
+        if: inputs.tag != ''
+        run: |
+          img=$(ls out/*.img.xz)
+          python3 - "$img" "$REF" "$GITHUB_REPOSITORY" > out/printr-imager.json <<'PY'
+          import hashlib, json, lzma, os, sys, datetime
+          img, tag, repo = sys.argv[1:4]
+          extracted, size = hashlib.sha256(), 0
+          with lzma.open(img) as f:
+              while chunk := f.read(1 << 20):
+                  extracted.update(chunk)
+                  size += len(chunk)
+          download = hashlib.sha256(open(img, "rb").read()).hexdigest()
+          print(json.dumps({"os_list": [{
+              "name": "Printr",
+              "description": "Raspberry Pi OS Lite with Printr: little receipts for the family, set up from your phone.",
+              "icon": "https://xninety9.github.io/Printr/mark.png",
+              "website": "https://xninety9.github.io/Printr/",
+              "url": f"https://github.com/{repo}/releases/download/{tag}/{os.path.basename(img)}",
+              "extract_size": size,
+              "extract_sha256": extracted.hexdigest(),
+              "image_download_size": os.path.getsize(img),
+              "image_download_sha256": download,
+              "release_date": datetime.date.today().isoformat(),
+              "init_format": "cloudinit-rpi",
+              "devices": ["pi5-64bit", "pi4-64bit", "pi3-64bit"],
+          }]}, indent=2))
+          PY
+          cat out/printr-imager.json
       - name: Publication
         if: inputs.tag != ''
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$REF" out/*.img.xz out/*.img.xz.sha256 --clobber --repo "$GITHUB_REPOSITORY"
+        run: gh release upload "$REF" out/*.img.xz out/*.img.xz.sha256 out/printr-imager.json --clobber --repo "$GITHUB_REPOSITORY"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: inputs.tag == ''
         with:

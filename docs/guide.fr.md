@@ -791,7 +791,9 @@ Raspberry Pi 3, 4, 5 et Zero 2 W (64 bits) : Raspberry Pi OS Lite avec Printr pr
 (`printr-X.Y.Z-raspberrypi-arm64.img.xz`).
 
 1. L'écrire sur une carte microSD avec [Raspberry Pi Imager](https://www.raspberrypi.com/software/) :
-   **Choisir l'OS → Use custom**. Sa personnalisation (roue dentée) est facultative : un compte et
+   **Choisir l'OS → Use custom**. Ou faire apparaître Printr dans la liste d'Imager : dans ses
+   options, indiquer comme dépôt de contenu
+   `https://github.com/XNinety9/Printr/releases/latest/download/printr-imager.json`. Sa personnalisation (roue dentée) est facultative : un compte et
    SSH, pour se connecter à la machine ; le Wi-Fi, pour se passer de la
    [première connexion au réseau](#première-connexion-au-réseau).
 2. Brancher l'imprimante en USB, et un câble Ethernet s'il y en a un, puis allumer.
@@ -834,6 +836,20 @@ noms `.local` entre appareils en Wi-Fi : c'est pourquoi le ticket donne d'abord 
 Sous le capot : `PRINTR_WIFI_SETUP=1` (posé par l'image) active ce mode ; le point d'accès tourne
 sur hostapd en WPA2 classique (celui de NetworkManager est refusé par les téléphones sur la puce
 Wi-Fi des Raspberry Pi), NetworkManager s'occupe du reste.
+
+### En une commande
+
+Sur une machine déjà en service (Raspberry Pi OS, ou tout Linux avec systemd), depuis son compte :
+
+```sh
+curl -fsSL https://xninety9.github.io/Printr/install.sh | bash
+```
+
+La commande télécharge l'archive de la dernière version pour cette machine, vérifie la signature de
+la release (les mêmes clés que la mise à jour automatique, avec `openssl`) et l'empreinte de
+l'archive, puis lance son `install.sh` ; le mot de passe `sudo` est demandé une fois. La suite se
+passe dans le navigateur, avec l'assistant du [premier lancement](#premier-lancement). La relancer
+met Printr à jour. `curl … | bash -s -- --download-only` télécharge et vérifie seulement.
 
 ### Script d'installation
 
