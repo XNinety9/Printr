@@ -228,12 +228,13 @@ ainsi aussi léger qu'avec l'API. La CLI utilise sa propre connexion : printr lu
 
 Le chemin API parle à l'API Messages : par défaut à `https://api.anthropic.com`, ou à n'importe
 quel point de terminaison compatible — un serveur d'inférence local, par exemple — défini dans
-`ANTHROPIC_BASE_URL` (la clé est envoyée en `x-api-key`).
+`ANTHROPIC_BASE_URL`. La clé, si elle est définie, est envoyée en `x-api-key` — un serveur local
+n'en a pas besoin — : ne pointez `ANTHROPIC_BASE_URL` que vers un serveur de confiance.
 
 | Variable | Rôle |
 |---|---|
-| `ANTHROPIC_API_KEY` | Clé de l'API Claude |
-| `ANTHROPIC_BASE_URL` | Point de terminaison de l'API Messages (par défaut `https://api.anthropic.com`) : tout serveur compatible Claude, y compris les serveurs d'inférence locaux |
+| `ANTHROPIC_API_KEY` | Clé de l'API Claude (inutile pour un serveur compatible dans `ANTHROPIC_BASE_URL`) |
+| `ANTHROPIC_BASE_URL` | Point de terminaison de l'API Messages (par défaut `https://api.anthropic.com`) : tout serveur compatible Claude, y compris les serveurs d'inférence locaux (de confiance) |
 | `PRINTR_CLAUDE_BACKEND` | `auto`, `api` ou `cli` |
 | `PRINTR_CLAUDE_CLI` | Programme de la CLI : nom cherché dans le `PATH` ou chemin complet (`claude` par défaut) |
 | `CLAUDE_CODE_OAUTH_TOKEN` | Jeton de la CLI, pour une machine sans session ouverte (le service systemd) |

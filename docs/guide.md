@@ -228,13 +228,14 @@ Calls run one at a time, and a call that takes more than `PRINTR_CLAUDE_TIMEOUT_
 (120 s by default) is given up.
 
 The API path speaks the Messages API: by default to `https://api.anthropic.com`, or to any
-compatible endpoint — a local inference server, for instance — set in `ANTHROPIC_BASE_URL`
-(the key is sent as `x-api-key`).
+compatible endpoint — a local inference server, for instance — set in `ANTHROPIC_BASE_URL`.
+The API key, if set, is sent as `x-api-key` — a local server needs no key — so point
+`ANTHROPIC_BASE_URL` only at a server you trust.
 
 | Variable | Role |
 |---|---|
-| `ANTHROPIC_API_KEY` | Claude API key |
-| `ANTHROPIC_BASE_URL` | Messages API endpoint (default `https://api.anthropic.com`): any Claude-compatible server, including local inference servers |
+| `ANTHROPIC_API_KEY` | Claude API key (not needed for a compatible server in `ANTHROPIC_BASE_URL`) |
+| `ANTHROPIC_BASE_URL` | Messages API endpoint (default `https://api.anthropic.com`): any Claude-compatible server, including local inference servers (one you trust) |
 | `PRINTR_CLAUDE_BACKEND` | `auto`, `api` or `cli` |
 | `PRINTR_CLAUDE_CLI` | CLI program: a name looked up in `PATH`, or a full path (`claude` by default) |
 | `CLAUDE_CODE_OAUTH_TOKEN` | CLI token, for a machine with no logged-in session (the systemd service) |
