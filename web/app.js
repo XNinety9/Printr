@@ -221,6 +221,16 @@ const EVERY = [
   [3, T('Toutes les 3 semaines', 'Every 3 weeks')], [4, T('Toutes les 4 semaines', 'Every 4 weeks')],
 ];
 
+// Réglages du serveur utiles à l'appli, relus avec /api/status.
+const SERVER = { mqtt: null, autoUpdate: false, lastUpdate: null, city: null };
+// Champ « Ville » des blocs à lieu (météo, air, soleil, ciel) : vide, c'est la ville des réglages.
+const cityField = () => ({
+  key: 'location', label: T('Ville', 'City'), kind: 'text',
+  get placeholder() { return SERVER.city ? T(`${SERVER.city} (ville des réglages)`, `${SERVER.city} (default city)`) : T('Lyon, ou « 45.76,4.83 »', 'Lyon, or "45.76,4.83"'); },
+  get help() { return SERVER.city ? '' : T('Astuce : une ville par défaut se règle dans Mon compte → Réglages.', 'Tip: a default city can be set in My account → Settings.'); },
+});
+const citySummary = (b) => b.location || SERVER.city || '';
+
 const BLOCKS = [
   {
     type: 'title', label: T('Titre', 'Title'), emoji: '🔠', group: G.layout, desc: T('Un grand titre centré', 'A big centered title'),
@@ -827,15 +837,6 @@ const haYaml = (ticket, label) =>
 const mqttYaml = (ticket, prefix) =>
   `${yamlMap({ action: 'mqtt.publish', data: { topic: `${prefix}/print`, payload: JSON.stringify(ticket) } }, '')}\n`;
 
-// Réglages du serveur utiles à l'appli, relus avec /api/status.
-const SERVER = { mqtt: null, autoUpdate: false, lastUpdate: null, city: null };
-// Champ « Ville » des blocs à lieu (météo, air, soleil, ciel) : vide, c'est la ville des réglages.
-const cityField = () => ({
-  key: 'location', label: T('Ville', 'City'), kind: 'text',
-  get placeholder() { return SERVER.city ? T(`${SERVER.city} (ville des réglages)`, `${SERVER.city} (default city)`) : T('Lyon, ou « 45.76,4.83 »', 'Lyon, or "45.76,4.83"'); },
-  get help() { return SERVER.city ? '' : T('Astuce : une ville par défaut se règle dans Mon compte → Réglages.', 'Tip: a default city can be set in My account → Settings.'); },
-});
-const citySummary = (b) => b.location || SERVER.city || '';
 const usesAi = (blocks) => blocks.some((b) => BLOCK[b.type || b.data?.type]?.ai);
 
 function blockSummary(data) {
