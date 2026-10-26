@@ -84,7 +84,7 @@ if [ "$FULL" = 1 ] || [ "$installed" != oui ]; then
   step "Envoi des fichiers d'installation…"
   "${SSH[@]}" "$HOST" 'rm -rf ~/printr-install && mkdir -p ~/printr-install'
   "${SCP[@]}" "$BIN" deploy/install.sh deploy/printr.service deploy/printr.env.example \
-    deploy/70-tm-t88v.rules deploy/50-printr.rules "$HOST:printr-install/"
+    deploy/70-tm-t88v.rules deploy/50-printr.rules deploy/printr-update-guard.sh "$HOST:printr-install/"
   done_
   printf '%s  Installation : la machine va demander le mot de passe sudo (une seule fois).%s\n' "$D" "$R"
   ssh -t -p "$PORT" "$HOST" 'sudo bash ~/printr-install/install.sh && rm -rf ~/printr-install'
