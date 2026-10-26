@@ -10,6 +10,19 @@ Koenig, Tolbert Lanston…
 
 ## [Unreleased]
 
+## [2.0.2] “Mergenthaler” - 2026-10-26
+
+### Fixed
+- **Automatic updates failed on installations upgraded from 1.x** (`cannot keep /opt/printr/printr.old:
+  Operation not permitted`): the previous version left by `install.sh` or `scripts/deploy.sh` belongs to
+  another user, and Printr could not overwrite it. It now removes it first. Only fresh installations
+  from the Raspberry Pi image were spared.
+
+### Upgrading from 2.0.0 or 2.0.1
+- These versions still hit the error, so automatic updates need one manual step:
+  `sudo rm /opt/printr/printr.old`. Printr then installs the new version at its next check, and later
+  updates work by themselves.
+
 ## [2.0.1] “Mergenthaler” - 2026-10-26
 
 ### Security
@@ -394,7 +407,8 @@ First release.
 - One-command installation on a Raspberry Pi, no sudo needed afterwards.
 - Windows development with a dev container and a printing relay.
 
-[Unreleased]: https://github.com/XNinety9/Printr/compare/v2.0.1...HEAD
+[Unreleased]: https://github.com/XNinety9/Printr/compare/v2.0.2...HEAD
+[2.0.2]: https://github.com/XNinety9/Printr/compare/v2.0.1...v2.0.2
 [2.0.1]: https://github.com/XNinety9/Printr/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/XNinety9/Printr/compare/v1.11.1...v2.0.0
 [1.11.1]: https://github.com/XNinety9/Printr/compare/v1.11.0...v1.11.1
