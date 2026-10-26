@@ -627,10 +627,22 @@ se protège ainsi :
 
 **Mises à jour** : une fois par jour (`PRINTR_UPDATE_INTERVAL` minutes pour changer, 5 au
 minimum), printr regarde sur GitHub si une version plus récente est publiée et le signale à
-l'administrateur (« Mon compte »). Rien n'est téléchargé ni installé
-tout seul : la mise à jour reste un geste humain (`scripts/deploy.sh`), après lecture des
-nouveautés ; un compte GitHub compromis ne peut donc rien exécuter sur les machines.
+l'administrateur (« Mon compte »). Par défaut, rien n'est téléchargé ni installé tout seul : la mise
+à jour reste un geste humain (`scripts/deploy.sh`), après lecture des nouveautés.
 `PRINTR_UPDATE_CHECK=off` coupe la vérification.
+
+Les **mises à jour automatiques** se choisissent : l'assistant les propose, et elles s'activent
+dans les réglages (`PRINTR_AUTO_UPDATE=auto`). Printr n'installe alors une nouvelle version **que si
+elle est signée** avec la clé du mainteneur, qui ne quitte jamais son ordinateur : la signature
+porte sur la liste des empreintes (`SHA256SUMS`), et le programme téléchargé doit avoir la bonne
+empreinte, se lancer et annoncer la version attendue. Un compte GitHub compromis ne peut donc rien
+pousser sur les machines. Le remplacement se fait la nuit (`PRINTR_UPDATE_WINDOW`, `03:00-05:00`
+par défaut), une fois l'imprimante libre ; l'ancien programme reste dans `printr.old`. Si la
+nouvelle version ne répond pas dans les deux minutes qui suivent son démarrage, la garde lancée par
+le service avant chaque démarrage ([`deploy/printr-update-guard.sh`](../deploy/printr-update-guard.sh))
+remet l'ancienne, et cette version n'est plus jamais essayée. Chaque mise à jour apparaît dans
+l'historique. Dans un conteneur, rien ne s'installe : c'est l'image qu'on met à jour. Le service
+peut écrire dans `/opt/printr` pour cela, et seulement là.
 
 Côté machine, il reste conseillé de n'accepter que les clés en SSH, et de vérifier que le
 pare-feu IPv6 de la box ne laisse pas entrer les connexions vers le réseau local.

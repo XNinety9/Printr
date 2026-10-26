@@ -618,9 +618,21 @@ itself as follows:
 
 **Updates**: once a day (`PRINTR_UPDATE_INTERVAL` minutes to change it, 5 minimum), printr checks
 GitHub to see whether a newer version has been published, and reports it to the administrator
-("My account"). Nothing is downloaded or installed on its own: updating stays a human action
-(`scripts/deploy.sh`), after reading what's new, so a compromised GitHub account cannot run
-anything on the machines. `PRINTR_UPDATE_CHECK=off` turns the check off.
+("My account"). By default nothing is downloaded or installed on its own: updating stays a human
+action (`scripts/deploy.sh`), after reading what's new. `PRINTR_UPDATE_CHECK=off` turns the check off.
+
+**Automatic updates** are opt-in: the wizard offers them, and they can be turned on in the
+settings (`PRINTR_AUTO_UPDATE=auto`). Printr then installs a new release **only if it is signed**
+with the maintainer's key, which never leaves the maintainer's computer: the signature covers the
+list of checksums (`SHA256SUMS`), and the downloaded program must match its checksum, run, and
+report the expected version. A compromised GitHub account therefore cannot push anything to the
+machines. The swap happens at night (`PRINTR_UPDATE_WINDOW`, `03:00-05:00` by default), once the
+printer is idle; the previous program stays in `printr.old`. If the new version does not answer
+within two minutes of starting, the guard run by the service before each start
+([`deploy/printr-update-guard.sh`](../deploy/printr-update-guard.sh)) puts the previous one back,
+and that version is never tried again. Each update shows up in the history. In a container, nothing
+is installed: update the image instead. The service may write to `/opt/printr` for this, and only
+there.
 
 On the machine side, it is still advisable to accept SSH keys only, and to check that your
 router's IPv6 firewall does not let connections into the local network.

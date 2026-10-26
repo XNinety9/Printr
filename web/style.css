@@ -771,6 +771,7 @@ textarea.input.code { font-family: var(--mono); font-size: 13px; line-height: 1.
 .update-card .grow { display: grid; gap: 2px; }
 .update-card .muted { font-size: 13px; }
 .update-card svg { color: var(--accent); flex-shrink: 0; }
+.last-update { font-size: 13px; margin: 8px 2px 0; }
 /* Réglage de l'administrateur (blocs proposés) : une carte qu'on touche pour l'ouvrir. */
 .setting-card {
   display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; text-align: left;

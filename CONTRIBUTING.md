@@ -313,6 +313,14 @@ builds the binaries and publishes the GitHub release, with the CHANGELOG section
 within the day ("My account" of the administrator): only push a tag for a version that is ready
 to be installed.
 
+Once the workflow is done, the maintainer signs the release on their own computer:
+`scripts/signer-release.sh v1.1.0`. It downloads `SHA256SUMS` and every file it lists, checks the
+checksums, signs the list with the release key (`~/.config/printr-release/printr.key`, which never
+leaves that computer) and adds `SHA256SUMS.minisig` to the release. Installations with automatic
+updates only install a signed release. `scripts/labo-maj.sh` tests the whole update path locally
+(fake GitHub, fake systemd): a good version, a crashing one (rolled back), a wrong key, a tampered
+binary.
+
 ## Proposing a change
 
 1. Create a branch from `master`.

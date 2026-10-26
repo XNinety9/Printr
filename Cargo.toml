@@ -18,6 +18,7 @@ escpos = { version = "0.20.0", features = ["graphics"] }
 feed-rs = "3.0.0"
 image = "0.25"
 libc = "0.2"
+minisign-verify = "0.3"
 qrcode = { version = "0.14.1", default-features = false }
 rand = "0.10.3"
 rpassword = "7.5.4"
@@ -28,7 +29,11 @@ rustls = { version = "0.23", default-features = false, features = ["ring", "std"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 sgp4 = "2.4.0"
+sha2 = "0.11"
 terminal_size = "0.4.4"
 tiny_http = "0.12.0"
 ureq = { version = "3.4.2", features = ["json"] }
 webpki-roots = "1"
+
+[dev-dependencies]
+minisign = "0.10"

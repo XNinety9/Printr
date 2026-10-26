@@ -16,7 +16,12 @@ const TIMEOUT: Duration = Duration::from_secs(20);
 
 /// Client HTTP des blocs ; `public_only` refuse toute adresse non publique.
 pub fn agent(public_only: bool) -> ureq::Agent {
-    let config = ureq::Agent::config_builder().timeout_global(Some(TIMEOUT)).build();
+    agent_with_timeout(public_only, TIMEOUT)
+}
+
+/// Pareil, avec un autre délai (téléchargement d'une mise à jour).
+pub fn agent_with_timeout(public_only: bool, timeout: Duration) -> ureq::Agent {
+    let config = ureq::Agent::config_builder().timeout_global(Some(timeout)).build();
     if public_only {
         ureq::Agent::with_parts(config, DefaultConnector::new(), PublicOnly { local: local_prefixes() })
     } else {

@@ -50,6 +50,7 @@ pub const SETTINGS: &[(&str, Kind)] = &[
     ("PRINTR_MAX_TICKETS_PER_HOUR", Kind::Number(0, 1000)),
     ("PRINTR_QUEUE_HOURS", Kind::Number(1, 168)),
     ("PRINTR_UPDATE_CHECK", Kind::Choice(&["off"])),
+    ("PRINTR_AUTO_UPDATE", Kind::Choice(&["auto"])),
 ];
 
 fn kind(key: &str) -> Option<Kind> {

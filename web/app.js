@@ -828,7 +828,7 @@ const mqttYaml = (ticket, prefix) =>
   `${yamlMap({ action: 'mqtt.publish', data: { topic: `${prefix}/print`, payload: JSON.stringify(ticket) } }, '')}\n`;
 
 // Réglages du serveur utiles à l'appli, relus avec /api/status.
-const SERVER = { mqtt: null };
+const SERVER = { mqtt: null, autoUpdate: false, lastUpdate: null };
 const usesAi = (blocks) => blocks.some((b) => BLOCK[b.type || b.data?.type]?.ai);
 
 function blockSummary(data) {
@@ -2433,6 +2433,11 @@ function SettingsSheet({ onClose }) {
     ${text('PRINTR_MAX_TICKETS_PER_HOUR', T('Tickets par heure et par compte', 'Tickets per hour and account'), T('0 : sans limite.', '0: no limit.'), '20', 'number')}
     ${text('PRINTR_QUEUE_HOURS', T('Attente si l’imprimante est absente (heures)', 'Wait when the printer is away (hours)'), null, '12', 'number')}
     ${toggle('PRINTR_UPDATE_CHECK', T('Signaler les nouvelles versions', 'Report new versions'), T('Une fois par jour, Printr regarde sur GitHub.', 'Once a day, Printr checks GitHub.'))}
+    ${settings.PRINTR_AUTO_UPDATE.locked
+      ? html`<${Field} label=${T('Installer automatiquement', 'Install automatically')}><span class="chip setting-lock">${LOCKED_HINT}</span></${Field}>`
+      : html`<${Switch} label=${T('Installer automatiquement, la nuit', 'Install automatically, at night')}
+        help=${T('Seulement les versions signées par l’auteur de Printr, entre 3 h et 5 h ; retour à l’ancienne si la nouvelle ne démarre pas.', 'Only versions signed by Printr’s author, between 3 and 5 am; back to the previous one if the new one does not start.')}
+        checked=${cur('PRINTR_AUTO_UPDATE') === 'auto'} onChange=${(on) => set('PRINTR_AUTO_UPDATE', on ? 'auto' : '')} />`}
   </${Sheet}>`;
 }
 
@@ -2506,11 +2511,18 @@ function AccountSheet({ me, users, version, update, paper, reloadUsers, onLogout
     ${me.admin && update && html`<a class="update-card" href=${update.url} target="_blank" rel="noopener">
       <span class="big-emoji">✨</span>
       <span class="grow"><strong>${T(`Printr ${update.version} est disponible`, `Printr ${update.version} is available`)}</strong>
-        <span class="muted">${T(
+        <span class="muted">${SERVER.autoUpdate ? T(
+          `Tu as la ${version}. Elle s’installera toute seule cette nuit ; les nouveautés sont par ici.`,
+          `You're on ${version}. It will install itself tonight; here's what's new.`,
+        ) : T(
           `Tu as la ${version}. Lis les nouveautés, puis mets à jour depuis ton ordinateur.`,
           `You're on ${version}. Read what's new, then update from your computer.`,
         )}</span></span>
       <${Icon} name="send" size=${18} /></a>`}
+    ${me.admin && SERVER.lastUpdate && html`<p class="muted last-update">✨ ${T(
+      `Mis à jour tout seul de la ${SERVER.lastUpdate.from} à la ${SERVER.lastUpdate.to}, le ${new Date(SERVER.lastUpdate.at).toLocaleDateString(LOCALE, { day: 'numeric', month: 'long' })}.`,
+      `Updated by itself from ${SERVER.lastUpdate.from} to ${SERVER.lastUpdate.to} on ${new Date(SERVER.lastUpdate.at).toLocaleDateString(LOCALE, { day: 'numeric', month: 'long' })}.`,
+    )}</p>`}
 
     ${paper && html`<div class="section-title">${T('L’imprimante', 'The printer')}</div><${PaperCard} paper=${paper} />`}
 
@@ -2729,8 +2741,10 @@ function Wizard({ me, onDone }) {
     setBusy(true);
     try {
       await api('POST', '/api/wizard/done');
+      // Mises à jour automatiques proposées par défaut : Printr se débrouille seul.
+      const all = settings.PRINTR_AUTO_UPDATE && !settings.PRINTR_AUTO_UPDATE.set ? { PRINTR_AUTO_UPDATE: 'auto', ...values } : values;
       // Seulement ce qui change, et pas ce que le système fixe.
-      const changes = Object.fromEntries(Object.entries(values)
+      const changes = Object.fromEntries(Object.entries(all)
         .filter(([k, v]) => !settings[k]?.locked && (settings[k]?.value ?? (settings[k]?.set ? null : '')) !== v));
       if (!Object.keys(changes).length) { onDone(); return; }
       const r = await api('PUT', '/api/settings', { values: changes });
@@ -2768,7 +2782,11 @@ function Wizard({ me, onDone }) {
     body = html`<p class="muted">${T(
       'Ouvre Printr sur le téléphone de chacun à cette adresse, et ajoute-les depuis « Mon compte ».',
       'Open Printr on everyone’s phone at this address, and add them from “My account”.',
-    )}</p><p class="wizard-address">${location.origin}</p>`;
+    )}</p><p class="wizard-address">${location.origin}</p>
+    ${settings.PRINTR_AUTO_UPDATE && !settings.PRINTR_AUTO_UPDATE.locked && html`<${Switch} label=${T('Mettre Printr à jour tout seul, la nuit', 'Keep Printr up to date by itself, at night')}
+      help=${T('Les nouvelles versions signées s’installent entre 3 h et 5 h.', 'New signed versions install between 3 and 5 am.')}
+      checked=${(values.PRINTR_AUTO_UPDATE ?? (settings.PRINTR_AUTO_UPDATE.set ? settings.PRINTR_AUTO_UPDATE.value : 'auto')) === 'auto'}
+      onChange=${(on) => set('PRINTR_AUTO_UPDATE', on ? 'auto' : '')} />`}`;
   }
   const last = index === WIZARD_STEPS.length - 1;
   return html`<div class="login"><div class="login-card wizard">
@@ -2829,6 +2847,8 @@ function App() {
       CATALOG.hidden = s.hidden_blocks || [];
       CATALOG.claude = !!s.claude;
       SERVER.mqtt = s.mqtt_prefix || null;
+      SERVER.autoUpdate = !!s.auto_update;
+      SERVER.lastUpdate = s.last_update || null;
       setPrinter((before) => {
         const status = s.printer_status || (s.printer_ready === false ? 'missing' : 'ready');
         const now = { ready: status === 'ready', status, queued: s.queued || 0, paper: s.paper || null };

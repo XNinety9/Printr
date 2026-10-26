@@ -229,24 +229,7 @@ pub fn banner(
         },
     );
     row(t("données", "data"), data.to_owned());
-    row(
-        "versions",
-        if crate::update::enabled() {
-            match crate::update::interval_minutes() {
-                1440 => t(
-                    "vérification quotidienne sur GitHub (rien n'est installé tout seul)",
-                    "daily check on GitHub (nothing is installed automatically)",
-                )
-                .to_owned(),
-                m => tr!(
-                    "vérification toutes les {m} min sur GitHub (rien n'est installé tout seul)",
-                    "checking every {m} min on GitHub (nothing is installed automatically)"
-                ),
-            }
-        } else {
-            format!("{WARN}{}{WARN:#} (PRINTR_UPDATE_CHECK)", t("vérification désactivée", "update check disabled"))
-        },
-    );
+    row("versions", crate::update::summary());
     row(
         t("comptes", "accounts"),
         if users == 0 {

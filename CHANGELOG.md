@@ -29,6 +29,12 @@ Koenig, Tolbert Lanston…
   model and timeout, MQTT, API token, limits and update check. They are saved with the data and applied by a quick
   automatic restart (under systemd or Docker). Whatever `/etc/printr.env` sets still wins and is shown
   read-only; secrets are never sent back to the app.
+- **Signed automatic updates** (opt-in, offered by the wizard): at night, Printr installs a new release only
+  if its checksum list is signed with the maintainer's key (minisign) and the program matches, runs and
+  reports the right version; if it does not answer after restarting, the service's guard puts the
+  previous one back and never retries it. Releases now also carry the bare binaries (`printr-aarch64`,
+  `printr-arm`, `printr-x86_64`); `scripts/signer-release.sh` signs a release, `scripts/labo-maj.sh` tests
+  the whole path locally.
 - **Backup and restore** from My account (admin): accounts, tickets, schedules, history, shopping list,
   family birthdays, settings and photos in one JSON file. Restoring keeps the current state in `backups/`
   first; a fresh installation can restore from the first account's screen (`GET /api/backup`,

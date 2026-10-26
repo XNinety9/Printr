@@ -59,6 +59,34 @@ pub struct App {
     queue_hours: i64,
 }
 
+impl crate::update::Host for App {
+    /// Attend la fin de l'impression en cours (et bloque les suivantes), remplace le programme,
+    /// le note dans l'historique et redémarre : systemd relance printr sur la nouvelle version.
+    fn restart_for_update(&self, update: &crate::update::Prepared) {
+        let _printer = self.printer.lock().unwrap_or_else(|e| e.into_inner());
+        if let Err(e) = update.swap() {
+            eprintln!("{}", tr!("mise à jour : {e:#}", "update: {e:#}"));
+            return;
+        }
+        let mut store = self.lock_store();
+        store.record(HistoryEntry {
+            queued: None,
+            printed_at: None,
+            preview: None,
+            at: Utc::now(),
+            by: t("mise à jour", "update").to_owned(),
+            label: format!("printr {} → {}", update.from, update.to),
+            ok: true,
+            errors: Vec::new(),
+            blocks: Vec::new(),
+            paper_mm: None,
+        });
+        let _ = store.save();
+        eprintln!("{}", tr!("mise à jour : redémarrage sur printr {}", "update: restarting on printr {}", update.to));
+        std::process::exit(crate::settings::RESTART_CODE);
+    }
+}
+
 fn busy_reason() -> &'static str {
     t(
         "un ticket précédent attend encore l'imprimante (capot, papier ?)",
@@ -1278,6 +1306,9 @@ fn handle(app: &App, request: &mut Request) -> Reply {
                 "version": env!("CARGO_PKG_VERSION"),
                 "mqtt_prefix": crate::mqtt::prefix(),
                 "update": *app.latest.lock().unwrap_or_else(|e| e.into_inner()),
+                // Installation automatique active (avec clé de signature), et la dernière faite.
+                "auto_update": crate::update::auto_installs(),
+                "last_update": crate::update::last_update().map(|(from, to, at)| json!({ "from": from, "to": to, "at": at })),
                 "city": std::env::var("PRINTR_CITY").ok().filter(|c| !c.trim().is_empty()),
                 "wizard": user_id.as_deref().is_some_and(|me| {
                     let store = app.lock_store();
@@ -1779,10 +1810,12 @@ pub fn serve(listen: &str, token: Option<String>, target: Target) -> Result<()> 
         pending: Mutex::new(None),
         queue_hours: std::env::var("PRINTR_QUEUE_HOURS").ok().and_then(|v| v.trim().parse().ok()).unwrap_or(12),
     });
-    crate::update::spawn(Arc::clone(&app.latest));
     let server = Server::http(listen).map_err(|e| {
         anyhow::anyhow!("{}", tr!("impossible d'écouter sur {listen} : {e}", "cannot listen on {listen}: {e}"))
     })?;
+    // Après une mise à jour : la nouvelle version confirme qu'elle répond, ou laisse la place.
+    crate::update::confirm_pending(listen);
+    crate::update::spawn(Arc::clone(&app.latest), Arc::clone(&app) as Arc<dyn crate::update::Host>);
 
     let ctx = Ctx::web(false);
     let cache = ctx.cache.as_ref().map(|c| c.dir().display().to_string());

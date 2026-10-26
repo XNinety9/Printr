@@ -322,6 +322,14 @@ compile alors les binaires et publie la release GitHub, avec la section du CHANG
 voient dans la journée (« Mon compte » de l'administrateur) : ne pousse une étiquette que pour
 une version prête à être installée.
 
+Une fois le workflow terminé, le mainteneur signe la release sur son ordinateur :
+`scripts/signer-release.sh v1.1.0`. Le script télécharge `SHA256SUMS` et tous les fichiers listés,
+vérifie les empreintes, signe la liste avec la clé des releases (`~/.config/printr-release/printr.key`,
+qui ne quitte jamais cet ordinateur) et ajoute `SHA256SUMS.minisig` à la release. Les installations
+en mise à jour automatique n'installent qu'une release signée. `scripts/labo-maj.sh` essaie tout
+le chemin de mise à jour en local (faux GitHub, faux systemd) : une bonne version, une qui plante
+(retour en arrière), une mauvaise clé, un binaire modifié.
+
 ## Proposer une modification
 
 1. Crée une branche à partir de `master`.
