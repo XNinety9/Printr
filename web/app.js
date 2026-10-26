@@ -309,15 +309,15 @@ const BLOCKS = [
   },
   {
     type: 'weather', label: T('Météo', 'Weather'), emoji: '🌤️', group: G.daily, desc: T('Le temps du jour et des suivants', "Today's weather and the days ahead"),
-    defaults: { location: 'Lyon', days: 1, outfit: false, wind: true, sun: true },
+    defaults: { location: '', days: 1, outfit: false, wind: true, sun: true },
     fields: [
-      { key: 'location', label: T('Ville', 'City'), kind: 'text', placeholder: T('Lyon, ou « 45.76,4.83 »', 'Lyon, or "45.76,4.83"') },
+      cityField(),
       { key: 'days', label: T('Prévisions', 'Forecast'), kind: 'segmented', options: [[1, T("Aujourd'hui", 'Today')], [3, T('3 jours', '3 days')], [5, T('5 jours', '5 days')], [7, T('7 jours', '7 days')]] },
       { key: 'outfit', label: T('Comment s’habiller', 'What to wear'), kind: 'toggle', help: T('« Manteau et bonnet, prends un parapluie » : d’après les prévisions du jour.', '“Coat and hat, take an umbrella”: from today’s forecast.') },
       { key: 'wind', label: T('Vent et UV', 'Wind and UV'), kind: 'toggle' },
       { key: 'sun', label: T('Lever et coucher du soleil', 'Sunrise and sunset'), kind: 'toggle' },
     ],
-    summary: (b) => b.location,
+    summary: citySummary,
   },
   {
     type: 'barnum', label: T('Horoscope', 'Horoscope'), emoji: '🌟', group: G.daily, desc: T('Le vrai ciel du jour, hors ligne et gratuit', 'The real sky of the day, offline and free'),
@@ -354,25 +354,25 @@ const BLOCKS = [
   { type: 'moon', label: T('Lune', 'Moon'), emoji: '🌙', group: G.daily, desc: T('Phase et prochaines lunes', 'Phase and upcoming moons'), defaults: {}, fields: [] },
   {
     type: 'sun', label: T('Soleil', 'Sun'), emoji: '🌅', group: G.daily, desc: T('Lever, coucher, durée du jour', 'Sunrise, sunset, length of day'),
-    defaults: { location: 'Lyon' },
-    fields: [{ key: 'location', label: T('Ville', 'City'), kind: 'text' }],
-    summary: (b) => b.location,
+    defaults: { location: '' },
+    fields: [cityField()],
+    summary: citySummary,
   },
   {
     type: 'sky', label: T('Le ciel ce soir', "Tonight's sky"), emoji: '🔭', group: G.daily, desc: T('Planètes, passages de l’ISS, lune, étoiles filantes', 'Planets, ISS passes, moon, shooting stars'),
-    defaults: { location: 'Lyon' },
-    fields: [{ key: 'location', label: T('Ville', 'City'), kind: 'text' }],
-    summary: (b) => b.location,
+    defaults: { location: '' },
+    fields: [cityField()],
+    summary: citySummary,
   },
   {
     type: 'air_quality', label: T("Qualité de l'air", 'Air quality'), emoji: '🍃', group: G.daily, desc: T('Pollution et pollens', 'Pollution and pollen'),
-    defaults: { location: 'Lyon', pollutants: true, pollen: true },
+    defaults: { location: '', pollutants: true, pollen: true },
     fields: [
-      { key: 'location', label: T('Ville', 'City'), kind: 'text' },
+      cityField(),
       { key: 'pollutants', label: T('Polluants', 'Pollutants'), kind: 'toggle', help: T('Particules fines, ozone, dioxyde d’azote', 'Fine particles, ozone, nitrogen dioxide') },
       { key: 'pollen', label: T('Pollens', 'Pollen'), kind: 'toggle' },
     ],
-    summary: (b) => b.location,
+    summary: citySummary,
   },
   {
     type: 'holidays', label: T('Jours fériés', 'Public holidays'), emoji: '🏖️', group: G.daily, desc: T('Les prochains jours fériés', 'The next public holidays'),
@@ -828,7 +828,14 @@ const mqttYaml = (ticket, prefix) =>
   `${yamlMap({ action: 'mqtt.publish', data: { topic: `${prefix}/print`, payload: JSON.stringify(ticket) } }, '')}\n`;
 
 // Réglages du serveur utiles à l'appli, relus avec /api/status.
-const SERVER = { mqtt: null, autoUpdate: false, lastUpdate: null };
+const SERVER = { mqtt: null, autoUpdate: false, lastUpdate: null, city: null };
+// Champ « Ville » des blocs à lieu (météo, air, soleil, ciel) : vide, c'est la ville des réglages.
+const cityField = () => ({
+  key: 'location', label: T('Ville', 'City'), kind: 'text',
+  get placeholder() { return SERVER.city ? T(`${SERVER.city} (ville des réglages)`, `${SERVER.city} (default city)`) : T('Lyon, ou « 45.76,4.83 »', 'Lyon, or "45.76,4.83"'); },
+  get help() { return SERVER.city ? '' : T('Astuce : une ville par défaut se règle dans Mon compte → Réglages.', 'Tip: a default city can be set in My account → Settings.'); },
+});
+const citySummary = (b) => b.location || SERVER.city || '';
 const usesAi = (blocks) => blocks.some((b) => BLOCK[b.type || b.data?.type]?.ai);
 
 function blockSummary(data) {
@@ -2848,6 +2855,7 @@ function App() {
       CATALOG.hidden = s.hidden_blocks || [];
       CATALOG.claude = !!s.claude;
       SERVER.mqtt = s.mqtt_prefix || null;
+      SERVER.city = s.city || null;
       SERVER.autoUpdate = !!s.auto_update;
       SERVER.lastUpdate = s.last_update || null;
       setPrinter((before) => {

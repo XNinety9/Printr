@@ -65,6 +65,29 @@ fn four() -> u8 {
     4
 }
 
+/// La ville par défaut des blocs à lieu (météo, air, soleil, ciel) : réglage `PRINTR_CITY`.
+fn city() -> Option<String> {
+    std::env::var("PRINTR_CITY").ok()
+}
+
+/// Le lieu du bloc, sinon la ville par défaut.
+fn pick_location(location: &str, city: Option<&str>) -> Option<String> {
+    [Some(location), city].into_iter().flatten().map(str::trim).find(|l| !l.is_empty()).map(str::to_owned)
+}
+
+/// Le lieu à utiliser, ou une erreur qui dit où l'indiquer.
+fn place(location: &str) -> Result<String> {
+    pick_location(location, city().as_deref()).ok_or_else(|| {
+        anyhow::anyhow!(
+            "{}",
+            i18n::t(
+                "aucune ville : indique-la dans le bloc, ou dans les réglages (ville par défaut)",
+                "no city: set it in the block, or in the settings (default city)"
+            )
+        )
+    })
+}
+
 fn yes() -> bool {
     true
 }
@@ -174,6 +197,8 @@ pub enum Block {
         caption: Option<String>,
     },
     Weather {
+        /// Vide : la ville des réglages (`PRINTR_CITY`), comme pour les autres blocs à lieu.
+        #[serde(default)]
         location: String,
         #[serde(default = "one")]
         days: u8,
@@ -284,6 +309,7 @@ pub enum Block {
         count: u8,
     },
     AirQuality {
+        #[serde(default)]
         location: String,
         /// Particules, ozone et dioxyde d'azote.
         #[serde(default = "yes")]
@@ -308,6 +334,7 @@ pub enum Block {
         currency: String,
     },
     Sun {
+        #[serde(default)]
         location: String,
     },
     /// Horoscope hors ligne et gratuit, calculé sur le ciel réel par Barnum.
@@ -592,6 +619,7 @@ pub enum Block {
     /// Le ciel ce soir : planètes visibles, passages de l'ISS, lune, étoiles filantes.
     #[serde(alias = "ciel")]
     Sky {
+        #[serde(default)]
         location: String,
     },
     /// Mandala à colorier.
@@ -769,7 +797,9 @@ impl Block {
     pub fn label(&self) -> String {
         let detail = match self {
             Block::Title { text, .. } => Some(text.chars().take(24).collect()),
-            Block::Weather { location, .. } | Block::AirQuality { location, .. } => Some(location.clone()),
+            Block::Weather { location, .. } | Block::AirQuality { location, .. } => {
+                pick_location(location, city().as_deref())
+            }
             Block::Horoscope { sign, tone } => Some(format!("{sign} ({})", tone.label())),
             Block::Sudoku { difficulty, solution, .. }
             | Block::TrainTracks { difficulty, solution, .. }
@@ -827,7 +857,7 @@ impl Block {
             }
             Block::Countdown { label, .. } => Some(label.clone()),
             Block::Crypto { coins, .. } => Some(coins.join(", ")),
-            Block::Sun { location } | Block::Sky { location } => Some(location.clone()),
+            Block::Sun { location } | Block::Sky { location } => pick_location(location, city().as_deref()),
             Block::News { title, .. } => Some(title.clone()),
             Block::Workout { level, .. } => Some(level.label().to_owned()),
             Block::Picto { shape, .. } => Some(shape.label().to_owned()),
@@ -929,7 +959,7 @@ impl Block {
             Block::Weather { location, days, outfit, wind, sun } => {
                 doc = weather::build(
                     &ctx.http,
-                    location,
+                    &place(location)?,
                     *days,
                     weather::Show { outfit: *outfit, wind: *wind, sun: *sun },
                 )?
@@ -971,12 +1001,12 @@ impl Block {
             }
             Block::OnThisDay { count } => doc = on_this_day::build(&ctx.http, ctx.today, *count)?,
             Block::AirQuality { location, pollutants, pollen } => {
-                doc = air_quality::build(&ctx.http, location, *pollutants, *pollen)?
+                doc = air_quality::build(&ctx.http, &place(location)?, *pollutants, *pollen)?
             }
             Block::Quote {} => doc = quote::build(ctx.today),
             Block::Fortune { source, cow, seed } => doc = fortune::build(*source, *cow, *seed)?,
             Block::Crypto { coins, currency } => doc = crypto::build(&ctx.http, coins, currency)?,
-            Block::Sun { location } => doc = sun::build(ctx, location)?,
+            Block::Sun { location } => doc = sun::build(ctx, &place(location)?)?,
             Block::Riddle { kind, number, answer } => doc = riddle::build(ctx.today, *kind, *number, *answer)?,
             Block::Workout { level, number } => doc = workout::build(ctx.today, *level, *number)?,
             Block::Picto { shape, size, count } => doc = picto::build(*shape, *size, *count),
@@ -1037,7 +1067,7 @@ impl Block {
                 doc = arrow_word::build(ctx, &options)?;
             }
             Block::Recipe { url, steps, qr } => doc = recipe::build(ctx, url, *steps, *qr)?,
-            Block::Sky { location } => doc = sky::build(ctx, location)?,
+            Block::Sky { location } => doc = sky::build(ctx, &place(location)?)?,
             Block::RecipeClaude { dish, servings, steps } => {
                 doc = recipe::build_with_claude(ctx, dish, *servings, *steps)?
             }
@@ -1217,6 +1247,21 @@ mod tests {
     fn rejects_unknown_fields_and_types() {
         assert!(serde_json::from_str::<Ticket>(r#"{"blocks": [{"type": "saint", "oups": 1}]}"#).is_err());
         assert!(serde_json::from_str::<Ticket>(r#"{"blocks": [{"type": "licorne"}]}"#).is_err());
+    }
+
+    #[test]
+    fn location_falls_back_to_the_default_city() {
+        assert_eq!(pick_location("Lyon", Some("Mérignac")).as_deref(), Some("Lyon"));
+        assert_eq!(pick_location("", Some("Mérignac")).as_deref(), Some("Mérignac"));
+        assert_eq!(pick_location("  ", Some(" Mérignac ")).as_deref(), Some("Mérignac"));
+        assert_eq!(pick_location("", None), None);
+        assert_eq!(pick_location("", Some("")), None);
+        // Le lieu peut manquer dans le JSON : la ville des réglages prendra le relais.
+        let t: Ticket = serde_json::from_str(
+            r#"{"blocks": [{"type": "weather"}, {"type": "air_quality"}, {"type": "sun"}, {"type": "sky"}]}"#,
+        )
+        .unwrap();
+        assert_eq!(t.blocks.len(), 4);
     }
 
     #[test]

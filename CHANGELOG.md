@@ -56,6 +56,10 @@ Koenig, Tolbert Lanston…
 ### Changed
 - **Weather** (`weather`): `wind` and `sun` hide the wind and UV line, and sunrise and sunset, to save paper
   (#29, suggested by Fabwiss).
+- **The default city is used by every block with a place**: weather, air quality, sun and tonight's sky
+  take the city from the settings when their own `location` is empty, which is now how the app adds them
+  (it no longer fills in "Lyon"); the field shows the default city. With neither, the block says where to
+  set one.
 - **Weather in °F and mph**: a "weather units" setting (`PRINTR_UNITS=imperial`); forecasts are still
   read in °C, so the what-to-wear advice keeps working (discussion #34, suggested by mi3816).
 - **Air quality** (`air_quality`): `pollutants` and `pollen` hide their lines (#30, suggested by Fabwiss).
