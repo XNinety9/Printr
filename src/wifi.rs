@@ -203,10 +203,72 @@ fn new_password() -> String {
     (0..10).map(|_| *PASSWORD_LETTERS.choose(&mut rng).unwrap() as char).collect()
 }
 
+/// Ouvre le point d'accès. Réglages explicites plutôt que `nmcli device wifi hotspot` : WPA2 (CCMP)
+/// sur 2,4 GHz et sans PMF, ce que la puce Wi-Fi des Raspberry Pi (brcmfmac) accepte en point
+/// d'accès ; et pas de retour automatique au démarrage.
 fn open_hotspot(ifname: &str, ssid: &str, password: &str) -> Result<()> {
+    let _ = nmcli(&["radio", "wifi", "on"]);
     let _ = nmcli(&["connection", "delete", HOTSPOT]);
-    nmcli(&["device", "wifi", "hotspot", "ifname", ifname, "con-name", HOTSPOT, "ssid", ssid, "password", password])?;
+    nmcli(&[
+        "connection",
+        "add",
+        "type",
+        "wifi",
+        "ifname",
+        ifname,
+        "con-name",
+        HOTSPOT,
+        "autoconnect",
+        "no",
+        "ssid",
+        ssid,
+        "802-11-wireless.mode",
+        "ap",
+        "802-11-wireless.band",
+        "bg",
+        "ipv4.method",
+        "shared",
+        "ipv6.method",
+        "disabled",
+        "wifi-sec.key-mgmt",
+        "wpa-psk",
+        "wifi-sec.proto",
+        "rsn",
+        "wifi-sec.pairwise",
+        "ccmp",
+        "wifi-sec.group",
+        "ccmp",
+        "wifi-sec.pmf",
+        "disable",
+        "wifi-sec.psk",
+        password,
+    ])?;
+    nmcli(&["--wait", "30", "connection", "up", "id", HOTSPOT])?;
     Ok(())
+}
+
+/// Le point d'accès n'a pas pu s'ouvrir : on le dit sur papier plutôt que de rester muet.
+fn hotspot_failed_ticket(error: &str) -> Doc {
+    let mut doc = Doc::new();
+    doc.text("Printr", Style::default().bold().center().size(2));
+    doc.text(
+        t(
+            "Pas de réseau, et impossible d'ouvrir le Wi-Fi de configuration.",
+            "No network, and the setup Wi-Fi could not be opened.",
+        ),
+        Style::default().bold(),
+    );
+    doc.feed(1);
+    doc.text(error, Style::default().small());
+    doc.feed(1);
+    doc.text(
+        t(
+            "Branche Printr en Ethernet pour continuer, puis ouvre http://printr.local",
+            "Plug Printr into Ethernet to carry on, then open http://printr.local",
+        ),
+        Style::default(),
+    );
+    doc
 }
 
 /// Un nom de réseau et un mot de passe acceptables (WPA : 8 à 63 caractères, ou rien si ouvert).
@@ -362,19 +424,29 @@ pub fn spawn(app: Arc<App>, port: u16) {
         let start = Instant::now();
         let known = saved_wifi();
         let wait = if known.is_empty() { BOOT_WAIT } else { BOOT_WAIT_KNOWN };
+        eprintln!(
+            "{}",
+            tr!(
+                "première connexion au réseau : attente du réseau ({} s)",
+                "first network connection: waiting for the network ({} s)",
+                wait.as_secs()
+            )
+        );
         let ifname = loop {
             match devices() {
                 Ok((_, true)) => return, // déjà en ligne
                 Ok((Some(ifname), false)) if start.elapsed() >= wait => break ifname,
                 Ok((None, false)) if start.elapsed() >= wait => {
-                    eprintln!(
-                        "{}",
-                        t("pas de réseau, et pas de Wi-Fi pour le configurer", "no network, and no Wi-Fi to set it up")
-                    );
+                    let why =
+                        t("pas de réseau, et pas de Wi-Fi pour le configurer", "no network, and no Wi-Fi to set it up");
+                    eprintln!("{why}");
+                    print_soon(&app, &hotspot_failed_ticket(why));
                     return;
                 }
                 Err(e) if start.elapsed() >= wait => {
-                    eprintln!("{}", tr!("NetworkManager injoignable : {e}", "NetworkManager unreachable: {e}"));
+                    let why = tr!("NetworkManager injoignable : {e}", "NetworkManager unreachable: {e}");
+                    eprintln!("{why}");
+                    print_soon(&app, &hotspot_failed_ticket(&why));
                     return;
                 }
                 _ => std::thread::sleep(Duration::from_secs(3)),
@@ -384,8 +456,17 @@ pub fn spawn(app: Arc<App>, port: u16) {
         let password = new_password();
         // On regarde les réseaux avant : la puce Wi-Fi ne cherche plus guère une fois en point d'accès.
         let networks = scan();
+        eprintln!(
+            "{}",
+            tr!(
+                "pas de réseau : {} Wi-Fi à portée, ouverture du point d'accès sur {ifname}",
+                "no network: {} Wi-Fi networks in range, opening the hotspot on {ifname}",
+                networks.len()
+            )
+        );
         if let Err(e) = open_hotspot(&ifname, &ssid, &password) {
             eprintln!("{}", tr!("point d'accès impossible : {e}", "cannot open the hotspot: {e}"));
+            print_soon(&app, &hotspot_failed_ticket(&format!("{e:#}")));
             return;
         }
         eprintln!("{}", tr!("point d'accès « {ssid} » ouvert", "hotspot “{ssid}” open"));
