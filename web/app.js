@@ -2409,6 +2409,7 @@ function SettingsSheet({ onClose }) {
     <div class="section-title">${T('Général', 'General')}</div>
     ${choice('PRINTR_LANG', T('Langue', 'Language'), [['fr', 'Français'], ['en', 'English']])}
     ${text('PRINTR_CITY', T('Ville', 'City'), T('Météo, qualité de l’air et horaires du soleil, sauf si le bloc en précise une.', 'Weather, air quality and sun times, unless the block sets one.'), T('Ex. Bordeaux', 'E.g. Boston'))}
+    ${choice('PRINTR_UNITS', T('Unités de la météo', 'Weather units'), [['', T('°C et km/h', '°C and km/h')], ['imperial', T('°F et mph', '°F and mph')]])}
 
     <div class="section-title">${T('Imprimante', 'Printer')}</div>
     ${printerLocked ? html`<${Field} label=${T('Imprimante', 'Printer')}><span class="chip setting-lock">${LOCKED_HINT} : ${target}</span></${Field}>`

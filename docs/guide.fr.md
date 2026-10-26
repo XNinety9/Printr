@@ -97,7 +97,7 @@ Un paramètre inconnu est une erreur, pour repérer les fautes de frappe.
 | `cut` (ou `coupe`) | — | Coupe le papier à cet endroit, après l'espacement habituel (`spacing`) : la suite sort sur un autre ticket. Le `cut` du ticket ajoute toujours la coupe finale |
 | `image` | `path` ou `url`, `dither` (true), `dither_algorithm` (`floyd-steinberg`, `atkinson`, `bayer`) | Réduite à 512 px |
 | `qr` | `data`, `size` (6), `caption` | |
-| `weather` | `location`, `days` (1, max 7), `outfit` (ou `tenue`, false), `wind` (true), `sun` (true) | [Open-Meteo](https://open-meteo.com), sans clé. `location` : ville ou `"lat,lon"`. Pictogrammes pour chaque jour ; `outfit` ajoute comment s'habiller aujourd'hui (« manteau et bonnet, prends un parapluie »), sans IA ; `wind` et `sun` affichent la ligne du vent et de l'UV, et le lever et le coucher du soleil |
+| `weather` | `location`, `days` (1, max 7), `outfit` (ou `tenue`, false), `wind` (true), `sun` (true) | [Open-Meteo](https://open-meteo.com), sans clé. `location` : ville ou `"lat,lon"`. Pictogrammes pour chaque jour ; `outfit` ajoute comment s'habiller aujourd'hui (« manteau et bonnet, prends un parapluie »), sans IA ; `wind` et `sun` affichent la ligne du vent et de l'UV, et le lever et le coucher du soleil. °F et mph avec `PRINTR_UNITS=imperial` (dans les réglages) |
 | `barnum` | `sign` ou `birth_date` (`AAAA-MM-JJ`), `sky` (false), `variant` | Horoscope hors ligne et gratuit, calculé sur le vrai ciel par [Barnum](https://github.com/XNinety9/Barnum) : jauges par domaine, conseil, et en option la position des planètes |
 | `horoscope` | `sign`, `tone` (`serieux`/`farfelu`/`vachard`/`insultant`) | Généré par Claude, sur un thème tiré au hasard. Signe en français ou en anglais |
 | `saint` | — | Calendrier local, hors ligne |
@@ -335,7 +335,7 @@ famille depuis **Mon compte**.
 
 ### Réglages
 
-L'administrateur modifie l'installation depuis **Mon compte → Réglages** : langue, ville,
+L'administrateur modifie l'installation depuis **Mon compte → Réglages** : langue, ville, unités de la météo (°C et km/h, ou °F et mph),
 imprimante (avec détection et ticket de test), page de code, clé, modèle et délai de Claude, MQTT, jeton
 d'API, tickets par heure, attente des tickets quand l'imprimante est absente, et vérification des
 nouvelles versions.

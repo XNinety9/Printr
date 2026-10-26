@@ -36,6 +36,7 @@ pub enum Kind {
 pub const SETTINGS: &[(&str, Kind)] = &[
     ("PRINTR_LANG", Kind::Choice(&["fr", "en"])),
     ("PRINTR_CITY", Kind::Text),
+    ("PRINTR_UNITS", Kind::Choice(&["imperial"])),
     ("PRINTR_DEVICE", Kind::Device),
     ("PRINTR_TCP", Kind::Address),
     ("PRINTR_CODEPAGE", Kind::Choice(&["850"])),

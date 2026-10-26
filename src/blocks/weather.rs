@@ -108,6 +108,27 @@ fn hour(iso: &str) -> &str {
     iso.split_once('T').map_or(iso, |(_, t)| t)
 }
 
+/// Unités impériales (°F, mph) plutôt que métriques : `PRINTR_UNITS=imperial`. Les prévisions
+/// restent lues en °C et km/h (les conseils pour s'habiller en dépendent), et converties à l'affichage.
+fn imperial() -> bool {
+    std::env::var("PRINTR_UNITS").is_ok_and(|u| u.trim() == "imperial")
+}
+
+/// Une température, dans l'unité choisie : « 14°C », « 57°F ».
+fn temp(celsius: f64, imperial: bool) -> String {
+    if imperial { format!("{:.0}°F", celsius * 9.0 / 5.0 + 32.0) } else { format!("{celsius:.0}°C") }
+}
+
+/// La même, sans l'unité, pour les colonnes des prévisions : « 14° », « 57° ».
+fn degrees(celsius: f64, imperial: bool) -> String {
+    format!("{:.0}°", if imperial { celsius * 9.0 / 5.0 + 32.0 } else { celsius })
+}
+
+/// Une vitesse de vent : « 17 km/h », « 11 mph ».
+fn speed(kmh: f64, imperial: bool) -> String {
+    if imperial { format!("{:.0} mph", kmh * 0.621_371) } else { format!("{kmh:.0} km/h") }
+}
+
 /// Ce que montre le bloc, en plus des températures et de la pluie.
 #[derive(Clone, Copy, Debug)]
 pub struct Show {
@@ -119,6 +140,7 @@ pub struct Show {
 pub fn build(agent: &ureq::Agent, location: &str, days: u8, show: Show) -> Result<Doc> {
     let days = days.clamp(1, 7);
     let place = locate(agent, location)?;
+    let units = imperial();
     let f: Forecast = agent
         .get("https://api.open-meteo.com/v1/forecast")
         .query("latitude", place.latitude.to_string())
@@ -143,16 +165,16 @@ pub fn build(agent: &ureq::Agent, location: &str, days: u8, show: Show) -> Resul
     doc.image(centered(weather_icon::render(Sky::from_code(c.weather_code), TODAY_ICON)));
     doc.text(describe(c.weather_code), Style::default().bold().center());
     doc.text(
-        &tr!("{:.0}°C (ressenti {:.0}°C)", "{:.0}°C (feels {:.0}°C)", c.temperature_2m, c.apparent_temperature),
+        &tr!("{} (ressenti {})", "{} (feels {})", temp(c.temperature_2m, units), temp(c.apparent_temperature, units)),
         Style::default().size(2).center(),
     );
     doc.feed(1);
     doc.text(
         &tr!(
-            "Min {:.0}°C · Max {:.0}°C · Pluie {}",
-            "Min {:.0}°C · Max {:.0}°C · Rain {}",
-            d.temperature_2m_min[0],
-            d.temperature_2m_max[0],
+            "Min {} · Max {} · Pluie {}",
+            "Min {} · Max {} · Rain {}",
+            temp(d.temperature_2m_min[0], units),
+            temp(d.temperature_2m_max[0], units),
             pct(d.precipitation_probability_max[0])
         ),
         Style::default().center(),
@@ -160,7 +182,7 @@ pub fn build(agent: &ureq::Agent, location: &str, days: u8, show: Show) -> Resul
     if show.wind {
         let uv = d.uv_index_max[0].map_or("-".to_owned(), |u| format!("{u:.0}"));
         doc.text(
-            &tr!("Vent {:.0} km/h · UV {uv}", "Wind {:.0} km/h · UV {uv}", c.wind_speed_10m),
+            &tr!("Vent {} · UV {uv}", "Wind {} · UV {uv}", speed(c.wind_speed_10m, units)),
             Style::default().center(),
         );
     }
@@ -290,6 +312,7 @@ struct Day {
 
 /// Les jours suivants en colonnes : jour, pictogramme, maximale (en gros), minimale, risque de pluie.
 fn forecast(days: &[Day]) -> image::GrayImage {
+    let units = imperial();
     let width = i64::from(crate::raster::PRINT_WIDTH);
     let column = width / days.len().max(1) as i64;
     let icon = (column - 14).clamp(40, 72) as u32;
@@ -305,8 +328,8 @@ fn forecast(days: &[Day]) -> image::GrayImage {
             draw::text(&mut img, text, center - draw::text_width(text, scale) / 2, y, scale);
         };
         put(&day.label, 0, small);
-        put(&format!("{:.0}°", day.max), y_max, big);
-        put(&format!("{:.0}°", day.min), y_min, small);
+        put(&degrees(day.max, units), y_max, big);
+        put(&degrees(day.min, units), y_min, small);
         if let Some(rain) = day.rain.filter(|r| *r >= 10.0) {
             put(&format!("{rain:.0}%"), y_rain, small);
         }
@@ -319,6 +342,16 @@ fn forecast(days: &[Day]) -> image::GrayImage {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn units_are_converted_for_display() {
+        assert_eq!(temp(14.0, false), "14°C");
+        assert_eq!(temp(14.0, true), "57°F");
+        assert_eq!(temp(-40.0, true), "-40°F");
+        assert_eq!(degrees(0.0, true), "32°");
+        assert_eq!(speed(17.0, false), "17 km/h");
+        assert_eq!(speed(17.0, true), "11 mph");
+    }
 
     #[test]
     fn what_to_wear_follows_the_forecast() {

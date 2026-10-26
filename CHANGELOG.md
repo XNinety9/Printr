@@ -56,6 +56,8 @@ Koenig, Tolbert Lanston…
 ### Changed
 - **Weather** (`weather`): `wind` and `sun` hide the wind and UV line, and sunrise and sunset, to save paper
   (#29, suggested by Fabwiss).
+- **Weather in °F and mph**: a "weather units" setting (`PRINTR_UNITS=imperial`); forecasts are still
+  read in °C, so the what-to-wear advice keeps working (discussion #34, suggested by mi3816).
 - **Air quality** (`air_quality`): `pollutants` and `pollen` hide their lines (#30, suggested by Fabwiss).
 - With no `PRINTR_DEVICE`, Printr uses `/dev/tm88` (the link made by the udev rule) when it exists, then
   `/dev/usb/lp0`. `printr.env.example` no longer sets `PRINTR_DEVICE`, so new installs can pick the printer
