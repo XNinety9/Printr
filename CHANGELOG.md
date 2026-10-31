@@ -10,6 +10,12 @@ Koenig, Tolbert Lanston…
 
 ## [Unreleased]
 
+### Added
+- **`PRINTR_PAPER_WIDTH=576`** for 80 mm printers at 203 dpi (most brands other than the TM-T88), also
+  set in the app (My account → Settings → Paper width): tickets printed 64 mm wide and off-center there.
+  Text now uses 48 columns in font A and 64 in font B, and images narrower than the paper are centered
+  when printed, so drawn blocks keep their 512-dot layout. Without the setting, nothing changes.
+
 ## [2.0.2] “Mergenthaler” - 2026-10-26
 
 ### Fixed
