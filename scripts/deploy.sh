@@ -91,7 +91,7 @@ if [ "$FULL" = 1 ] || [ "$installed" != oui ]; then
 else
   step "Mise à jour du programme…"
   "${SCP[@]}" "$BIN" "$HOST:/opt/printr/printr.new"
-  "${SSH[@]}" "$HOST" 'cp -p /opt/printr/printr /opt/printr/printr.old; chmod 775 /opt/printr/printr.new; mv /opt/printr/printr.new /opt/printr/printr'
+  "${SSH[@]}" "$HOST" 'rm -f /opt/printr/printr.old; cp -p /opt/printr/printr /opt/printr/printr.old; chmod 775 /opt/printr/printr.new; mv /opt/printr/printr.new /opt/printr/printr'
   done_ "$("${SSH[@]}" "$HOST" /opt/printr/printr --version)"
   step "Redémarrage du service…"
   "${SSH[@]}" "$HOST" 'systemctl restart printr' || fail "redémarrage refusé (règle polkit absente ? relance avec --install)"
