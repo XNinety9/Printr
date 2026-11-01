@@ -738,7 +738,7 @@ and €), and the cutter (`GS V`). If accents are missing from prints (some clon
 |---|---|
 | **Epson TM-T88V** (USB) | ✅ Tested every day: the reference printer |
 | Epson TM-T88IV, TM-T88VI, TM-T88VII | 🟡 Should work as is (same commands, same 180 dpi), not tested yet |
-| MUNBYN 047P-USEW (Ethernet) | 🟡 Prints with `PRINTR_CODEPAGE=850` (no PC858 page: accents are missing without it); tested on v1.11.0 |
+| MUNBYN 047P-USEW (Ethernet or Wi-Fi) | 🟡 Prints with `PRINTR_CODEPAGE=850`, also in the app's settings (no PC858 page: accents are missing without it); tested on v1.11.0. Blank tickets: the roll is in backwards (the coated side must face the print head) |
 | Other 80 mm ESC/POS printers at 203 dpi (Epson TM-T20, TM-m30, most other brands) | 🟡 Should print with `PRINTR_PAPER_WIDTH=576` (without it, tickets are narrower and off-center); images need raster support |
 | Integral TPV-8370 (Ethernet) | 🟡 Prints full width with `PRINTR_PAPER_WIDTH=576`; tested on v2.0.2 |
 | 58 mm printers | ❌ Not supported: tickets are 512 dots wide |
