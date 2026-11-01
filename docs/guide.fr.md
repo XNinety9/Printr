@@ -746,7 +746,7 @@ PC858 (accents et €) et massicot (`GS V`). Si les accents manquent à l'impres
 |---|---|
 | **Epson TM-T88V** (USB) | ✅ Testée tous les jours : l'imprimante de référence |
 | Epson TM-T88IV, TM-T88VI, TM-T88VII | 🟡 Devraient marcher telles quelles (mêmes commandes, mêmes 180 dpi), pas encore testées |
-| MUNBYN 047P-USEW (Ethernet) | 🟡 Imprime avec `PRINTR_CODEPAGE=850` (pas de page PC858 : les accents manquent sans) ; testée en v1.11.0 |
+| MUNBYN 047P-USEW (Ethernet ou Wi-Fi) | 🟡 Imprime avec `PRINTR_CODEPAGE=850`, réglable aussi dans l'appli (pas de page PC858 : les accents manquent sans) ; testée en v1.11.0. Tickets blancs : le rouleau est à l'envers (la face traitée doit être contre la tête d'impression) |
 | Autres imprimantes ESC/POS 80 mm à 203 dpi (Epson TM-T20, TM-m30, la plupart des autres marques) | 🟡 Devraient imprimer avec `PRINTR_PAPER_WIDTH=576` (sans, les tickets sont plus étroits et décentrés) ; les images demandent la prise en charge du raster |
 | Integral TPV-8370 (Ethernet) | 🟡 Imprime sur toute la largeur avec `PRINTR_PAPER_WIDTH=576` ; testée en v2.0.2 |
 | Imprimantes 58 mm | ❌ Non prises en charge : les tickets font 512 points de large |
