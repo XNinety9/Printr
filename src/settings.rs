@@ -41,6 +41,7 @@ pub const SETTINGS: &[(&str, Kind)] = &[
     ("PRINTR_TCP", Kind::Address),
     ("PRINTR_CODEPAGE", Kind::Choice(&["850"])),
     ("PRINTR_PAPER_WIDTH", Kind::Choice(&["576"])),
+    ("PRINTR_SCANNER", Kind::Device),
     ("ANTHROPIC_API_KEY", Kind::Secret),
     ("PRINTR_CLAUDE_MODEL", Kind::Text),
     // Pas ANTHROPIC_BASE_URL : la clé part vers cette adresse, et l'appli ne doit jamais la livrer.
@@ -130,7 +131,7 @@ pub fn check(key: &str, value: &str) -> Result<String> {
         },
         Kind::Device => {
             if !value.starts_with("/dev/") || value.contains("..") {
-                bail!("{}", t("l'imprimante USB doit être sous /dev", "the USB printer must be under /dev"));
+                bail!("{}", tr!("{key} : un périphérique sous /dev", "{key}: a device under /dev"));
             }
         }
         Kind::Address => {
@@ -189,6 +190,8 @@ mod tests {
         assert!(check("PRINTR_DEVICE", "/dev/usb/lp0").is_ok());
         assert!(check("PRINTR_DEVICE", "/etc/passwd").is_err());
         assert!(check("PRINTR_DEVICE", "/dev/../etc/passwd").is_err());
+        assert!(check("PRINTR_SCANNER", "/dev/serial/by-id/usb-scanner-if00").is_ok());
+        assert!(check("PRINTR_SCANNER", "/home/x/fifo").is_err());
         assert!(check("PRINTR_TCP", "192.168.1.50:9100").is_ok());
         assert!(check("PRINTR_TCP", "192.168.1.50").is_err());
         assert!(check("PRINTR_QUEUE_HOURS", "12").is_ok());

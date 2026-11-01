@@ -15,6 +15,15 @@ Koenig, Tolbert Lanston…
   set in the app (My account → Settings → Paper width): tickets printed 64 mm wide and off-center there.
   Text now uses 48 columns in font A and 64 in font B, and images narrower than the paper are centered
   when printed, so drawn blocks keep their 512-dot layout. Without the setting, nothing changes.
+- **USB QR code scanner** (#43): set `PRINTR_SCANNER` to the scanner's serial port (also in the app's
+  settings), and each scanned code prints a ticket: a one-line JSON ticket, as `printr print` takes, or
+  the name of a shared ticket, so a code stuck on the fridge always prints its latest version. Same
+  rules as the HTTP API and MQTT (hourly quota, queue), “Scanner” in the history, refused codes noted
+  there too, and the scanner is found again when plugged back in.
+
+### Upgrading
+- To use a scanner on an installation upgraded automatically, give Printr access to serial ports once:
+  `sudo usermod -aG dialout printr && sudo systemctl restart printr` (new installations do it already).
 
 ## [2.0.2] “Mergenthaler” - 2026-10-26
 

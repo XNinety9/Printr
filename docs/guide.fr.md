@@ -336,7 +336,7 @@ famille depuis **Mon compte**.
 ### Réglages
 
 L'administrateur modifie l'installation depuis **Mon compte → Réglages** : langue, ville, unités de la météo (°C et km/h, ou °F et mph),
-imprimante (avec détection et ticket de test), page de code, clé, modèle et délai de Claude, MQTT, jeton
+imprimante (avec détection et ticket de test), page de code, largeur du papier, scanner de QR codes, clé, modèle et délai de Claude, MQTT, jeton
 d'API, tickets par heure, attente des tickets quand l'imprimante est absente, et vérification des
 nouvelles versions.
 
@@ -603,6 +603,57 @@ actions:
 Autres idées : un colis livré, un rappel de médicament, ou un mot personnalisé pour la première personne
 qui passe le matin devant la tablette du couloir (reconnaissance faciale, puis `print_ticket` avec son
 prénom).
+
+## Scanner de QR codes
+
+Un scanner de QR codes USB imprime un ticket pour chaque code lu, sans réseau ni jeton (idée et essais :
+tobiashaigis, n° 43). Un code contient :
+
+- **le nom d'un ticket partagé** (ou son identifiant), comme `Matin` : un code collé sur le frigo ou à
+  côté de la porte imprime toujours la dernière version de ce ticket ;
+- **ou un ticket JSON sur une ligne**, comme pour `printr print` :
+  `{"cut":true,"blocks":[{"type":"title","text":"Bonjour"},{"type":"date"}]}`.
+
+N'importe quel générateur de QR codes convient, par exemple `qrencode -o matin.png 'Matin'`.
+
+**Réglage du scanner** (avec les codes de configuration de son manuel) :
+
+1. **Mode port série USB** (USB-COM, CDC-ACM), pas l'émulation de clavier : Linux le voit alors comme
+   `/dev/ttyACM0` sans pilote, alors qu'en mode clavier il taperait dans ce qui a le focus, avec des `{`
+   et des `"` qui dépendent de la disposition du clavier.
+2. **Un retour à la ligne en fin de code** (CR, LF ou CR LF), sans préfixe, suffixe, identifiant de
+   code ni changement de casse.
+3. **Que de l'ASCII** dans les codes : les scanners changent les lettres accentuées en vieilles pages de
+   code. Dans un ticket JSON, écris-les `\u00e9` (`"caf\u00e9"`), que Printr imprime correctement.
+
+Ensuite, règle `PRINTR_SCANNER` (ou **Réglages → Scanner de QR codes**). Le chemin `/dev/serial/by-id/…`
+vaut mieux que `/dev/ttyACM0`, car il ne change pas quand un autre appareil série est branché :
+
+```sh
+ls /dev/serial/by-id/                     # le nom stable du scanner
+PRINTR_SCANNER=/dev/serial/by-id/usb-…-if00
+```
+
+Printr a besoin du groupe `dialout` pour lire les ports série : `install.sh` et l'image s'en chargent ;
+sur une installation mise à jour depuis une version précédente, lance une fois
+`sudo usermod -aG dialout printr && sudo systemctl restart printr`. En conteneur, décommente les lignes
+du scanner dans `deploy/compose.yaml`.
+
+Mêmes règles que l'API HTTP : 60 blocs au plus, quota de l'heure (les impressions apparaissent comme
+« Scanner » dans l'historique), et file d'attente si l'imprimante est absente. Un code refusé (nom
+inconnu, JSON invalide) est noté dans l'historique avec la raison, et dans le journal. Le même code relu
+dans les 3 secondes est ignoré, car les scanners lisent souvent deux fois. Débranché, le scanner est
+retrouvé à son retour.
+
+Pour vérifier le scanner seul, avant Printr :
+
+```sh
+stty -F /dev/ttyACM0 -echo icrnl
+cat /dev/ttyACM0        # scanne un code : son contenu s'affiche sur une ligne
+```
+
+Quiconque peut présenter un code au scanner peut imprimer, dans la limite du quota de l'heure : installe-le
+à côté de l'imprimante, pas dehors.
 
 ## Sécurité
 

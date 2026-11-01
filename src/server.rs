@@ -268,6 +268,26 @@ impl App {
         store
     }
 
+    /// Note dans l'historique un ticket refusé avant d'être construit (scanner : seul retour possible).
+    pub fn record_refused(&self, by: &str, label: &str, error: String) {
+        let mut store = self.lock_store();
+        store.record(HistoryEntry {
+            preview: None,
+            queued: None,
+            printed_at: None,
+            at: Utc::now(),
+            by: by.to_owned(),
+            label: label.to_owned(),
+            ok: false,
+            errors: vec![error],
+            blocks: Vec::new(),
+            paper_mm: None,
+        });
+        if let Err(e) = store.save() {
+            eprintln!("{}", tr!("historique non enregistré : {e:#}", "history not saved: {e:#}"));
+        }
+    }
+
     /// Construit, imprime et note dans l'historique un ticket. Si l'imprimante est absente, le
     /// ticket, déjà mis en page, attend son retour dans la file.
     pub fn print(&self, ticket: &Ticket, by: &str, label: &str) -> Printed {
@@ -1830,6 +1850,7 @@ pub fn serve(listen: &str, token: Option<String>, target: Target) -> Result<()> 
 
     crate::scheduler::spawn(Arc::clone(&app));
     crate::mqtt::spawn(Arc::clone(&app));
+    crate::scanner::spawn(Arc::clone(&app));
     crate::wifi::spawn(Arc::clone(&app), listen.rsplit(':').next().and_then(|p| p.parse().ok()).unwrap_or(8080));
     // L'imprimante est-elle là ? Toutes les 10 secondes ; c'est aussi ce qui vide la file d'attente.
     {

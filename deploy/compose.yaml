@@ -31,8 +31,11 @@ services:
       - /dev:/host/dev
     device_cgroup_rules:
       - "c 180:* rw" # usblp : hors périphériques de base (null, zero…), le seul ouvrable dans /host/dev
+      # Scanner de QR codes en port série (PRINTR_SCANNER=/host/dev/serial/by-id/…) : décommenter.
+      # - "c 166:* rw" # ttyACM
     group_add:
       - "${PRINTR_LP_GID:-7}" # groupe lp de l'hôte (getent group lp), propriétaire de /dev/usb/lp*
+      # - "${PRINTR_DIALOUT_GID:-20}" # groupe dialout de l'hôte, pour le scanner
     # Mêmes garde-fous que le service systemd (deploy/printr.service).
     read_only: true
     tmpfs:

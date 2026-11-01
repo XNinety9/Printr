@@ -41,7 +41,7 @@ the printer.
 - **Ready to flash**: an image for the Raspberry Pi; plug in the printer, power on, and set up the
   Wi-Fi from your phone with the ticket it prints. A wizard and in-app settings do the rest.
 - **Never loses a ticket**: printer off, cover open or out of paper? The ticket waits, and the app says why.
-- **Plays well with the house**: Home Assistant (integration or automatic discovery), MQTT, Node-RED, HTTP API.
+- **Plays well with the house**: Home Assistant (integration or automatic discovery), MQTT, Node-RED, HTTP API, USB QR code scanner.
 - **Lean**: almost everything is computed locally or comes from free APIs. Claude only writes what
   needs a pen, with small Claude Haiku calls, always cached.
 

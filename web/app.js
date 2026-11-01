@@ -2427,6 +2427,7 @@ function SettingsSheet({ onClose }) {
           <span class="grow"><strong>${target}</strong><span class="muted">${cur('PRINTR_TCP') ? T('Imprimante réseau', 'Network printer') : 'USB'}</span>
           <button type="button" class="btn secondary small" onClick=${() => setPrinter(true)}>${T('Changer et tester', 'Change and test')}</button></span></div>`}
     ${choice('PRINTR_CODEPAGE', T('Page de code', 'Code page'), [['', T('PC858 (avec €)', 'PC858 (with €)')], ['850', 'PC850']])}
+    ${text('PRINTR_SCANNER', T('Scanner de QR codes', 'QR code scanner'), T('USB, en mode port série : chaque code lu imprime son ticket.', 'USB, in serial port mode: each scanned code prints its ticket.'), '/dev/ttyACM0')}
     ${choice('PRINTR_PAPER_WIDTH', T('Largeur du papier', 'Paper width'), [['', T('512 points (TM-T88)', '512 dots (TM-T88)')], ['576', T('576 points (la plupart des 80 mm)', '576 dots (most 80 mm printers)')]])}
 
     <div class="section-title">Claude</div>

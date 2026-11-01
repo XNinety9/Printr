@@ -141,6 +141,8 @@ else
   useradd --system --gid printr --groups lp --home-dir "$DATA" --no-create-home --shell /usr/sbin/nologin printr
   ok "utilisateur système printr créé"
 fi
+# Scanner de QR codes en port série (/dev/ttyACM*, PRINTR_SCANNER) : groupe dialout.
+getent group dialout >/dev/null && usermod -aG dialout printr
 RELOGIN=0
 if [ -n "$OWNER" ]; then
   if id -nG "$OWNER" | tr ' ' '\n' | grep -qx printr; then

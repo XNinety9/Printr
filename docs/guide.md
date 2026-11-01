@@ -337,7 +337,7 @@ Everything is saved at the end, in one go, and every step can be skipped. Then a
 ### Settings
 
 The administrator changes the installation from **My account → Settings**: language, city, weather units (°C and km/h, or °F and mph), printer
-(with detection and test ticket), code page, Claude key, model and timeout, MQTT, API token, tickets per hour,
+(with detection and test ticket), code page, paper width, QR code scanner, Claude key, model and timeout, MQTT, API token, tickets per hour,
 how long tickets wait for a missing printer, and the check for new versions.
 
 <p align="center"><img src="shots/en/mobile-settings.png" alt="Settings" width="250"></p>
@@ -595,6 +595,55 @@ actions:
 
 Other ideas: a parcel delivered, a reminder to take a medicine, or a personal note for whoever walks
 past the hallway tablet first in the morning (face recognition, then `print_ticket` with their name).
+
+## QR code scanner
+
+A USB QR code scanner prints a ticket for each code it reads, with no network or token (idea and
+testing: tobiashaigis, #43). A code holds:
+
+- **the name of a shared ticket** (or its id), like `Morning`: a code stuck on the fridge or next to the
+  door always prints the latest version of that ticket;
+- **or a JSON ticket on one line**, as `printr print` takes:
+  `{"cut":true,"blocks":[{"type":"title","text":"Hello"},{"type":"date"}]}`.
+
+Any QR code generator works, for example `qrencode -o morning.png 'Morning'`.
+
+**Scanner setup** (with the configuration codes in its manual):
+
+1. **USB serial port mode** (USB-COM, CDC-ACM), not keyboard emulation: Linux then shows it as
+   `/dev/ttyACM0` without any driver, and keyboard mode would type into whatever has the focus, with
+   `{` and `"` depending on the keyboard layout.
+2. **A CR, LF or CR LF terminator**, and no prefix, suffix, code ID or case conversion.
+3. **ASCII only** in the codes: scanners turn accented letters into old code pages. In a JSON ticket,
+   write them as `\u00e9` (`"caf\u00e9"`), which Printr prints correctly.
+
+Then set `PRINTR_SCANNER` (or **Settings → QR code scanner**). The `/dev/serial/by-id/…` path is better
+than `/dev/ttyACM0`, because it doesn't change when another serial device is plugged in:
+
+```sh
+ls /dev/serial/by-id/                     # the scanner's stable name
+PRINTR_SCANNER=/dev/serial/by-id/usb-…-if00
+```
+
+Printr needs the `dialout` group to read serial ports: `install.sh` and the image do it; on an
+installation upgraded from an earlier version, run once
+`sudo usermod -aG dialout printr && sudo systemctl restart printr`. In Docker, uncomment the scanner
+lines in `deploy/compose.yaml`.
+
+The same rules as the HTTP API apply: at most 60 blocks, the hourly quota (prints show up as “Scanner”
+in the history), and the queue when the printer is away. A refused code (unknown name, invalid JSON) is
+noted in the history with the reason, and in the log. The same code read again within 3 seconds is
+ignored, since scanners often read twice. Unplugged, the scanner is found again when it comes back.
+
+To check the scanner by itself, before Printr:
+
+```sh
+stty -F /dev/ttyACM0 -echo icrnl
+cat /dev/ttyACM0        # scan a code: its content shows up on one line
+```
+
+Anyone who can hold a code in front of the scanner can print, within the hourly quota: put it where
+the printer is, not outside.
 
 ## Security
 

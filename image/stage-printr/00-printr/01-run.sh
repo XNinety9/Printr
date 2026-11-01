@@ -35,6 +35,8 @@ on_chroot <<- CHROOT
 	getent group lp >/dev/null || groupadd --system lp
 	id printr >/dev/null 2>&1 || useradd --system --gid printr --groups lp --home-dir /var/lib/printr --no-create-home --shell /usr/sbin/nologin printr
 	usermod -aG printr,lp "${FIRST_USER_NAME}" 2>/dev/null || true
+	# Serial QR code scanner (/dev/ttyACM*, PRINTR_SCANNER).
+	usermod -aG dialout printr
 	chown root:printr /opt/printr /opt/printr/printr /opt/printr/printr-update-guard.sh /etc/printr.env
 	systemctl enable printr avahi-daemon
 	systemctl disable hostapd 2>/dev/null || true

@@ -24,6 +24,7 @@ mod mqtt;
 mod net;
 mod output;
 mod raster;
+mod scanner;
 mod scheduler;
 mod server;
 mod settings;
