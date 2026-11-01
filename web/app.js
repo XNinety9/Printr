@@ -1263,12 +1263,13 @@ function Paper({ preview, loading }) {
     return html`<div class="paper-wrap"><div class="paper ${loading ? 'loading' : ''}"><div class="paper-empty">
       ${loading ? html`<${Spinner} />` : T('Ajoute des blocs pour voir ton ticket ici.', 'Add blocks to see your ticket here.')}</div></div></div>`;
   }
-  return html`<div class="paper-wrap"><div class="paper ${loading ? 'loading' : ''}">
+  const dots = preview.paper_dots || 512;
+  return html`<div class="paper-wrap"><div class="paper ${loading ? 'loading' : ''}" style=${{ '--cols': dots / 12 }}>
     ${preview.ops.length === 0 && html`<div class="paper-empty">${T('Ton ticket est vide.', 'Your ticket is empty.')}</div>`}
     ${preview.ops.map((op, i) => {
       if (op.t === 'cut') return html`<div class="cut" key=${i} role="separator" aria-label=${T('Coupe', 'Cut')}><${Icon} name="scissors" /></div>`;
       if (op.t === 'feed') return html`<div class="feed" key=${i} style=${{ height: `${op.n * 1.32}em` }}></div>`;
-      if (op.t === 'image') return html`<img class="img" key=${i} src=${op.src} alt="" style=${{ aspectRatio: `${op.width} / ${op.height}` }} />`;
+      if (op.t === 'image') return html`<img class="img" key=${i} src=${op.src} alt="" style=${{ aspectRatio: `${op.width} / ${op.height}`, width: `${(100 * op.width) / dots}%`, display: 'block', margin: '2px auto' }} />`;
       const cls = ['ln', op.bold && 'b', op.underline && 'u', op.reverse && 'r', op.small && 'small', op.flip && 'flip',
         op.align === 'center' && 'c', op.align === 'right' && 'rt'].filter(Boolean).join(' ');
       const size = op.size > 1 ? { fontSize: `${op.size * 100}%`, lineHeight: 1.18 } : null;
@@ -2426,6 +2427,7 @@ function SettingsSheet({ onClose }) {
           <span class="grow"><strong>${target}</strong><span class="muted">${cur('PRINTR_TCP') ? T('Imprimante réseau', 'Network printer') : 'USB'}</span>
           <button type="button" class="btn secondary small" onClick=${() => setPrinter(true)}>${T('Changer et tester', 'Change and test')}</button></span></div>`}
     ${choice('PRINTR_CODEPAGE', T('Page de code', 'Code page'), [['', T('PC858 (avec €)', 'PC858 (with €)')], ['850', 'PC850']])}
+    ${choice('PRINTR_PAPER_WIDTH', T('Largeur du papier', 'Paper width'), [['', T('512 points (TM-T88)', '512 dots (TM-T88)')], ['576', T('576 points (la plupart des 80 mm)', '576 dots (most 80 mm printers)')]])}
 
     <div class="section-title">Claude</div>
     ${secret('ANTHROPIC_API_KEY', T('Clé d’API Anthropic', 'Anthropic API key'), html`<a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>`)}

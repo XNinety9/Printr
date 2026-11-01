@@ -12,6 +12,13 @@ use serde::{Deserialize, Serialize};
 /// Largeur imprimable de la TM-T88V sur papier 80 mm, en points.
 pub const PRINT_WIDTH: u32 = 512;
 
+/// Largeur du papier en points : 512 (TM-T88), ou 576 avec `PRINTR_PAPER_WIDTH=576` (la plupart
+/// des imprimantes 80 mm à 203 dpi). Les dessins gardent `PRINT_WIDTH` et sont centrés.
+pub fn paper_dots() -> u32 {
+    static DOTS: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
+    *DOTS.get_or_init(|| if std::env::var("PRINTR_PAPER_WIDTH").is_ok_and(|v| v.trim() == "576") { 576 } else { 512 })
+}
+
 /// Hauteur des bandes envoyées en `GS v 0`, pour ne pas saturer le tampon de l'imprimante.
 const STRIP_HEIGHT: u32 = 256;
 
@@ -123,10 +130,20 @@ pub fn load(path: &Path, dither: Dither) -> Result<GrayImage> {
 
 /// Envoie une image déjà préparée (largeur `PRINT_WIDTH`), découpée en bandes raster.
 pub fn print_gray<D: Driver>(printer: &mut Printer<D>, gray: &GrayImage) -> Result<()> {
+    let paper = paper_dots();
+    let centered;
+    let gray = if gray.width() < paper {
+        let mut full = GrayImage::from_pixel(paper, gray.height(), Luma([255]));
+        imageops::replace(&mut full, gray, i64::from((paper - gray.width()) / 2), 0);
+        centered = full;
+        &centered
+    } else {
+        gray
+    };
     let mut y = 0;
     while y < gray.height() {
         let h = STRIP_HEIGHT.min(gray.height() - y);
-        let strip = imageops::crop_imm(gray, 0, y, PRINT_WIDTH, h).to_image();
+        let strip = imageops::crop_imm(gray, 0, y, gray.width(), h).to_image();
         let mut png = Vec::new();
         DynamicImage::ImageLuma8(strip).write_to(&mut Cursor::new(&mut png), ImageFormat::Png)?;
         // BitImageOption n'est pas Clone : on en recrée une par bande.
