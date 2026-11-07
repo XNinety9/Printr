@@ -24,16 +24,17 @@ Koenig, Tolbert Lanston…
   and engraved in blackletter across the full width by
   [Vetuste Scripteur](https://github.com/XNinety9/vetuste_scripteur) 1.1.1, offline. Four levels, from
   vocabulary only to an unreadable grimoire; the wording changes every day, and the preview shows the
-  ticket that will print. The Raspberry Pi image, `install.sh` and the Docker image install it in
-  `/opt/vetuste`, at a pinned version whose checksum is verified; elsewhere, set `PRINTR_VETUSTE`.
+  ticket that will print. The Raspberry Pi image, `install.sh`, `scripts/deploy.sh` and the Docker
+  image install it in `/opt/vetuste`, at a pinned version whose checksum is verified, and Printr finds
+  it there; elsewhere, set `PRINTR_VETUSTE`.
 
 ### Upgrading
-- The “Old French” block needs Vetuste Scripteur, which automatic updates do not install. Run
-  `install.sh` again, or put
+- The “Old French” block needs Vetuste Scripteur, which automatic updates do not install.
+  `scripts/deploy.sh` and `install.sh` install it (the sudo password is asked once); by hand, put
   [`vetuste-scripteur.pyz`](https://github.com/XNinety9/vetuste_scripteur/releases/download/v1.1.1/vetuste-scripteur.pyz)
-  in `/opt/vetuste/` (readable by the `printr` user) and add
-  `PRINTR_VETUSTE="python3 /opt/vetuste/vetuste-scripteur.pyz"` to `/etc/printr.env`. Without it, the
-  block prints an explanation and the rest of the ticket prints normally.
+  in `/opt/vetuste/`, readable by the `printr` user: Printr finds it there, `PRINTR_VETUSTE` is only
+  needed elsewhere. Without it, the block prints an explanation and the rest of the ticket prints
+  normally.
 - To use a scanner on an installation upgraded automatically, give Printr access to serial ports once:
   `sudo usermod -aG dialout printr && sudo systemctl restart printr` (new installations do it already).
 

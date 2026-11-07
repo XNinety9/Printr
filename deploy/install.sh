@@ -270,6 +270,7 @@ fi
 
 # ---- Vetuste Scripteur (facultatif) ----
 step "Vetuste Scripteur (vieux françois)"
+# Version figée, reprise par scripts/deploy.sh et image/build.sh (et à reporter dans deploy/Dockerfile).
 VETUSTE_VERSION=1.1.1
 VETUSTE_SHA256=8de37c08af710c495b30085e1b8a24fbed63576904ed4b62c6ee907a1a8ed108
 VETUSTE=/opt/vetuste/vetuste-scripteur.pyz

@@ -2,9 +2,11 @@
 //! appelé en ligne de commande, comme Barnum : il renvoie un PNG noir et blanc de la largeur du papier.
 //!
 //! Commande : `$PRINTR_VETUSTE` (par exemple `python3 /opt/vetuste/vetuste-scripteur.pyz`), sinon
-//! `vetuste-scripteur`.
+//! `vetuste-scripteur` s'il est dans le PATH, sinon `python3 /opt/vetuste/vetuste-scripteur.pyz`
+//! s'il est installé là (install.sh, image Raspberry Pi, scripts/deploy.sh).
 
 use std::io::Read;
+use std::path::Path;
 use std::process::{Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -24,15 +26,25 @@ pub const MAX_CHARS: usize = 2000;
 /// Niveau le plus fort : grimoire illisible.
 pub const MAX_LEVEL: u8 = 3;
 
+/// Là où l'installation le dépose.
+const INSTALLED: &str = "/opt/vetuste/vetuste-scripteur.pyz";
+
+/// Programme trouvé : chemin existant, ou nom présent dans le PATH.
+fn found(program: &str) -> bool {
+    if program.contains('/') {
+        return Path::new(program).exists();
+    }
+    std::env::var_os("PATH").is_some_and(|path| std::env::split_paths(&path).any(|dir| dir.join(program).is_file()))
+}
+
 /// Commande de Vetuste Scripteur, découpée en programme et arguments.
 pub fn command() -> Vec<String> {
-    std::env::var("PRINTR_VETUSTE")
-        .ok()
-        .filter(|c| !c.trim().is_empty())
-        .unwrap_or_else(|| "vetuste-scripteur".to_owned())
-        .split_whitespace()
-        .map(str::to_owned)
-        .collect()
+    let line = match std::env::var("PRINTR_VETUSTE").ok().filter(|c| !c.trim().is_empty()) {
+        Some(line) => line,
+        None if !found("vetuste-scripteur") && Path::new(INSTALLED).is_file() => format!("python3 {INSTALLED}"),
+        None => "vetuste-scripteur".to_owned(),
+    };
+    line.split_whitespace().map(str::to_owned).collect()
 }
 
 /// Vetuste Scripteur est-il installé ? Pour `python3 /opt/…/vetuste-scripteur.pyz`, on vérifie
@@ -40,12 +52,6 @@ pub fn command() -> Vec<String> {
 pub fn available() -> bool {
     let command = command();
     let Some(program) = command.first() else { return false };
-    let found = |p: &str| {
-        if p.contains('/') {
-            return std::path::Path::new(p).exists();
-        }
-        std::env::var_os("PATH").is_some_and(|path| std::env::split_paths(&path).any(|dir| dir.join(p).is_file()))
-    };
     found(program) && command.iter().skip(1).filter(|a| a.ends_with(".pyz")).all(|a| found(a))
 }
 
@@ -204,6 +210,22 @@ mod tests {
         assert!(check("Bonjour", 4).is_err());
         assert!(check(&"a".repeat(MAX_CHARS + 1), 2).is_err());
         assert_eq!(check("  Bonjour\n", 2).unwrap(), "Bonjour");
+    }
+
+    /// La version figée dans install.sh est celle que reprennent deploy.sh et image/build.sh :
+    /// le Dockerfile, qui ne peut pas la relire, doit donner la même.
+    #[test]
+    fn pinned_version_is_the_same_everywhere() {
+        let value = |text: &str, key: &str| {
+            text.lines().find_map(|l| l.trim().strip_prefix(key)).map(str::to_owned).unwrap_or_default()
+        };
+        let install = include_str!("../../deploy/install.sh");
+        let docker = include_str!("../../deploy/Dockerfile");
+        for key in ["VETUSTE_VERSION=", "VETUSTE_SHA256="] {
+            let pinned = value(install, key);
+            assert!(!pinned.is_empty(), "{key} absent de install.sh");
+            assert_eq!(value(docker, &format!("ARG {key}")), pinned, "{key} du Dockerfile");
+        }
     }
 
     #[test]

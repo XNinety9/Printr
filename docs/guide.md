@@ -195,8 +195,9 @@ The `barnum` block calls [Barnum](https://github.com/XNinety9/Barnum) on the com
 
 Likewise, the `vetuste` block calls [Vetuste Scripteur](https://github.com/XNinety9/vetuste_scripteur),
 shipped as a single file, `vetuste-scripteur.pyz` (Python 3.11, no dependencies): `vetuste-scripteur`
-if it is installed, otherwise `PRINTR_VETUSTE`, for example
-`PRINTR_VETUSTE="python3 /opt/vetuste/vetuste-scripteur.pyz"`. It takes French text: in English, the
+if it is installed, otherwise `/opt/vetuste/vetuste-scripteur.pyz` if it is there (`install.sh`,
+`scripts/deploy.sh` and the image put it there), otherwise the command given in `PRINTR_VETUSTE`, for
+example `PRINTR_VETUSTE="python3 ~/vetuste_scripteur/dist/vetuste-scripteur.pyz"`. It takes French text: in English, the
 app stays in English, but the ticket itself is in Old French.
 
 Every now and then (one print in twenty), the machine slips a strange message into the ticket,
@@ -937,6 +938,9 @@ nano /etc/printr.env                    # configuration (Claude key, printer, po
 systemctl restart printr                # restart
 journalctl -u printr -f                 # follow the prints
 ```
+
+One exception: when Vetuste Scripteur is missing or changes version, `scripts/deploy.sh` installs it
+in `/opt/vetuste`, and asks for the sudo password to do so, that time only.
 
 Most of the configuration can also be changed in the app ([settings](#settings)); what
 `/etc/printr.env` sets wins.

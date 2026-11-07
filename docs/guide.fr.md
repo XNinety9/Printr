@@ -194,8 +194,9 @@ Le bloc `barnum` appelle [Barnum](https://github.com/XNinety9/Barnum) en ligne d
 
 De même, le bloc `vetuste` appelle [Vetuste Scripteur](https://github.com/XNinety9/vetuste_scripteur),
 livré en un seul fichier, `vetuste-scripteur.pyz` (Python 3.11, sans dépendance) : `vetuste-scripteur`
-s'il est installé, sinon `PRINTR_VETUSTE`, par exemple
-`PRINTR_VETUSTE="python3 /opt/vetuste/vetuste-scripteur.pyz"`. Il part d'un texte en français : en
+s'il est installé, sinon `/opt/vetuste/vetuste-scripteur.pyz` s'il est là (`install.sh`,
+`scripts/deploy.sh` et l'image l'y mettent), sinon la commande donnée dans `PRINTR_VETUSTE`, par
+exemple `PRINTR_VETUSTE="python3 ~/vetuste_scripteur/dist/vetuste-scripteur.pyz"`. Il part d'un texte en français : en
 anglais, l'appli reste en anglais, mais le ticket, lui, est en vieux français.
 
 De temps en temps (une impression sur 20), la machine glisse dans le ticket un message étrange,
@@ -950,6 +951,9 @@ nano /etc/printr.env                    # configuration (clé Claude, imprimante
 systemctl restart printr                # redémarrage
 journalctl -u printr -f                 # suivre les impressions
 ```
+
+Seule exception : quand Vetuste Scripteur manque ou change de version, `scripts/deploy.sh` l'installe
+dans `/opt/vetuste` et demande pour cela le mot de passe sudo, cette fois-là seulement.
 
 La plupart de la configuration se change aussi dans l'appli ([réglages](#réglages)) ; ce que fixe
 `/etc/printr.env` l'emporte.

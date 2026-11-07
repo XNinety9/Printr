@@ -29,6 +29,7 @@ else
 fi
 step() { printf '%s▸%s %s' "$B$ORANGE" "$R" "$1"; }
 done_() { printf ' %s✓%s %s\n' "$GREEN" "$R" "${1:-}"; }
+skip() { printf ' %s✗%s %s\n' "$RED" "$R" "$1"; }
 fail() { printf '\n%s✗ %s%s\n' "$RED$B" "$1" "$R" >&2; exit 1; }
 
 # ---- Installation sur cette machine ----
@@ -89,6 +90,32 @@ if [ "$FULL" = 1 ] || [ "$installed" != oui ]; then
   printf '%s  Installation : la machine va demander le mot de passe sudo (une seule fois).%s\n' "$D" "$R"
   ssh -t -p "$PORT" "$HOST" 'sudo bash ~/printr-install/install.sh && rm -rf ~/printr-install'
 else
+  # Vetuste Scripteur (bloc « Vieux françois »), à la version figée dans install.sh : envoyé
+  # seulement s'il manque ou a changé. /opt/vetuste appartient à root : le mot de passe sudo n'est
+  # demandé que cette fois-là. Facultatif : sans lui, le reste se met à jour quand même.
+  VETUSTE_VERSION=$(sed -n 's/^VETUSTE_VERSION=//p' deploy/install.sh)
+  VETUSTE_SHA256=$(sed -n 's/^VETUSTE_SHA256=//p' deploy/install.sh)
+  PYZ=target/deploy/vetuste-scripteur-$VETUSTE_VERSION.pyz
+  step "Vetuste Scripteur…"
+  if "${SSH[@]}" "$HOST" "echo '$VETUSTE_SHA256  /opt/vetuste/vetuste-scripteur.pyz' | sha256sum -c --status 2>/dev/null"; then
+    done_ "$VETUSTE_VERSION"
+  elif ! { echo "$VETUSTE_SHA256  $PYZ" | sha256sum -c --status 2>/dev/null \
+    || { curl -fsSL -o "$PYZ" "https://github.com/XNinety9/vetuste_scripteur/releases/download/v$VETUSTE_VERSION/vetuste-scripteur.pyz" \
+      && echo "$VETUSTE_SHA256  $PYZ" | sha256sum -c --status 2>/dev/null; }; }; then
+    rm -f "$PYZ"
+    skip "téléchargement impossible ou fichier altéré : bloc « Vieux françois » indisponible"
+  else
+    "${SCP[@]}" "$PYZ" "$HOST:vetuste-scripteur.pyz"
+    printf '\n%s  Installation de la version %s dans /opt/vetuste : la machine va demander le mot de passe sudo.%s\n' "$D" "$VETUSTE_VERSION" "$R"
+    if ssh -t -p "$PORT" "$HOST" 'sudo install -D -m 644 ~/vetuste-scripteur.pyz /opt/vetuste/vetuste-scripteur.pyz; s=$?; rm -f ~/vetuste-scripteur.pyz; exit $s'; then
+      step "Vetuste Scripteur…"
+      done_ "$VETUSTE_VERSION"
+    else
+      step "Vetuste Scripteur…"
+      skip "installation refusée : bloc « Vieux françois » indisponible (relance plus tard)"
+    fi
+  fi
+
   step "Mise à jour du programme…"
   "${SCP[@]}" "$BIN" "$HOST:/opt/printr/printr.new"
   "${SSH[@]}" "$HOST" 'rm -f /opt/printr/printr.old; cp -p /opt/printr/printr /opt/printr/printr.old; chmod 775 /opt/printr/printr.new; mv /opt/printr/printr.new /opt/printr/printr'
