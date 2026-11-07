@@ -91,6 +91,7 @@ an error, so typos get caught.
 | --- | --- | --- |
 | `title` | `text`, `size` (2) | Bold, centered, enlarged |
 | `text` | `text`, `bold`, `underline`, `reverse`, `small`, `size` (1), `align` (`left`/`center`/`right`) | Word-wrapped |
+| `vetuste` | `text`, `level` (2: 0 vocabulary only, 1 light accent, 2 *Les Visiteurs*, 3 grimoire), `seed` | The text in mock Old French, engraved in blackletter across the full width by [Vetuste Scripteur](https://github.com/XNinety9/vetuste_scripteur). Without `seed`, the wording changes every day |
 | `separator` | `style` (`-`) | One character repeated: `-`, `=`, `═`, `─`, `·`… |
 | `date` | `offset` (days, e.g. 1 for tomorrow), `date` (`YYYY-MM-DD`) | e.g. "Wednesday, October 7, 2026"; today by default, or another day, to prepare tickets ahead |
 | `feed` | `lines` (1) | Vertical space |
@@ -191,6 +192,12 @@ get a QR code, two per line. `PRINTR_DEBUG=1` shows the full ranking.
 The `barnum` block calls [Barnum](https://github.com/XNinety9/Barnum) on the command line:
 `barnum` if it is installed, otherwise the command given in `PRINTR_BARNUM`, for example
 `PRINTR_BARNUM="python3 /opt/barnum/main.py"` (Barnum only needs Python 3.10).
+
+Likewise, the `vetuste` block calls [Vetuste Scripteur](https://github.com/XNinety9/vetuste_scripteur),
+shipped as a single file, `vetuste-scripteur.pyz` (Python 3.11, no dependencies): `vetuste-scripteur`
+if it is installed, otherwise `PRINTR_VETUSTE`, for example
+`PRINTR_VETUSTE="python3 /opt/vetuste/vetuste-scripteur.pyz"`. It takes French text: in English, the
+app stays in English, but the ticket itself is in Old French.
 
 Every now and then (one print in twenty), the machine slips a strange message into the ticket,
 with no header, like printed noise: this is the **glitch**. `PRINTR_GLITCH` sets how often it
@@ -841,9 +848,9 @@ Each [release](https://github.com/XNinety9/Printr/releases) comes with an image 
 
 The image serves the app on port 80, under the host name `printr`, with a French locale and
 keyboard, the Paris time zone and the FR Wi-Fi country (Imager changes them), Barnum for the
-offline horoscope, and neither account nor SSH unless Imager adds them. Everything else is set in
-the app: the [first launch](#first-launch), then the [settings](#settings). To build the image
-yourself: [image/README.md](../image/README.md).
+offline horoscope, Vetuste Scripteur for Old French, and neither account nor SSH unless Imager adds
+them. Everything else is set in the app: the [first launch](#first-launch), then the
+[settings](#settings). To build the image yourself: [image/README.md](../image/README.md).
 
 ### First network connection
 
@@ -912,6 +919,8 @@ and for the Claude key (optional, see also
 - installs the udev rule for the USB printer (stable link `/dev/tm88`) and loads `usblp`;
 - clones [Barnum](https://github.com/XNinety9/Barnum) into `/opt/barnum` (if `python3` and `git`
   are available);
+- downloads [Vetuste Scripteur](https://github.com/XNinety9/vetuste_scripteur) into `/opt/vetuste`,
+  at a pinned version whose checksum it verifies (if `python3` and `curl` are available);
 - creates `/etc/printr.env` and the service, then checks that it responds.
 
 **Running it again loses nothing.** Before any change, it checks that the data is readable
@@ -989,7 +998,7 @@ sudo deploy/install.sh --binary path/to/printr
 
 If the machine already runs its services in containers (Home Assistant, WireGuard…), Printr can join
 them. [`deploy/Dockerfile`](../deploy/Dockerfile) and [`deploy/compose.yaml`](../deploy/compose.yaml)
-wrap the `printr` binary placed next to them, with Barnum, under an unprivileged user and the same
+wrap the `printr` binary placed next to them, with Barnum and Vetuste Scripteur, under an unprivileged user and the same
 safeguards as the systemd service. In a release archive, the binary is already there; from the
 repository, copy the one built for the machine into `deploy/`.
 

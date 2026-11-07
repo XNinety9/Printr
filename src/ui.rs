@@ -228,6 +228,17 @@ pub fn banner(
             )
         },
     );
+    row(
+        "vetuste",
+        if crate::blocks::vetuste::available() {
+            format!("{OK}✓{OK:#} {}", crate::blocks::vetuste::command().join(" "))
+        } else {
+            tr!(
+                "{WARN}✗{WARN:#} introuvable : bloc « Vieux françois » indisponible (voir PRINTR_VETUSTE)",
+                "{WARN}✗{WARN:#} not found: \"Old French\" block unavailable (see PRINTR_VETUSTE)"
+            )
+        },
+    );
     row(t("données", "data"), data.to_owned());
     row("versions", crate::update::summary());
     row(

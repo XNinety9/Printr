@@ -24,6 +24,16 @@
     }
    },
    {
+    "id": "vieux_francois",
+    "emoji": "📜",
+    "fr": "Vieux françois",
+    "en": "Old French",
+    "description": {
+     "fr": "Ton texte en vieux français façon Les Visiteurs, gravé en gothique par Vetuste Scripteur.",
+     "en": "Your French text in mock Old French (Les Visiteurs style), in blackletter, by Vetuste Scripteur."
+    }
+   },
+   {
     "id": "date",
     "emoji": "📅",
     "fr": "Date",

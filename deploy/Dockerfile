@@ -7,6 +7,13 @@ FROM debian:bookworm-slim
 ARG BARNUM_COMMIT=203a36b664eb5cba4c5fc5e5924818bcc4a36a96
 ADD https://github.com/XNinety9/Barnum/archive/${BARNUM_COMMIT}.tar.gz /tmp/barnum.tar.gz
 
+# Vetuste Scripteur (vieux françois) : un seul fichier Python, à une version figée et vérifiée.
+ARG VETUSTE_VERSION=1.1.1
+ARG VETUSTE_SHA256=8de37c08af710c495b30085e1b8a24fbed63576904ed4b62c6ee907a1a8ed108
+ADD --checksum=sha256:${VETUSTE_SHA256} --chmod=644 \
+    https://github.com/XNinety9/vetuste_scripteur/releases/download/v${VETUSTE_VERSION}/vetuste-scripteur.pyz \
+    /opt/vetuste/vetuste-scripteur.pyz
+
 # tzdata : l'heure locale (TZ) des planifications ; ca-certificates : TLS vers les API et MQTT.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends python3 tzdata ca-certificates \
@@ -27,7 +34,8 @@ ENV PRINTR_DATA_DIR=/var/lib/printr \
     PRINTR_CACHE_DIR=/var/cache/printr \
     PRINTR_LISTEN=0.0.0.0:8080 \
     PRINTR_DEVICE=/host/dev/tm88 \
-    PRINTR_BARNUM="python3 /opt/barnum/main.py"
+    PRINTR_BARNUM="python3 /opt/barnum/main.py" \
+    PRINTR_VETUSTE="python3 /opt/vetuste/vetuste-scripteur.pyz"
 
 USER printr
 EXPOSE 8080

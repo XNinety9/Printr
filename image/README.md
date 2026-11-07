@@ -12,6 +12,7 @@ Imager when its content repository is set to
   `http://printr.local` (avahi);
 - the printer's udev rule (`/dev/tm88`) and the `usblp` driver;
 - Barnum, for the offline horoscope;
+- Vetuste Scripteur, for the Old French block (in `/opt/vetuste`);
 - the **first network connection** (`PRINTR_WIFI_SETUP=1`): with no network a minute after boot,
   Printr opens the "Printr-XXXX" hotspot and prints a ticket to connect to it;
 - an `/etc/printr.env` limited to what is specific to the image: everything else is set in the app.

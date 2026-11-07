@@ -40,6 +40,7 @@ mod sudoku;
 mod sun;
 mod takuzu;
 mod train_tracks;
+pub mod vetuste;
 mod weather;
 mod weather_icon;
 mod wifi;
@@ -351,6 +352,17 @@ pub enum Block {
         /// Autre série de formules pour le même ciel (`--sel` de Barnum).
         #[serde(default)]
         variant: Option<String>,
+    },
+    /// Texte en vieux parler, façon *Les Visiteurs*, gravé en gothique par Vetuste Scripteur.
+    #[serde(alias = "vieux_francais", alias = "vetuste_scripteur")]
+    Vetuste {
+        text: String,
+        /// 0 : vocabulaire seul, 1 : léger accent, 2 : *Les Visiteurs*, 3 : grimoire illisible.
+        #[serde(default = "two")]
+        level: u8,
+        /// Sans seed, celle du jour : le même rendu toute la journée, aperçu compris.
+        #[serde(default)]
+        seed: Option<u64>,
     },
     /// Pictogramme dessiné : cœur, étoile, soleil, fleur, sourire.
     Picto {
@@ -789,6 +801,7 @@ impl Block {
             Block::Workout { .. } => i18n::t("défi sportif", "workout"),
             Block::Picto { .. } => i18n::t("pictogramme", "pictogram"),
             Block::Barnum { .. } => i18n::t("horoscope Barnum", "Barnum horoscope"),
+            Block::Vetuste { .. } => i18n::t("vieux françois", "Old French"),
             Block::News { .. } => i18n::t("actualités", "news"),
         }
     }
@@ -796,7 +809,7 @@ impl Block {
     /// Nom du bloc, précisé par son paramètre principal : « météo · Lyon ».
     pub fn label(&self) -> String {
         let detail = match self {
-            Block::Title { text, .. } => Some(text.chars().take(24).collect()),
+            Block::Title { text, .. } | Block::Vetuste { text, .. } => Some(text.chars().take(24).collect()),
             Block::Weather { location, .. } | Block::AirQuality { location, .. } => {
                 pick_location(location, city().as_deref())
             }
@@ -1019,6 +1032,9 @@ impl Block {
                     }
                 };
                 doc = barnum::build(who, ctx.today, *sky, variant.as_deref())?;
+            }
+            Block::Vetuste { text, level, seed } => {
+                doc = vetuste::build(text, *level, seed.unwrap_or_else(|| vetuste::daily_seed(ctx.today)))?;
             }
             Block::PetitBac { letter, categories, count, players, seed } => {
                 doc = petit_bac::build(*letter, categories, *count, *players, *seed);

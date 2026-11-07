@@ -8,7 +8,8 @@
 #   4. site (_site/).
 # Usage : scripts/illustrations.sh [--sans-claude] [--seulement exemples|captures|partage|site]
 #   --sans-claude : aucun appel à Claude ; les blocs qui en ont besoin gardent leur image actuelle.
-# Prérequis : uv, chromium, l'émulateur (uvx emupos) et unshare. Barnum : $PRINTR_BARNUM, sinon ../Barnum.
+# Prérequis : uv, chromium, l'émulateur (uvx emupos) et unshare. Barnum : $PRINTR_BARNUM, sinon ../Barnum ;
+# Vetuste Scripteur : $PRINTR_VETUSTE, sinon ../vetuste_scripteur/dist.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -78,6 +79,11 @@ wanted() { [ -z "$ONLY" ] || [ "$ONLY" = "$1" ]; }
 if [ -z "${PRINTR_BARNUM:-}" ] && ! command -v barnum >/dev/null && [ -f ../Barnum/main.py ]; then
   PRINTR_BARNUM="python3 $(cd ../Barnum && pwd)/main.py"
   export PRINTR_BARNUM
+fi
+# Vetuste Scripteur (vieux françois) : même chose, avec le .pyz construit dans ../vetuste_scripteur.
+if [ -z "${PRINTR_VETUSTE:-}" ] && ! command -v vetuste-scripteur >/dev/null && [ -f ../vetuste_scripteur/dist/vetuste-scripteur.pyz ]; then
+  PRINTR_VETUSTE="python3 $(cd ../vetuste_scripteur/dist && pwd)/vetuste-scripteur.pyz"
+  export PRINTR_VETUSTE
 fi
 export CROSSWORDS_CACHE="${CROSSWORDS_CACHE:-$HOME/.cache/crosswords}"
 

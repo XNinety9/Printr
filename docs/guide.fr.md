@@ -91,6 +91,7 @@ Un paramètre inconnu est une erreur, pour repérer les fautes de frappe.
 | --- | --- | --- |
 | `title` | `text`, `size` (2) | Gras, centré, agrandi |
 | `text` | `text`, `bold`, `underline`, `reverse`, `small`, `size` (1), `align` (`left`/`center`/`right`) | Coupé aux mots |
+| `vetuste` | `text`, `level` (2 : 0 vocabulaire seul, 1 léger accent, 2 *Les Visiteurs*, 3 grimoire), `seed` | Le texte en vieux français, gravé en gothique sur toute la largeur par [Vetuste Scripteur](https://github.com/XNinety9/vetuste_scripteur). Sans `seed`, la tournure change chaque jour |
 | `separator` | `style` (`-`) | Un caractère répété : `-`, `=`, `═`, `─`, `·`… |
 | `date` | `offset` (jours, par ex. 1 pour demain), `date` (`AAAA-MM-JJ`) | « Mercredi 7 octobre 2026 » ; aujourd'hui par défaut, ou un autre jour, pour préparer des tickets à l'avance |
 | `feed` | `lines` (1) | Espace vertical |
@@ -190,6 +191,12 @@ reçoivent un QR code, deux par ligne. `PRINTR_DEBUG=1` affiche le classement co
 Le bloc `barnum` appelle [Barnum](https://github.com/XNinety9/Barnum) en ligne de commande :
 `barnum` s'il est installé, sinon la commande donnée dans `PRINTR_BARNUM`, par exemple
 `PRINTR_BARNUM="python3 /opt/barnum/main.py"` (Barnum ne dépend que de Python 3.10).
+
+De même, le bloc `vetuste` appelle [Vetuste Scripteur](https://github.com/XNinety9/vetuste_scripteur),
+livré en un seul fichier, `vetuste-scripteur.pyz` (Python 3.11, sans dépendance) : `vetuste-scripteur`
+s'il est installé, sinon `PRINTR_VETUSTE`, par exemple
+`PRINTR_VETUSTE="python3 /opt/vetuste/vetuste-scripteur.pyz"`. Il part d'un texte en français : en
+anglais, l'appli reste en anglais, mais le ticket, lui, est en vieux français.
 
 De temps en temps (une impression sur 20), la machine glisse dans le ticket un message étrange,
 sans en-tête, comme du bruit imprimé : c'est le **glitch**. `PRINTR_GLITCH` règle la fréquence
@@ -853,10 +860,10 @@ Raspberry Pi 3, 4, 5 et Zero 2 W (64 bits) : Raspberry Pi OS Lite avec Printr pr
    l'adresse indiquée par la box). Sinon, Printr imprime un ticket pour régler le Wi-Fi.
 
 L'image sert l'appli sur le port 80, sous le nom `printr`, avec la langue et le clavier français,
-le fuseau de Paris et le pays Wi-Fi FR (Imager les change), Barnum pour l'horoscope hors ligne, et
-ni compte ni SSH sauf si Imager les ajoute. Tout le reste se règle dans l'appli : le
-[premier lancement](#premier-lancement), puis les [réglages](#réglages). Pour construire l'image
-soi-même : [image/README.md](../image/README.md).
+le fuseau de Paris et le pays Wi-Fi FR (Imager les change), Barnum pour l'horoscope hors ligne,
+Vetuste Scripteur pour le vieux françois, et ni compte ni SSH sauf si Imager les ajoute. Tout le
+reste se règle dans l'appli : le [premier lancement](#premier-lancement), puis les
+[réglages](#réglages). Pour construire l'image soi-même : [image/README.md](../image/README.md).
 
 ### Première connexion au réseau
 
@@ -925,6 +932,8 @@ seule fois** et la clé Claude (facultative, voir aussi
 - installe la règle udev de l'imprimante USB (lien stable `/dev/tm88`) et charge `usblp` ;
 - clone [Barnum](https://github.com/XNinety9/Barnum) dans `/opt/barnum` (si `python3` et `git`
   sont là) ;
+- télécharge [Vetuste Scripteur](https://github.com/XNinety9/vetuste_scripteur) dans `/opt/vetuste`,
+  à une version figée dont il vérifie la somme de contrôle (si `python3` et `curl` sont là) ;
 - crée `/etc/printr.env` et le service, puis vérifie qu'il répond.
 
 **La relancer ne perd rien.** Avant toute modification, elle vérifie que les données sont
@@ -1003,7 +1012,7 @@ sudo deploy/install.sh --binary chemin/vers/printr
 
 Si la machine fait déjà tourner ses services en conteneurs (Home Assistant, WireGuard…), Printr peut
 les rejoindre. [`deploy/Dockerfile`](../deploy/Dockerfile) et [`deploy/compose.yaml`](../deploy/compose.yaml)
-emballent le binaire `printr` posé à côté d'eux, avec Barnum, sous un utilisateur sans privilège et
+emballent le binaire `printr` posé à côté d'eux, avec Barnum et Vetuste Scripteur, sous un utilisateur sans privilège et
 les mêmes garde-fous que le service systemd. Dans une archive de release, le binaire est déjà là ;
 depuis le dépôt, copier dans `deploy/` celui compilé pour la machine.
 

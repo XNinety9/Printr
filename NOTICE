@@ -33,6 +33,40 @@ Données téléchargées à l'exécution, non incluses dans ce dépôt :
 
 ----
 
+Printr's deployment files (Raspberry Pi image, install.sh, Dockerfile) download and install
+Vetuste Scripteur (Old French block), licensed under the Apache License 2.0. As its license
+requires, here is its NOTICE file:
+
+Vetuste Scripteur
+Copyright 2026 Pierre (https://github.com/XNinety9)
+
+Ce logiciel est distribué sous licence Apache 2.0 (fichier LICENSE).
+Toute redistribution, modifiée ou non, doit conserver ce fichier NOTICE ou
+en reproduire le contenu, conformément à la section 4 (d) de la licence.
+
+----
+
+Ce logiciel inclut des éléments de tiers, chacun sous sa propre licence :
+
+- La fonte UnifrakturMaguntia : Copyright (c) 2010, j. 'mach' wust, with
+  Reserved Font Name UnifrakturMaguntia. Copyright (c) 2009, Peter Wiegel.
+  SIL Open Font License 1.1 (vetuste_scripteur/fonts/OFL-UnifrakturMaguntia.txt).
+  Le fichier TTF est inclus sans modification. vetuste_scripteur/glyphes.json
+  reprend les tracés et les largeurs de ses caractères, sans en modifier le dessin.
+
+- La fonte Crimson Text : Copyright 2010 The Crimson Text Project Authors.
+  SIL Open Font License 1.1 (vetuste_scripteur/fonts/OFL-CrimsonText.txt).
+  Utilisée par la page web uniquement.
+
+- vetuste_scripteur/verbes.json : formes conjuguées d'environ 400 verbes
+  français, générées par scripts/generer_verbes.py avec verbecc
+  (https://github.com/bretttolbert/verbecc, GNU LGPL 3) et ses modèles de
+  conjugaison, issus de Verbiste de Pierre Sarrazin (GNU GPL). Ni verbecc ni
+  ces modèles ne sont inclus ni exécutés par ce logiciel : le fichier ne
+  contient que les formes obtenues.
+
+----
+
 Printr includes chess piece glyphs from Noto Sans Symbols 2 (chess block),
 rendered to src/blocks/chess-pieces.png from a subset in assets/fonts/:
 
