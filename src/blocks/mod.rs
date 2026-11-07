@@ -132,12 +132,16 @@ pub struct Ticket {
 #[derive(Deserialize, Debug)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Block {
+    // `text` facultatif : l'appli retire les champs vides, et un bloc qu'on vient d'ajouter ne doit
+    // pas faire échouer l'aperçu de tout le ticket.
     Title {
+        #[serde(default)]
         text: String,
         #[serde(default = "two")]
         size: u8,
     },
     Text {
+        #[serde(default)]
         text: String,
         #[serde(default)]
         bold: bool,
@@ -356,6 +360,7 @@ pub enum Block {
     /// Texte en vieux parler, façon *Les Visiteurs*, gravé en gothique par Vetuste Scripteur.
     #[serde(alias = "vieux_francais", alias = "vetuste_scripteur")]
     Vetuste {
+        #[serde(default)]
         text: String,
         /// 0 : vocabulaire seul, 1 : léger accent, 2 : *Les Visiteurs*, 3 : grimoire illisible.
         #[serde(default = "two")]
@@ -1344,6 +1349,27 @@ mod tests {
         assert_eq!(reports.iter().filter(|r| r.error.is_some()).count(), 1);
         assert!(preview.contains("avant") && preview.contains("après"));
         assert!(preview.contains("image indisponible"));
+    }
+
+    /// L'appli retire les champs vides : un bloc de texte qu'on vient d'ajouter arrive sans `text`.
+    #[test]
+    fn empty_text_blocks_still_parse() {
+        let t: Ticket = serde_json::from_str(
+            r#"{"blocks": [{"type": "title"}, {"type": "text"}, {"type": "vetuste", "level": 2}]}"#,
+        )
+        .unwrap();
+        let ctx = Ctx {
+            today: NaiveDate::from_ymd_opt(2026, 10, 7).unwrap(),
+            http: ureq::agent(),
+            claude: None,
+            cache: None,
+            refresh: false,
+            preview: true,
+            local: true,
+        };
+        let (doc, reports) = t.build(&ctx, &mut Silent);
+        assert_eq!(reports.iter().filter(|r| r.error.is_some()).count(), 1);
+        assert!(doc.preview(true).contains("texte vide"));
     }
 
     #[test]
