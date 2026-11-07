@@ -1,7 +1,7 @@
 #!/bin/bash -e
 # shellcheck disable=SC2154  # ROOTFS_DIR, FIRST_USER_NAME: provided by pi-gen
 # Printr in the image: program, service, USB printer, first network connection through a hotspot.
-# Files come from files/ (image/build.sh puts the program and Barnum there).
+# Files come from files/ (image/build.sh puts the program, Barnum and Vetuste Scripteur there).
 
 F=files
 install -d -m 2775 "${ROOTFS_DIR}/opt/printr"
@@ -10,6 +10,7 @@ install -m 755 "$F/printr-update-guard.sh" "${ROOTFS_DIR}/opt/printr/printr-upda
 ln -sfn /opt/printr/printr "${ROOTFS_DIR}/usr/local/bin/printr"
 rm -rf "${ROOTFS_DIR}/opt/barnum"
 cp -a "$F/barnum" "${ROOTFS_DIR}/opt/barnum"
+install -D -m 644 "$F/vetuste-scripteur.pyz" "${ROOTFS_DIR}/opt/vetuste/vetuste-scripteur.pyz"
 
 # Configuration: only what is specific to the image; everything else is set in the app.
 install -m 660 "$F/printr.env" "${ROOTFS_DIR}/etc/printr.env"

@@ -268,6 +268,27 @@ else
   warn "téléchargement impossible : bloc « Horoscope » indisponible"
 fi
 
+# ---- Vetuste Scripteur (facultatif) ----
+step "Vetuste Scripteur (vieux françois)"
+VETUSTE_VERSION=1.1.1
+VETUSTE_SHA256=8de37c08af710c495b30085e1b8a24fbed63576904ed4b62c6ee907a1a8ed108
+VETUSTE=/opt/vetuste/vetuste-scripteur.pyz
+if [ -f "$VETUSTE" ] && echo "$VETUSTE_SHA256  $VETUSTE" | sha256sum -c --status 2>/dev/null; then
+  same "version $VETUSTE_VERSION déjà installée"
+elif ! have python3 || ! have curl; then
+  warn "python3 et curl sont nécessaires : bloc « Vieux françois » indisponible"
+else
+  tmp=$(mktemp)
+  if curl -fsSL -o "$tmp" "https://github.com/XNinety9/vetuste_scripteur/releases/download/v$VETUSTE_VERSION/vetuste-scripteur.pyz" 2>/dev/null \
+    && echo "$VETUSTE_SHA256  $tmp" | sha256sum -c --status; then
+    install -D -m 644 "$tmp" "$VETUSTE"
+    ok "version $VETUSTE_VERSION installée dans /opt/vetuste"
+  else
+    warn "téléchargement impossible ou fichier altéré : bloc « Vieux françois » indisponible"
+  fi
+  rm -f "$tmp"
+fi
+
 # ---- Service ----
 step "Service"
 put "$HERE/printr.service" /etc/systemd/system/printr.service 644 || true

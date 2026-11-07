@@ -20,8 +20,20 @@ Koenig, Tolbert Lanston…
   the name of a shared ticket, so a code stuck on the fridge always prints its latest version. Same
   rules as the HTTP API and MQTT (hourly quota, queue), “Scanner” in the history, refused codes noted
   there too, and the scanner is found again when plugged back in.
+- **“Old French” block** (`vetuste`): French text rewritten in mock Old French, *Les Visiteurs* style,
+  and engraved in blackletter across the full width by
+  [Vetuste Scripteur](https://github.com/XNinety9/vetuste_scripteur) 1.1.1, offline. Four levels, from
+  vocabulary only to an unreadable grimoire; the wording changes every day, and the preview shows the
+  ticket that will print. The Raspberry Pi image, `install.sh` and the Docker image install it in
+  `/opt/vetuste`, at a pinned version whose checksum is verified; elsewhere, set `PRINTR_VETUSTE`.
 
 ### Upgrading
+- The “Old French” block needs Vetuste Scripteur, which automatic updates do not install. Run
+  `install.sh` again, or put
+  [`vetuste-scripteur.pyz`](https://github.com/XNinety9/vetuste_scripteur/releases/download/v1.1.1/vetuste-scripteur.pyz)
+  in `/opt/vetuste/` (readable by the `printr` user) and add
+  `PRINTR_VETUSTE="python3 /opt/vetuste/vetuste-scripteur.pyz"` to `/etc/printr.env`. Without it, the
+  block prints an explanation and the rest of the ticket prints normally.
 - To use a scanner on an installation upgraded automatically, give Printr access to serial ports once:
   `sudo usermod -aG dialout printr && sudo systemctl restart printr` (new installations do it already).
 

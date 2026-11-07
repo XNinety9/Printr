@@ -66,6 +66,14 @@ install -m 755 "$BIN" "$FILES/printr"
 cp deploy/printr.service deploy/70-tm-t88v.rules deploy/50-printr.rules deploy/printr-update-guard.sh "$FILES/"
 cp image/printr.env image/image.conf image/51-printr-network.rules image/printr-hotspot.service image/hotspot-dnsmasq.conf "$FILES/"
 git clone -q --depth 1 https://github.com/XNinety9/Barnum "$FILES/barnum"
+# Vetuste Scripteur, at a pinned and checked version (same as deploy/install.sh and deploy/Dockerfile).
+VETUSTE_VERSION=1.1.1
+VETUSTE_SHA256=8de37c08af710c495b30085e1b8a24fbed63576904ed4b62c6ee907a1a8ed108
+curl -fsSL -o "$FILES/vetuste-scripteur.pyz" \
+  "https://github.com/XNinety9/vetuste_scripteur/releases/download/v$VETUSTE_VERSION/vetuste-scripteur.pyz" \
+  || fail "could not download Vetuste Scripteur $VETUSTE_VERSION"
+echo "$VETUSTE_SHA256  $FILES/vetuste-scripteur.pyz" | sha256sum -c --status \
+  || fail "Vetuste Scripteur $VETUSTE_VERSION: checksum mismatch"
 ok "printr stage ready"
 
 step "Building (from 20 minutes to over an hour)"

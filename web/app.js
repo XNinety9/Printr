@@ -211,6 +211,9 @@ const G = {
   challenges: T('Jeux : défis et créativité', 'Games: challenges and creativity'),
   gift: T('Petites attentions', 'Little gifts'), info: T('Infos', 'Info'), org: T('Organisation', 'Organization'),
 };
+const VETUSTE_LEVELS = [
+  [0, T('Vocabulaire', 'Vocabulary')], [1, T('Léger accent', 'Light accent')], [2, 'Les Visiteurs'], [3, T('Grimoire', 'Grimoire')],
+];
 const FAMILY_THEMES = WORD_THEMES.filter(([v]) => !['developpement', 'devops', 'reseaux', 'ia'].includes(v));
 const WEEKDAYS = [
   ['lundi', T('Lundi', 'Monday')], ['mardi', T('Mardi', 'Tuesday')], ['mercredi', T('Mercredi', 'Wednesday')], ['jeudi', T('Jeudi', 'Thursday')],
@@ -252,6 +255,15 @@ const BLOCKS = [
       { key: 'underline', label: T('Souligné', 'Underline'), kind: 'toggle' },
       { key: 'reverse', label: T('Inversé (blanc sur noir)', 'Inverted (white on black)'), kind: 'toggle' },
       { key: 'small', label: T('Petite police', 'Small font'), kind: 'toggle' },
+    ],
+    summary: (b) => b.text || T('Vide', 'Empty'),
+  },
+  {
+    type: 'vetuste', label: T('Vieux françois', 'Old French'), emoji: '📜', group: G.layout, desc: T('Ton texte en vieux français façon Les Visiteurs, en gothique', 'Your French text in mock Old French, in blackletter'),
+    defaults: { text: '', level: 2 },
+    fields: [
+      { key: 'text', label: T('Texte', 'Text'), kind: 'textarea', placeholder: T('Je vais au supermarché acheter du pain.', 'Je vais au supermarché acheter du pain.'), help: T('En français : la tournure change chaque jour.', 'In French: the wording changes every day.') },
+      { key: 'level', label: T('Niveau', 'Level'), kind: 'segmented', options: VETUSTE_LEVELS },
     ],
     summary: (b) => b.text || T('Vide', 'Empty'),
   },
@@ -1523,7 +1535,7 @@ const EXAMPLE = {
   story: 'histoire',
   birthdays: 'anniversaires',
   chess: 'echecs',
-  title: 'titre', text: 'texte', date: 'date', separator: 'separateur', feed: 'espace', cut: 'coupe', image: 'image', qr: 'qr',
+  title: 'titre', text: 'texte', vetuste: 'vieux_francois', date: 'date', separator: 'separateur', feed: 'espace', cut: 'coupe', image: 'image', qr: 'qr',
   picto: 'pictogramme', weather: 'meteo', barnum: 'horoscope', horoscope: 'horoscope_claude', word_of_the_day: 'mot_du_jour',
   saint: 'saint', quote: 'citation', moon: 'lune', sun: 'soleil', sky: 'ciel', air_quality: 'air', holidays: 'jours_feries',
   countdown: 'compte_a_rebours', riddle: 'enigme', workout: 'defi_sportif', sudoku: 'sudoku', maze: 'labyrinthe',
@@ -1544,6 +1556,7 @@ const KEYWORDS = {
   birthdays: 'anniversaires birthdays age fete party famille family compte a rebours countdown',
   chess: 'echecs chess probleme puzzle lichess mat checkmate echiquier board strategie',
   chores: 'taches menageres chores menage housework corvees rotation famille family planning',
+  vetuste: 'vieux francais old french moyen age middle ages gothique gothic blackletter visiteurs grimoire ancien',
   title: 'titre title gros big', text: 'texte text paragraphe paragraph message', date: 'date jour day calendrier',
   separator: 'separateur separator ligne line trait', feed: 'espace space blanc vide blank', cut: 'coupe cut couper ciseaux scissors morceau piece',
   image: 'image photo picture', qr: 'qr code lien link url', picto: 'pictogramme pictogram coeur heart etoile star dessin drawing',
@@ -1572,7 +1585,7 @@ const KIDS = ['fortune', 'story', 'picto', 'riddle', 'workout', 'word_search', '
 const TOGETHER = ['riddle', 'workout', 'petit_bac', 'anagram'];
 // Ni réseau ni Claude : tout est calculé sur place, gratuitement.
 const OFFLINE = [
-  'title', 'text', 'date', 'separator', 'feed', 'image', 'qr', 'picto', 'barnum', 'saint', 'quote', 'moon', 'holidays', 'countdown',
+  'title', 'text', 'vetuste', 'date', 'separator', 'feed', 'image', 'qr', 'picto', 'barnum', 'saint', 'quote', 'moon', 'holidays', 'countdown',
   'riddle', 'workout', 'sudoku', 'word_search', 'train_tracks', 'maze', 'nonogram', 'petit_bac', 'mental_math', 'anagram', 'cipher',
   'coloring', 'coupon', 'todo', 'shopping', 'bins', 'wifi', 'monthly_report', 'chores', 'birthdays', 'kakuro', 'takuzu', 'hashi', 'fortune',
 ];
