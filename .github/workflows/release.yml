@@ -58,7 +58,7 @@ jobs:
           targets: ${{ matrix.target }}
       # cross compile dans une image à glibc ancienne : le binaire tourne sur un Raspberry Pi OS
       # de quelques années, comme avec scripts/deploy.sh.
-      - uses: taiki-e/install-action@1919c4a95903d2c33e4a221102edca87309fc14b # v2.89.0
+      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: cross
       - run: cross build --release --locked --target ${{ matrix.target }}
