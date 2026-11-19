@@ -7,6 +7,7 @@ use rand::RngExt;
 
 use crate::doc::{Align, Doc, Style};
 use crate::draw;
+use crate::raster::PRINT_WIDTH;
 
 const N: usize = 10;
 
@@ -175,43 +176,61 @@ fn clues(line: impl Iterator<Item = bool>) -> Vec<u32> {
     out
 }
 
-const CELL: i64 = 30;
-const SCALE: i64 = 2;
-/// Hauteur et largeur d'un indice (deux chiffres au plus), espacement compris.
-const CLUE_H: i64 = draw::DIGIT_H * SCALE + 5;
-const CLUE_GAP: i64 = 6;
+/// Échelle des chiffres des indices (5×7 points à l'échelle 1).
+const SCALE: i64 = 3;
+/// Hauteur d'un indice de colonne, espacement compris.
+const CLUE_H: i64 = draw::DIGIT_H * SCALE + 6;
+/// Espace entre deux indices d'une même ligne.
+const CLUE_GAP: i64 = 4 * SCALE;
+/// Espace entre les indices et la grille.
+const CLUE_PAD: i64 = 10;
+/// Marge de chaque côté du papier.
+const MARGIN: i64 = 8;
+/// Taille maximale d'une case : au-delà, la grille devient inutilement grande.
+const MAX_CELL: i64 = 44;
+
+/// Largeur, en points, des indices d'une ligne.
+fn row_clue_width(clue: &[u32]) -> i64 {
+    clue.iter().map(|&n| draw::number_width(n, SCALE)).sum::<i64>() + (clue.len() as i64 - 1) * CLUE_GAP
+}
 
 fn render(grid: &[Vec<bool>], solution: bool) -> GrayImage {
     let rows: Vec<Vec<u32>> = grid.iter().map(|r| clues(r.iter().copied())).collect();
     let cols: Vec<Vec<u32>> = (0..N).map(|x| clues(grid.iter().map(|r| r[x]))).collect();
+
+    // La case la plus grande qui laisse la place aux indices, puis l'ensemble (indices + grille) centré.
+    let width = i64::from(PRINT_WIDTH);
+    let clue_w = rows.iter().map(|r| row_clue_width(r)).max().unwrap_or(0);
+    let cell = ((width - 2 * MARGIN - clue_w - CLUE_PAD) / N as i64).min(MAX_CELL);
+    let size = cell * N as i64;
+    let left = (width - (clue_w + CLUE_PAD + size)) / 2;
     let top = cols.iter().map(Vec::len).max().unwrap_or(1) as i64 * CLUE_H + 6;
-    let size = CELL * N as i64;
-    let (ox, oy) = (512 - size - 6, top);
+    let (ox, oy) = (left + clue_w + CLUE_PAD, top);
     let mut img = draw::canvas((oy + size + 8) as u32);
 
     // Indices des colonnes, empilés au-dessus de la grille, alignés en bas.
     for (x, clue) in cols.iter().enumerate() {
-        let cx = ox + x as i64 * CELL + CELL / 2;
+        let cx = ox + x as i64 * cell + cell / 2;
         for (k, &n) in clue.iter().rev().enumerate() {
-            let y = oy - 4 - (k as i64 + 1) * CLUE_H + 5;
+            let y = oy - (k as i64 + 1) * CLUE_H;
             draw::number(&mut img, n, cx - draw::number_width(n, SCALE) / 2, y, SCALE);
         }
     }
-    // Indices des lignes, à gauche, alignés à droite.
+    // Indices des lignes, à gauche, alignés à droite contre la grille.
     for (y, clue) in rows.iter().enumerate() {
-        let cy = oy + y as i64 * CELL + (CELL - draw::DIGIT_H * SCALE) / 2;
-        let mut x = ox - 8;
+        let cy = oy + y as i64 * cell + (cell - draw::DIGIT_H * SCALE) / 2;
+        let mut x = ox - CLUE_PAD;
         for &n in clue.iter().rev() {
             x -= draw::number_width(n, SCALE);
             draw::number(&mut img, n, x, cy, SCALE);
-            x -= CLUE_GAP + 4;
+            x -= CLUE_GAP;
         }
     }
     if solution {
         for (y, row) in grid.iter().enumerate() {
             for (x, &filled) in row.iter().enumerate() {
                 if filled {
-                    draw::fill_rect(&mut img, ox + x as i64 * CELL, oy + y as i64 * CELL, CELL, CELL);
+                    draw::fill_rect(&mut img, ox + x as i64 * cell, oy + y as i64 * cell, cell, cell);
                 }
             }
         }
@@ -219,8 +238,8 @@ fn render(grid: &[Vec<bool>], solution: bool) -> GrayImage {
     // Quadrillage : traits épais tous les cinq.
     for k in 0..=N as i64 {
         let thick = if k % 5 == 0 { 4 } else { 1 };
-        draw::fill_rect(&mut img, ox + k * CELL - thick / 2, oy, thick, size);
-        draw::fill_rect(&mut img, ox, oy + k * CELL - thick / 2, size, thick);
+        draw::fill_rect(&mut img, ox + k * cell - thick / 2, oy, thick, size);
+        draw::fill_rect(&mut img, ox, oy + k * cell - thick / 2, size, thick);
     }
     img
 }
@@ -346,6 +365,19 @@ mod tests {
             }
         }
         assert!(ambiguous.is_empty(), "solution ambiguë : {ambiguous:?}");
+    }
+
+    #[test]
+    fn grid_is_centered_and_fills_the_width() {
+        for (name, picture) in PICTURES {
+            let img = render(&cells(picture), false);
+            let ink: Vec<u32> =
+                (0..img.width()).filter(|&x| (0..img.height()).any(|y| img.get_pixel(x, y).0[0] == 0)).collect();
+            let (first, last) = (ink[0], *ink.last().unwrap());
+            let (gap_left, gap_right) = (first, img.width() - 1 - last);
+            assert!(gap_left.abs_diff(gap_right) <= 8, "{name} : décentré ({gap_left} / {gap_right})");
+            assert!(last - first >= 440, "{name} : trop étroit ({} points)", last - first);
+        }
     }
 
     #[test]

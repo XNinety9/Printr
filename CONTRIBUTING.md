@@ -135,7 +135,7 @@ Toolbox of `Doc` (`src/doc.rs`):
 
 | Method | Effect |
 | --- | --- |
-| `header("Title")` | Reversed banner (white on black) across the full width |
+| `header("Title")` | Reversed banner (white on black) across the full width, unless `PRINTR_HEADER_STYLE` says otherwise |
 | `text(text, style)` | Word-wrapped text; an empty line skips a line |
 | `hanging("Prefix: ", text, style)` | Text whose following lines align after the prefix |
 | `line(text, style)` | One line as is, spaces kept: ideal for columns |

@@ -740,7 +740,7 @@ uv run --with pillow python docs/brand/make-assets.py   # déclinaisons du logo 
 
 Printr parle **ESC/POS** et met les tickets en page pour du **papier de 80 mm** : 512 points de large à
 180 dpi, 42 colonnes en police A et 56 en police B, images envoyées en raster (`GS v 0`), page de code
-PC858 (accents et €) et massicot (`GS V`). Si les accents manquent à l'impression (certains clones n'ont pas la page 19), `PRINTR_CODEPAGE=850` sélectionne PC850 (`ESC t 2`) : le `€` s'imprime alors « EUR ». Sur les imprimantes 80 mm à 203 dpi, dont la tête fait 576 points, `PRINTR_PAPER_WIDTH=576` (réglable aussi dans l'appli) utilise toute la largeur : 48 colonnes en police A, 64 en police B, et les dessins centrés.
+PC858 (accents et €) et massicot (`GS V`). Si les accents manquent à l'impression (certains clones n'ont pas la page 19), `PRINTR_CODEPAGE=850` sélectionne PC850 (`ESC t 2`) : le `€` s'imprime alors « EUR ». Sur les imprimantes 80 mm à 203 dpi, dont la tête fait 576 points, `PRINTR_PAPER_WIDTH=576` (réglable aussi dans l'appli) utilise toute la largeur : 48 colonnes en police A, 64 en police B, et les dessins centrés. Si les titres de section sortent en bandeau noir illisible, `PRINTR_HEADER_STYLE=plain` (réglable aussi dans l'appli) les imprime en gras, soulignés d'un trait.
 
 | Imprimante | Prise en charge |
 |---|---|

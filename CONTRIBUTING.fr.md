@@ -135,7 +135,7 @@ La boîte à outils de `Doc` (`src/doc.rs`) :
 
 | Méthode | Effet |
 | --- | --- |
-| `header("Titre")` | Bandeau inversé (blanc sur noir) sur toute la largeur |
+| `header("Titre")` | Bandeau inversé (blanc sur noir) sur toute la largeur, sauf avis contraire de `PRINTR_HEADER_STYLE` |
 | `text(texte, style)` | Texte coupé aux mots ; une ligne vide saute une ligne |
 | `hanging("Préfixe : ", texte, style)` | Texte dont les lignes suivantes s'alignent après le préfixe |
 | `line(texte, style)` | Une ligne telle quelle, espaces conservés : idéal pour des colonnes |

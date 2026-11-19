@@ -2428,6 +2428,7 @@ function SettingsSheet({ onClose }) {
           <button type="button" class="btn secondary small" onClick=${() => setPrinter(true)}>${T('Changer et tester', 'Change and test')}</button></span></div>`}
     ${choice('PRINTR_CODEPAGE', T('Page de code', 'Code page'), [['', T('PC858 (avec €)', 'PC858 (with €)')], ['850', 'PC850']])}
     ${choice('PRINTR_PAPER_WIDTH', T('Largeur du papier', 'Paper width'), [['', T('512 points (TM-T88)', '512 dots (TM-T88)')], ['576', T('576 points (la plupart des 80 mm)', '576 dots (most 80 mm printers)')]])}
+    ${choice('PRINTR_HEADER_STYLE', T('Titres de section', 'Section headers'), [['', T('Blanc sur noir', 'White on black')], ['plain', T('Noir sur blanc, souligné', 'Black on white, underlined')]])}
 
     <div class="section-title">Claude</div>
     ${secret('ANTHROPIC_API_KEY', T('Clé d’API Anthropic', 'Anthropic API key'), html`<a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>`)}
