@@ -1,0 +1,30 @@
+{
+  "_comment": [
+    "Planches de coloriages : une ligne par planche, dans assets/coloring/.",
+    "Chaque planche est une grille régulière de cases de tile_width × tile_height points, avec un dessin centré par case,",
+    "en noir et blanc pur, déjà à la taille d'impression (tile_width : 512 au plus, la largeur du papier).",
+    "columns : nombre de cases par ligne ; count : nombre de dessins. Le nombre de lignes s'en déduit :",
+    "lignes = count / columns, arrondi au-dessus (50 dessins sur 10 colonnes : 5 lignes ; 23 sur 10 : 3 lignes, la dernière incomplète).",
+    "Le dessin n° n (à partir de 1) est en colonne (n - 1) % columns, ligne (n - 1) / columns.",
+    "L'image doit mesurer exactement columns × tile_width de large et lignes × tile_height de haut : cargo test le vérifie.",
+    "Les numéros se suivent d'une planche à l'autre d'une même catégorie, dans l'ordre de ce fichier.",
+    "category : christmas, animals, birthday, vehicles, fairy_tales ; level : level_1, level_2, level_3."
+  ],
+  "sheets": [
+    { "file": "noel-1.png", "category": "christmas", "level": "level_1", "columns": 10, "tile_width": 400, "tile_height": 400, "count": 50 },
+    { "file": "noel-2.png", "category": "christmas", "level": "level_2", "columns": 10, "tile_width": 480, "tile_height": 480, "count": 50 },
+    { "file": "noel-3.png", "category": "christmas", "level": "level_3", "columns": 10, "tile_width": 512, "tile_height": 512, "count": 50 },
+    { "file": "animaux-1.png", "category": "animals", "level": "level_1", "columns": 10, "tile_width": 400, "tile_height": 400, "count": 50 },
+    { "file": "animaux-2.png", "category": "animals", "level": "level_2", "columns": 10, "tile_width": 480, "tile_height": 480, "count": 50 },
+    { "file": "animaux-3.png", "category": "animals", "level": "level_3", "columns": 10, "tile_width": 512, "tile_height": 512, "count": 50 },
+    { "file": "anniversaire-1.png", "category": "birthday", "level": "level_1", "columns": 10, "tile_width": 400, "tile_height": 400, "count": 50 },
+    { "file": "anniversaire-2.png", "category": "birthday", "level": "level_2", "columns": 10, "tile_width": 480, "tile_height": 480, "count": 50 },
+    { "file": "anniversaire-3.png", "category": "birthday", "level": "level_3", "columns": 10, "tile_width": 512, "tile_height": 512, "count": 50 },
+    { "file": "vehicules-1.png", "category": "vehicles", "level": "level_1", "columns": 10, "tile_width": 400, "tile_height": 400, "count": 50 },
+    { "file": "vehicules-2.png", "category": "vehicles", "level": "level_2", "columns": 10, "tile_width": 480, "tile_height": 480, "count": 50 },
+    { "file": "vehicules-3.png", "category": "vehicles", "level": "level_3", "columns": 10, "tile_width": 512, "tile_height": 512, "count": 50 },
+    { "file": "contes-1.png", "category": "fairy_tales", "level": "level_1", "columns": 10, "tile_width": 400, "tile_height": 400, "count": 50 },
+    { "file": "contes-2.png", "category": "fairy_tales", "level": "level_2", "columns": 10, "tile_width": 480, "tile_height": 480, "count": 50 },
+    { "file": "contes-3.png", "category": "fairy_tales", "level": "level_3", "columns": 10, "tile_width": 512, "tile_height": 512, "count": 50 }
+  ]
+}

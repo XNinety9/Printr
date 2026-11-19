@@ -15,6 +15,13 @@ Koenig, Tolbert Lanston…
   set in the app (My account → Settings → Paper width): tickets printed 64 mm wide and off-center there.
   Text now uses 48 columns in font A and 64 in font B, and images narrower than the paper are centered
   when printed, so drawn blocks keep their 512-dot layout. Without the setting, nothing changes.
+- **Coloring page: a category and a level.** Besides the mandala, **Christmas**, **animals**, **birthday**, **vehicles** and **fairy tales & magic**, at
+  three levels: level 1 (ages 3–6, big areas), level 2 (ages 5–8, more details) and level 3 (ages 8
+  and up, large, very detailed drawings across the full paper width), 50 drawings each, numbered 1 to
+  50 (1 to 150 across all levels; random if no number is set). The mandala has three levels too:
+  the usual one is level 2 (the default), level 1 is simpler with thicker lines, level 3 denser with
+  finer lines. “All categories” and “all levels” draw at random, the same drawing for the same
+  number. Existing tickets keep printing exactly the same mandala.
 
 ## [2.0.2] “Mergenthaler” - 2026-10-26
 

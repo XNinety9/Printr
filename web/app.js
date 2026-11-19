@@ -201,6 +201,20 @@ const WORD_THEMES = [
   ['developpement', T('Développement', 'Development')], ['devops', 'DevOps'], ['reseaux', T('Réseaux', 'Networking')],
   ['ia', T('Intelligence artificielle', 'Artificial intelligence')],
 ];
+// Le serveur accepte aussi les noms français : ramenés aux valeurs de ces listes à l'ouverture.
+const COLORING_LEVELS = [
+  ['all', T('Tous les niveaux', 'All levels')], ['level_1', T('Niveau 1 · 3–6 ans', 'Level 1 · ages 3–6')], ['level_2', T('Niveau 2 · 5–8 ans', 'Level 2 · ages 5–8')],
+  ['level_3', T('Niveau 3 · 8 ans et plus', 'Level 3 · ages 8 and up')],
+];
+const COLORING_CATEGORIES = [['all', T('Toutes les catégories', 'All categories')], ['mandala', 'Mandala'], ['christmas', T('Noël', 'Christmas')], ['animals', T('Animaux', 'Animals')], ['birthday', T('Anniversaire', 'Birthday')],
+  ['vehicles', T('Véhicules', 'Vehicles')], ['fairy_tales', T('Contes et magie', 'Fairy tales & magic')]];
+const COLORING_FRENCH = {
+  level: { tous: 'all', tous_niveaux: 'all', niveau_1: 'level_1', 1: 'level_1', niveau_2: 'level_2', 2: 'level_2', niveau_3: 'level_3', 3: 'level_3' },
+  category: {
+    toutes: 'all', tous: 'all', toutes_categories: 'all', noel: 'christmas', 'noël': 'christmas', animaux: 'animals',
+    anniversaire: 'birthday', vehicules: 'vehicles', 'véhicules': 'vehicles', contes: 'fairy_tales', contes_et_magie: 'fairy_tales', magie: 'fairy_tales',
+  },
+};
 const PICTOS = [['coeur', '❤️'], ['etoile', '⭐'], ['soleil', '☀️'], ['fleur', '🌸'], ['sourire', '😊']];
 const label = (options, value) => options.find(([v]) => v === value)?.[1] ?? value;
 const inDays = (n) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
@@ -600,9 +614,27 @@ const BLOCKS = [
     summary: () => T('Problème du jour', 'Daily puzzle'),
   },
   {
-    type: 'coloring', label: T('Coloriage', 'Coloring'), emoji: '🎨', group: G.challenges, desc: T('Un mandala à colorier, toujours différent', 'A mandala to color, always different'),
-    defaults: {},
-    fields: [{ key: 'seed', label: T('Numéro du mandala', 'Mandala number'), kind: 'number', optional: true, help: T('Laisse vide pour un nouveau mandala.', 'Leave empty for a new mandala.') }],
+    type: 'coloring', label: T('Coloriage', 'Coloring'), emoji: '🎨', group: G.challenges, desc: T('Mandala, Noël, animaux, anniversaire, véhicules ou contes à colorier', 'Mandala, Christmas, animals, birthday, vehicles or fairy tales to color'),
+    // Mandala niveau 2 : le mandala d'avant les niveaux. `default` : ce qu'affiche un ancien bloc
+    // sans ces réglages, comme le serveur l'imprime.
+    defaults: { level: 'level_2', category: 'mandala' },
+    fields: [
+      { key: 'level', label: T('Âge & niveau', 'Age & level'), kind: 'select', options: COLORING_LEVELS, default: 'level_2' },
+      { key: 'category', label: T('Catégorie', 'Category'), kind: 'select', options: COLORING_CATEGORIES, default: 'mandala' },
+      { key: 'seed', label: T('Numéro du dessin', 'Drawing number'), kind: 'number', optional: true, min: 1,
+        help: T('Laisse vide pour un dessin au hasard. Le même numéro redonne le même dessin.', 'Leave empty for a random drawing. The same number gives the same drawing again.') },
+    ],
+    // Ticket JSON écrit en français (`"categorie": "noel"`) : sans cela, la liste afficherait la
+    // valeur par défaut et le bloc porterait à la fois `category` et `categorie`, que le serveur
+    // refuse.
+    load: (d) => {
+      for (const [fr, key] of [['categorie', 'category'], ['niveau', 'level']]) {
+        if (fr in d) { d[key] = d[fr]; delete d[fr]; }
+        d[key] = COLORING_FRENCH[key][d[key]] ?? d[key];
+      }
+      return d;
+    },
+    summary: (b) => `${label(COLORING_CATEGORIES, b.category ?? 'mandala')} · ${label(COLORING_LEVELS, b.level ?? 'level_2')}`,
   },
   {
     type: 'coupon', label: T('Bon à offrir', 'Gift voucher'), emoji: '🎟️', group: G.gift, desc: T('« Bon pour un petit-déjeuner au lit »', '“Voucher for breakfast in bed”'),
@@ -868,7 +900,11 @@ function composerFromPreset(preset, copy = false) {
     schedules: copy ? [] : clone(preset.schedules || []),
     cut: t.cut ?? true,
     spacing: t.spacing ?? 1,
-    blocks: (t.blocks || []).map((data) => ({ uid: uid(), open: false, data: { ...clone(BLOCK[data.type]?.defaults || {}), ...data } })),
+    blocks: (t.blocks || []).map((data) => {
+      const def = BLOCK[data.type];
+      const merged = { ...clone(def?.defaults || {}), ...data };
+      return { uid: uid(), open: false, data: def?.load ? def.load(merged) : merged };
+    }),
   };
 }
 
@@ -1178,7 +1214,7 @@ function FieldInput({ field, value, onChange }) {
       return html`<input class="input" type="number" inputmode="numeric" min=${field.min} max=${field.max} value=${value ?? ''}
         placeholder=${field.optional ? T('Au hasard', 'Random') : ''} onInput=${(e) => onChange(e.target.value === '' ? '' : Number(e.target.value))} />`;
     case 'select':
-      return html`<select class="input" value=${value ?? ''} onChange=${(e) => onChange(e.target.value)}>
+      return html`<select class="input" value=${value ?? field.default ?? ''} onChange=${(e) => onChange(e.target.value)}>
         ${field.options.map(([v, text]) => html`<option value=${v}>${text}</option>`)}
       </select>`;
     case 'segmented':
@@ -1559,7 +1595,7 @@ const KEYWORDS = {
   crossword: 'mots croises crossword grille grid definitions clues', nonogram: 'logimage nonogram picross pixel',
   petit_bac: 'petit bac categories jeu game', mental_math: 'calcul mental math maths additions multiplications tables enfants kids',
   anagram: 'mot mystere anagramme anagram lettres letters', cipher: 'message code secret cesar caesar morse',
-  coloring: 'coloriage coloring mandala dessin', coupon: 'bon cadeau coupon gift offrir',
+  coloring: 'coloriage coloring mandala dessin drawing noel christmas animaux animals anniversaire birthday vehicules vehicles voitures cars contes fairy tales magie magic princesse princess enfants kids', coupon: 'bon cadeau coupon gift offrir',
   news: 'actualites news rss presse journal', on_this_day: 'ephemeride histoire history wikipedia', crypto: 'crypto bitcoin ethereum',
   todo: 'faire todo liste list taches tasks',
   recipe: 'recette recipe cuisine cooking ingredients plat dish site', recipe_claude: 'recette recipe cuisine cooking ingredients plat dish claude ia ai',

@@ -1,0 +1,10 @@
+{
+  "cut": true,
+  "blocks": [
+    { "type": "title", "text": "Pour toi !" },
+    { "type": "coloriage", "categorie": "noel", "niveau": "niveau_1", "seed": 1 },
+    { "type": "coloriage", "categorie": "noel", "niveau": "niveau_2", "seed": 1 },
+    { "type": "coloring", "category": "animals" },
+    { "type": "coloriage", "categorie": "mandala", "niveau": "niveau_1", "seed": 42 }
+  ]
+}

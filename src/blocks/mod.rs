@@ -622,9 +622,18 @@ pub enum Block {
         #[serde(default)]
         location: String,
     },
-    /// Mandala à colorier.
+    /// Coloriage : un mandala, ou un dessin d'une planche (Noël, animaux…), à trois niveaux.
     #[serde(alias = "coloriage")]
     Coloring {
+        /// `mandala` (défaut), `christmas` (`noel`), `animals` (`animaux`),
+        /// `birthday` (`anniversaire`), `vehicles` (`vehicules`), `fairy_tales` (`contes`) ou `all`
+        /// (`toutes`).
+        #[serde(default, alias = "categorie")]
+        category: coloring::Category,
+        /// `all` (`tous`), `level_1` (`niveau_1`), `level_2` (`niveau_2`, défaut : le mandala
+        /// historique des anciens tickets) ou `level_3` (`niveau_3`).
+        #[serde(default, alias = "niveau")]
+        level: coloring::Level,
         #[serde(default)]
         seed: Option<u64>,
     },
@@ -860,6 +869,10 @@ impl Block {
             Block::Sun { location } | Block::Sky { location } => pick_location(location, city().as_deref()),
             Block::News { title, .. } => Some(title.clone()),
             Block::Workout { level, .. } => Some(level.label().to_owned()),
+            Block::Coloring { category, level, .. } => match (category, level) {
+                (coloring::Category::Mandala, coloring::Level::Level2) => None,
+                _ => Some(format!("{}, {}", category.label(), level.label())),
+            },
             Block::Picto { shape, .. } => Some(shape.label().to_owned()),
             Block::Barnum { sign, birth_date, .. } => {
                 birth_date.map(|d| tr!("né le {d}", "born {d}")).or_else(|| sign.clone())
@@ -1061,7 +1074,7 @@ impl Block {
             Block::Story { children, theme, length } => doc = story::build(ctx, children, theme, *length)?,
             Block::Agenda { calendars, days, title } => doc = agenda::build(ctx, calendars, *days, title.as_deref())?,
             Block::MonthlyReport { month } => doc = monthly::build(month.as_deref(), ctx.today)?,
-            Block::Coloring { seed } => doc = coloring::build(*seed),
+            Block::Coloring { category, level, seed } => doc = coloring::build(*category, *level, *seed),
             Block::ArrowWord { size, level, seed, solution } => {
                 let options = arrow_word::Options { size: *size, level: *level, seed: *seed, solution: *solution };
                 doc = arrow_word::build(ctx, &options)?;
