@@ -203,8 +203,6 @@ fn timely(hour: u32) -> &'static str {
 /// Caractères de bruit, tous présents dans la page PC858 de l'imprimante.
 #[rustfmt::skip]
 const NOISE: &[char] = &['░', '▒', '▓', '█', '▄', '▀', '■', '¤', '§', '¶', '¦', '±', '÷', '¬', '¸', '¨', '·', '‗', '¯', 'þ', 'ð', 'ø', '#', '%', '&', '@', '/', '\\', '|', '_'];
-const COLUMNS: usize = 42;
-const COLUMNS_SMALL: usize = 56;
 
 /// Faut-il glisser un glitch dans ce ticket ? Une chance sur `PRINTR_GLITCH` (20 par défaut, 0 : jamais).
 pub fn chance() -> bool {
@@ -303,7 +301,7 @@ pub fn build(seed: Option<u64>) -> Doc {
     if rng.random_bool(0.6) {
         doc.line(&hex_line(&mut rng), Style::default().small());
     }
-    doc.line(&static_line(COLUMNS_SMALL, &mut rng), Style::default().small());
+    doc.line(&static_line(Style::default().small().columns(), &mut rng), Style::default().small());
 
     // Le message lui-même, mot à mot, de plus en plus abîmé.
     let words: Vec<&str> = message.split(' ').collect();
@@ -330,8 +328,7 @@ pub fn build(seed: Option<u64>) -> Doc {
         if i == upside_down {
             style = style.upside_down();
         }
-        let width = if style.small { COLUMNS_SMALL } else { COLUMNS };
-        doc.line(&offset(&text, width, &mut rng), style);
+        doc.line(&offset(&text, style.columns(), &mut rng), style);
     }
 
     // L'écho : le dernier mot se répète en s'effaçant.
@@ -339,10 +336,10 @@ pub fn build(seed: Option<u64>) -> Doc {
         let last = message.trim_end_matches(['.', '?', '!']).rsplit(' ').next().unwrap_or(message);
         let echo: Vec<String> =
             (0..rng.random_range(3..=5)).map(|i| corrupt(last, 0.15 * i as f64, &mut rng)).collect();
-        doc.line(&offset(&echo.join("  "), COLUMNS_SMALL, &mut rng), Style::default().small());
+        doc.line(&offset(&echo.join("  "), Style::default().small().columns(), &mut rng), Style::default().small());
     }
     if rng.random_bool(0.5) {
-        doc.line(&static_line(COLUMNS, &mut rng), Style::default());
+        doc.line(&static_line(Style::default().columns(), &mut rng), Style::default());
     }
     doc.image(noise_band(&mut rng));
     doc

@@ -103,11 +103,12 @@ pub fn build(letter: Option<char>, categories: &[String], count: u8, players: u8
         categories.to_vec()
     };
 
+    let width = Style::default().columns();
     let mut doc = Doc::new();
     for player in 0..players.clamp(1, 6) {
         if player > 0 {
             doc.feed(1);
-            doc.line(&"- ".repeat(21), Style::default());
+            doc.line(&"- ".repeat(width / 2), Style::default());
             doc.feed(1);
         }
         doc.header(t("Petit bac", "Categories"));
@@ -116,10 +117,10 @@ pub fn build(letter: Option<char>, categories: &[String], count: u8, players: u8
         doc.text(&letter.to_string(), Style::default().bold().center().size(5));
         doc.feed(1);
         for category in &categories {
-            doc.line(&line(category, 42), Style::default());
+            doc.line(&line(category, width), Style::default());
             doc.feed(1);
         }
-        doc.line(&format!("{:>42}", t("Points : ......", "Points: ......")), Style::default().bold());
+        doc.line(&format!("{:>width$}", t("Points : ......", "Points: ......")), Style::default().bold());
         doc.text(&tr!("n° {seed}", "No. {seed}"), Style::default().small().align(Align::Right));
     }
     doc

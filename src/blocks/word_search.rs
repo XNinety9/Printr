@@ -430,9 +430,10 @@ pub fn build(difficulty: Difficulty, theme: Option<Theme>, words: &[String], see
     doc.feed(1);
     doc.image(render(&puzzle, solution));
 
-    // Liste des mots en trois colonnes de 14 caractères (42 au total).
+    // Liste des mots en trois colonnes d'un tiers de largeur (14 caractères en 512 points).
+    let third = Style::default().columns() / 3;
     for row in puzzle.words.chunks(3) {
-        let line: String = row.iter().map(|w| format!("{w:^14}")).collect();
+        let line: String = row.iter().map(|w| format!("{w:^third$}")).collect();
         doc.line(&line, Style::default());
     }
     doc.text(&tr!("n° {seed}", "No. {seed}"), Style::default().small().align(Align::Right));

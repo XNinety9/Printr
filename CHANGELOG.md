@@ -16,6 +16,11 @@ Koenig, Tolbert Lanston…
   Text now uses 48 columns in font A and 64 in font B, and images narrower than the paper are centered
   when printed, so drawn blocks keep their 512-dot layout. Without the setting, nothing changes.
 
+### Fixed
+- **Mental math, anagram, categories, word search and glitch on 576-dot paper**
+  (`PRINTR_PAPER_WIDTH=576`): their lines were laid out for 42 columns and came out off-center. They now
+  follow the paper's column count. Nothing changes on 512-dot paper.
+
 ## [2.0.2] “Mergenthaler” - 2026-10-26
 
 ### Fixed

@@ -264,16 +264,18 @@ pub fn build(level: Level, choice: &Choice, count: u8, seed: Option<u64>) -> Doc
     let mut doc = Doc::new();
     doc.header(&title(level));
     doc.feed(1);
-    // Deux colonnes de 21 caractères : « 12) 48 ÷ 6 = ____ ».
+    // Deux colonnes d'une demi-largeur (21 caractères en 512 points) : « 12) 48 ÷ 6 = ____ ».
+    let width = Style::default().columns();
+    let half = width / 2;
     let cell = |i: usize, p: &Problem| format!("{:>2}) {} = ____", i + 1, p.text);
     for (row, pair) in problems.chunks(2).enumerate() {
         let left = cell(row * 2, &pair[0]);
         let right = pair.get(1).map(|p| cell(row * 2 + 1, p)).unwrap_or_default();
-        doc.line(&format!("{left:<21}{right}"), Style::default());
+        doc.line(&format!("{left:<half$}{right}"), Style::default());
         doc.feed(1);
     }
     let score = tr!("Score : ...... / {count}", "Score: ...... / {count}");
-    doc.line(&format!("{score:>42}"), Style::default().bold());
+    doc.line(&format!("{score:>width$}"), Style::default().bold());
     doc.text(&tr!("n° {seed}", "No. {seed}"), Style::default().small().align(Align::Right));
     doc.feed(1);
     let answers: Vec<String> = problems.iter().enumerate().map(|(i, p)| format!("{}) {}", i + 1, p.answer)).collect();
