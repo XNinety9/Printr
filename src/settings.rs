@@ -41,6 +41,7 @@ pub const SETTINGS: &[(&str, Kind)] = &[
     ("PRINTR_TCP", Kind::Address),
     ("PRINTR_CODEPAGE", Kind::Choice(&["850"])),
     ("PRINTR_PAPER_WIDTH", Kind::Choice(&["576"])),
+    ("PRINTR_HEADER_STYLE", Kind::Choice(&["plain"])),
     ("ANTHROPIC_API_KEY", Kind::Secret),
     ("PRINTR_CLAUDE_MODEL", Kind::Text),
     // Pas ANTHROPIC_BASE_URL : la clé part vers cette adresse, et l'appli ne doit jamais la livrer.

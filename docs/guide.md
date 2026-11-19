@@ -732,7 +732,7 @@ uv run --with pillow python docs/brand/make-assets.py   # logo variants and app 
 
 Printr speaks **ESC/POS** and lays tickets out for **80 mm paper**: 512 dots wide at 180 dpi, 42
 columns in font A and 56 in font B, images sent as raster (`GS v 0`), the PC858 code page (accents
-and €), and the cutter (`GS V`). If accents are missing from prints (some clones lack code page 19), `PRINTR_CODEPAGE=850` selects PC850 (`ESC t 2`): `€` is then printed as “EUR”. On 80 mm printers at 203 dpi, whose print head is 576 dots wide, `PRINTR_PAPER_WIDTH=576` (also in the app's settings) uses the full width: 48 columns in font A, 64 in font B, and drawn blocks centered.
+and €), and the cutter (`GS V`). If accents are missing from prints (some clones lack code page 19), `PRINTR_CODEPAGE=850` selects PC850 (`ESC t 2`): `€` is then printed as “EUR”. On 80 mm printers at 203 dpi, whose print head is 576 dots wide, `PRINTR_PAPER_WIDTH=576` (also in the app's settings) uses the full width: 48 columns in font A, 64 in font B, and drawn blocks centered. If section headers come out as an unreadable black band, `PRINTR_HEADER_STYLE=plain` (also in the app's settings) prints them as a bold title over a rule instead.
 
 | Printer | Support |
 |---|---|
