@@ -11,6 +11,11 @@ Koenig, Tolbert Lanston…
 ## [Unreleased]
 
 ### Added
+- **Saved to-do lists** ("This week", "This weekend"…): a new **To do** card on the home screen
+  manages as many lists as you like, shared by the family like the shopping list. The **To do** block
+  can now print one of them instead of the lines written in the block, under the list's title, and
+  optionally empty it once printed: in a scheduled ticket, it prints whatever was added since. Blocks
+  written in the ticket work as before, and remain the default. API: `/api/todo-lists`.
 - **`PRINTR_PAPER_WIDTH=576`** for 80 mm printers at 203 dpi (most brands other than the TM-T88), also
   set in the app (My account → Settings → Paper width): tickets printed 64 mm wide and off-center there.
   Text now uses 48 columns in font A and 64 in font B, and images narrower than the paper are centered

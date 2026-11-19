@@ -39,6 +39,7 @@ mod story;
 mod sudoku;
 mod sun;
 mod takuzu;
+mod todo;
 mod train_tracks;
 mod weather;
 mod weather_icon;
@@ -221,7 +222,14 @@ pub enum Block {
     Todo {
         #[serde(default)]
         title: Option<String>,
+        #[serde(default)]
         items: Vec<String>,
+        /// Identifiant d'une liste enregistrée dans l'appli, imprimée à la place de `items`.
+        #[serde(default)]
+        list: Option<String>,
+        /// Vide la liste enregistrée une fois imprimée (impressions par le serveur).
+        #[serde(default)]
+        clear: bool,
     },
     Sudoku {
         #[serde(default)]
@@ -966,11 +974,8 @@ impl Block {
             }
             Block::Horoscope { sign, tone } => doc = horoscope::build(ctx, sign, *tone)?,
             Block::Saint {} => doc = saint::build(ctx.today),
-            Block::Todo { title, items } => {
-                doc.header(title.as_deref().unwrap_or(i18n::t("À faire", "To do")));
-                for item in items {
-                    doc.hanging("[ ] ", item, Style::default());
-                }
+            Block::Todo { title, items, list, .. } => {
+                doc = todo::build(title.as_deref(), items, list.as_deref())?;
             }
             Block::Sudoku { difficulty, seed, solution } => doc = sudoku::build(*difficulty, *seed, *solution),
             Block::Takuzu { difficulty, seed, solution } => doc = takuzu::build(*difficulty, *seed, *solution),

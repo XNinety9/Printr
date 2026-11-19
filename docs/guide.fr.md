@@ -101,7 +101,7 @@ Un paramètre inconnu est une erreur, pour repérer les fautes de frappe.
 | `barnum` | `sign` ou `birth_date` (`AAAA-MM-JJ`), `sky` (false), `variant` | Horoscope hors ligne et gratuit, calculé sur le vrai ciel par [Barnum](https://github.com/XNinety9/Barnum) : jauges par domaine, conseil, et en option la position des planètes |
 | `horoscope` | `sign`, `tone` (`serieux`/`farfelu`/`vachard`/`insultant`) | Généré par Claude, sur un thème tiré au hasard. Signe en français ou en anglais |
 | `saint` | — | Calendrier local, hors ligne |
-| `todo` | `items`, `title` (« À faire ») | Cases à cocher |
+| `todo` | `items`, `title` (« À faire »), `list`, `clear` (false) | Cases à cocher. Avec `list` (l'identifiant d'une liste à faire enregistrée), imprime cette liste de l'appli au lieu de `items`, sous son propre titre sauf si `title` est donné ; avec `clear`, le serveur la vide une fois imprimée |
 | `recipe` (ou `recette`) | `url`, `steps` (true), `qr` (true) | Recette lue sur son site (données schema.org, présentes sur la plupart des sites de cuisine) : ingrédients à cocher et étapes numérotées, sans la publicité ; `"steps": false` n'imprime que les ingrédients |
 | `recipe_claude` (ou `recette_claude`) | `dish` (ou `plat`), `servings` (4), `steps` (true) | Recette d'un plat rédigée par Claude à l'impression, même présentation ; gardée en cache par plat |
 | `recipe_from_ingredients` (ou `recette_ingredients`) | `ingredients` (un par ligne ou séparés par des virgules), `servings` (4), `wish` (ou `envie`, facultatif : « rapide », « végétarien »…), `steps` (true) | Qu'est-ce qu'on mange ? Claude rédige une recette avec les ingrédients qu'on a, plus seulement les basiques du placard |
@@ -292,6 +292,10 @@ France, nommés en anglais.
 - **Courses** : la liste partagée de la famille ; chacun ajoute ce qui manque, on l'imprime en
   partant (et elle se vide toute seule). Un raccourci iOS peut aussi y ajouter des articles
   avec `POST /api/shopping` et le jeton.
+- **À faire** : des listes enregistrées (« Cette semaine », « Ce week-end »…), partagées par la
+  famille comme les courses. Un bloc **À faire** imprime soit les lignes écrites dans le bloc, comme
+  avant, soit l'une de ces listes : dans un ticket planifié, la liste du samedi matin est ce que la
+  famille y a ajouté pendant la semaine.
 - **Historique** : qui a imprimé quoi, et les éventuelles erreurs.
 
 Chaque membre de la famille a son compte. Le premier se crée sur l'écran d'accueil de
@@ -352,7 +356,7 @@ repartent jamais vers l'appli, qui indique seulement s'ils sont définis.
 ### Sauvegarde
 
 Depuis **Mon compte**, l'administrateur télécharge une **sauvegarde** : comptes, tickets et leurs
-planifications, historique, liste de courses, anniversaires de la famille, réglages et photos, dans un
+planifications, historique, liste de courses, listes à faire, anniversaires de la famille, réglages et photos, dans un
 seul fichier JSON. Elle contient la clé Claude et les mots de passe (hachés) : à garder en lieu sûr.
 **Restaurer** remplace tout cela par le contenu du fichier ; l'état actuel est d'abord gardé dans
 `backups/`, à côté des données (les cinq derniers), et chacun se reconnecte.
@@ -379,6 +383,8 @@ printr serve --listen 0.0.0.0:8080 --token $(openssl rand -hex 24)   # jeton : o
 | `POST /print` | Un ticket JSON | Imprime le ticket |
 | `POST /todo` | `{"title"?, "items"?: [...], "text"?: "une\nligne\npar\nélément"}` | Imprime la date et une liste à cocher |
 | `POST /api/shopping` | `{"text": "lait\npain"}` | Ajoute des articles à la liste de courses (un par ligne) |
+| `GET /api/todo-lists` | — | Les listes à faire enregistrées, avec leurs identifiants et leurs éléments |
+| `POST /api/todo-lists/<id>/items` | `{"text": "tondre\nappeler mamie"}` | Ajoute des choses à une liste à faire enregistrée (une par ligne) |
 | `GET /api/status` | — | État de l'imprimante (`printer_status`), file d'attente, jauge de papier (`paper`), version |
 | `POST /api/paper/roll` | `{"length_m"?: 70}` | Un rouleau neuf est posé : remet la jauge à zéro (longueur en mètres, celle du rouleau précédent si absente) |
 
