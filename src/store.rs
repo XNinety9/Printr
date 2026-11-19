@@ -246,6 +246,10 @@ pub struct Data {
     pub hidden_blocks: Vec<String>,
     #[serde(default)]
     pub paper: Paper,
+    /// Correction de l'avance du papier pour les gadgets à la taille réelle (règle…), en pour
+    /// mille : 1010 allonge de 1 %. Aucune : 1000.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub calibration: Option<u16>,
     /// Réglages faits dans l'appli par l'administrateur (voir `settings`), par nom de variable.
     #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
     pub settings: std::collections::BTreeMap<String, String>,

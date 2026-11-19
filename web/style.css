@@ -124,7 +124,7 @@ img { max-width: 100%; display: block; }
 
 .tabbar {
   position: fixed; inset: auto 0 0 0; z-index: 30;
-  display: grid; grid-template-columns: repeat(4, 1fr);
+  display: grid; grid-template-columns: repeat(5, 1fr);
   height: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
   padding-bottom: env(safe-area-inset-bottom);
   background: color-mix(in srgb, var(--surface) 88%, transparent);
@@ -519,6 +519,33 @@ textarea.input.code { font-family: var(--mono); font-size: 13px; line-height: 1.
 .pictos button.on { border-color: var(--accent); background: var(--accent-soft); transform: scale(1.06); }
 
 @media (min-width: 1100px) { .message-preview, .message .section-title { display: none !important; } }
+
+/* ---------- Gadgets ---------- */
+
+.gadget-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; margin-bottom: 16px; }
+.gadget {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+  min-height: 78px; padding: 10px 6px; border-radius: 16px; border: 2px solid var(--line); background: var(--surface);
+  color: var(--ink); font: inherit; font-size: 12.5px; font-weight: 700; line-height: 1.2; text-align: center; cursor: pointer;
+  transition: border-color .15s, background .15s, transform .12s;
+}
+.gadget:hover { border-color: var(--line-strong); }
+.gadget:active { transform: scale(.97); }
+.gadget .emoji { font-size: 26px; line-height: 1; }
+.gadget.on { border-color: var(--accent); background: var(--accent-soft); }
+.gadget-card { padding: 16px 18px 4px; margin-bottom: 14px; }
+.gadget-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.gadget-head .big-emoji { font-size: 32px; line-height: 1; }
+.gadget-head strong { display: block; font-size: 17px; }
+.gadget-head .muted { display: block; font-size: 13px; line-height: 1.35; }
+.gadget-error { color: var(--danger); font-size: 13.5px; margin: 0 2px 12px; }
+.calibration { margin-top: 16px; padding: 14px 18px; }
+.calibration summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; cursor: pointer; }
+.calibration summary .muted { font-size: 13px; }
+.calibration[open] summary { margin-bottom: 4px; }
+.calibration p { font-size: 13.5px; line-height: 1.45; }
+.calibration-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 420px) { .calibration-row { grid-template-columns: 1fr; } }
 
 /* ---------- Historique ---------- */
 

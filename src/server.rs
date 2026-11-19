@@ -762,6 +762,12 @@ struct BirthdaysInput {
     list: String,
 }
 
+/// Correction de l'avance du papier pour les gadgets, en pour mille (1000 : aucune).
+#[derive(Deserialize)]
+struct CalibrationInput {
+    per_mille: u16,
+}
+
 /// Le Wi-Fi de la maison, choisi pendant la première connexion.
 #[derive(Deserialize)]
 struct WifiInput {
@@ -1643,6 +1649,30 @@ fn handle(app: &App, request: &mut Request) -> Reply {
                 return refused;
             }
             printed_reply(app.print(&ticket, &by, &preset.name), &preset.name)
+        }
+        (Method::Get, ["api", "calibration"]) => {
+            let store = app.lock_store();
+            Reply::ok(json!({ "per_mille": store.data.calibration.unwrap_or(1000) }))
+        }
+        // Réglage de l'imprimante : pour l'administrateur.
+        (Method::Put, ["api", "calibration"]) => {
+            if !user_id.as_deref().is_some_and(|me| app.lock_store().is_admin(me)) {
+                return Reply::error(403, t("réservé à l'administrateur", "administrator only"));
+            }
+            let input: CalibrationInput = try_reply!(json_body(request));
+            if !crate::blocks::gadget::CALIBRATION_RANGE.contains(&input.per_mille) {
+                return Reply::error(
+                    400,
+                    t("correction trop forte (10 % au plus)", "correction too large (10% at most)"),
+                );
+            }
+            let mut store = app.lock_store();
+            store.data.calibration = (input.per_mille != 1000).then_some(input.per_mille);
+            match store.save() {
+                Ok(()) => Reply::ok(json!({ "per_mille": input.per_mille }))
+                    .note(t("correction de longueur des gadgets", "gadget length correction")),
+                Err(e) => Reply::error(500, format!("{e:#}")),
+            }
         }
         (Method::Get, ["api", "birthdays"]) => {
             let store = app.lock_store();

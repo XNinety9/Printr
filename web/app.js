@@ -166,6 +166,7 @@ const ICONS = {
   search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
   spark: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/>',
   'file-edit': '<path d="M10 21H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h8l5 5v2"/><path d="M14 3v5h5M8 12h6M8 16h3"/><path d="m18.5 13 2.5 2.5-6 6H12.5V19z"/>',
+  ruler: '<rect x="2" y="7" width="20" height="10" rx="1.5"/><path d="M6 7v4M10 7v3M14 7v4M18 7v3"/>',
   scissors: '<circle cx="6" cy="7" r="3"/><circle cx="6" cy="17" r="3"/><path d="M8.6 8.5 21 16.5M8.6 15.5 21 7.5"/>',
 };
 
@@ -210,7 +211,11 @@ const G = {
   grids: T('Jeux : grilles et chiffres', 'Games: grids and numbers'), words: T('Jeux : mots et lettres', 'Games: words and letters'),
   challenges: T('Jeux : défis et créativité', 'Games: challenges and creativity'),
   gift: T('Petites attentions', 'Little gifts'), info: T('Infos', 'Info'), org: T('Organisation', 'Organization'),
+  gadgets: T('Gadgets à la taille réelle', 'True-to-size gadgets'),
 };
+// Longueur la plus grande d'une règle : 60 mm en travers du papier, 1 m (40 pouces) dans son sens.
+const rulerMax = (d) => (d.orientation === 'horizontal' ? (d.unit === 'inch' ? 2 : 6) : d.unit === 'inch' ? 40 : 100);
+const mmSummary = (v) => `${String(v).replace('.', T(',', '.'))}\u00a0mm`;
 const FAMILY_THEMES = WORD_THEMES.filter(([v]) => !['developpement', 'devops', 'reseaux', 'ia'].includes(v));
 const WEEKDAYS = [
   ['lundi', T('Lundi', 'Monday')], ['mardi', T('Mardi', 'Tuesday')], ['mercredi', T('Mercredi', 'Wednesday')], ['jeudi', T('Jeudi', 'Thursday')],
@@ -285,6 +290,9 @@ const BLOCKS = [
       { key: 'upload', label: T('Photo', 'Photo'), kind: 'image' },
       { key: 'url', label: T("… ou adresse web d'une image", '… or the web address of an image'), kind: 'text', placeholder: 'https://…' },
       { key: 'dither', label: T('Tramage', 'Dithering'), kind: 'toggle', help: T('Idéal pour les photos. Désactive-le pour un logo ou un dessin.', 'Ideal for photos. Turn it off for a logo or a drawing.') },
+      { key: 'rotate', label: T('Pivoter d’un quart de tour', 'Rotate a quarter turn'), kind: 'toggle', help: T('Une image en paysage s’imprime alors en grand, dans le sens du papier.', 'A landscape image then prints large, along the paper.') },
+      { key: 'width_mm', label: T('Largeur (mm)', 'Width (mm)'), kind: 'number', min: 10, max: 64, placeholder: T('Toute la largeur', 'Full width'),
+        help: T('Pour l’imprimer à une taille précise, de 10 à 64 mm.', 'To print it at an exact size, 10 to 64 mm.') },
       {
         key: 'dither_algorithm', label: T('Algorithme de tramage', 'Dithering algorithm'), kind: 'select', when: (d) => d.dither !== false,
         options: [
@@ -759,6 +767,83 @@ const BLOCKS = [
     defaults: {},
     fields: [{ key: 'month', label: T('Mois', 'Month'), kind: 'month', help: T('Laisse vide pour le mois en cours.', 'Leave empty for the current month.') }],
   },
+  {
+    type: 'ruler', label: T('Règle', 'Ruler'), emoji: '📏', group: G.gadgets, desc: T('Une règle graduée, jusqu’à 1 m', 'A graduated ruler, up to 1 m'),
+    defaults: { length: 15, unit: 'cm', orientation: 'vertical' },
+    fields: [
+      { key: 'orientation', label: T('Sens', 'Direction'), kind: 'segmented', options: [['vertical', T('Verticale', 'Vertical')], ['horizontal', T('Horizontale', 'Horizontal')]] },
+      { key: 'unit', label: T('Graduations', 'Scale'), kind: 'segmented', options: [['cm', 'cm'], ['inch', T('Pouces', 'Inches')], ['both', T('Les deux', 'Both')]] },
+      { key: 'length', label: (d) => (d.unit === 'inch' ? T('Longueur (pouces)', 'Length (inches)') : T('Longueur (cm)', 'Length (cm)')), kind: 'number', min: 1, max: rulerMax,
+        help: (d) => (d.orientation === 'horizontal'
+          ? T(`En travers du papier : ${rulerMax(d)} ${d.unit === 'inch' ? 'pouces' : 'cm'} au plus (60 mm).`, `Across the paper: ${rulerMax(d)} ${d.unit === 'inch' ? 'in' : 'cm'} at most (60 mm).`)
+          : T('Dans le sens du papier : jusqu’à 1 m.', 'Along the paper: up to 1 m (40 in).')) },
+    ],
+    summary: (b) => `${b.length} ${b.unit === 'inch' ? T('pouces', 'in') : 'cm'}`,
+  },
+  {
+    type: 'target', label: T('Cible', 'Target'), emoji: '🎯', group: G.gadgets, desc: T('Pour les fléchettes, l’élastique ou les pistolets à mousse', 'For darts, rubber bands or foam blasters'),
+    defaults: { diameter: 60, rings: 5, filled: true, numbers: true, crosshair: false },
+    fields: [
+      { key: 'diameter', label: T('Diamètre (mm)', 'Diameter (mm)'), kind: 'number', min: 20, max: 60, help: T('De 20 à 60 mm.', '20 to 60 mm.') },
+      { key: 'rings', label: T('Anneaux', 'Rings'), kind: 'number', min: 2, max: 10 },
+      { key: 'filled', label: T('Anneaux noirs et blancs', 'Black and white rings'), kind: 'toggle' },
+      { key: 'numbers', label: T('Points de chaque anneau', 'Points for each ring'), kind: 'toggle' },
+      { key: 'crosshair', label: T('Viseur', 'Crosshair'), kind: 'toggle' },
+    ],
+    summary: (b) => `Ø ${mmSummary(b.diameter)}`,
+  },
+  {
+    type: 'circle', label: T('Cercle', 'Circle'), emoji: '⭕', group: G.gadgets, desc: T('Un cercle au diamètre exact, à découper ou à tracer', 'A circle of exact diameter, to cut out or trace'),
+    defaults: { diameter: 50, dashed: false, center: true, label: true },
+    fields: [
+      { key: 'diameter', label: T('Diamètre (mm)', 'Diameter (mm)'), kind: 'number', min: 5, max: 60, help: T('De 5 à 60 mm.', '5 to 60 mm.') },
+      { key: 'dashed', label: T('Pointillés', 'Dashed line'), kind: 'toggle' },
+      { key: 'center', label: T('Croix au centre', 'Center mark'), kind: 'toggle' },
+      { key: 'label', label: T('Écrire le diamètre', 'Write the diameter'), kind: 'toggle' },
+    ],
+    summary: (b) => `Ø ${mmSummary(b.diameter)}`,
+  },
+  {
+    type: 'rectangle', label: T('Carré, rectangle', 'Square, rectangle'), emoji: '⬜', group: G.gadgets, desc: T('Un rectangle aux dimensions exactes', 'A rectangle of exact size'),
+    defaults: { width: 50, height: 30, dashed: false, label: true },
+    fields: [
+      { key: 'width', label: T('Largeur (mm)', 'Width (mm)'), kind: 'number', min: 5, max: 60, help: T('De 5 à 60 mm, en travers du papier.', '5 to 60 mm, across the paper.') },
+      { key: 'height', label: T('Hauteur (mm)', 'Height (mm)'), kind: 'number', min: 5, max: 300, help: T('Jusqu’à 300 mm, dans le sens du papier.', 'Up to 300 mm, along the paper.') },
+      { key: 'dashed', label: T('Pointillés', 'Dashed line'), kind: 'toggle' },
+      { key: 'label', label: T('Écrire les dimensions', 'Write the dimensions'), kind: 'toggle' },
+    ],
+    summary: (b) => `${b.width} × ${mmSummary(b.height)}`,
+  },
+  {
+    type: 'protractor', label: T('Rapporteur', 'Protractor'), emoji: '📐', group: G.gadgets, desc: T('Un demi-cercle gradué de 0 à 180°', 'A half circle from 0 to 180°'),
+    defaults: { radius: 60 },
+    fields: [{ key: 'radius', label: T('Rayon (mm)', 'Radius (mm)'), kind: 'number', min: 30, max: 60, help: T('De 30 à 60 mm.', '30 to 60 mm.') }],
+    summary: (b) => T(`rayon ${mmSummary(b.radius)}`, `radius ${mmSummary(b.radius)}`),
+  },
+  {
+    type: 'grid_paper', label: T('Papier quadrillé', 'Grid paper'), emoji: '🗒️', group: G.gadgets, desc: T('Quadrillé, ligné, pointillé ou Seyès', 'Grid, lined, dot grid or French ruled'),
+    defaults: { pattern: 'grid', spacing: 5, length: 10 },
+    fields: [
+      { key: 'pattern', label: T('Motif', 'Pattern'), kind: 'segmented', options: [['grid', T('Quadrillé', 'Grid')], ['lines', T('Ligné', 'Lined')], ['dots', T('Points', 'Dots')], ['seyes', 'Seyès']] },
+      { key: 'spacing', label: T('Écart (mm)', 'Spacing (mm)'), kind: 'number', min: 3, max: 15, when: (d) => d.pattern !== 'seyes' },
+      { key: 'length', label: T('Longueur (cm)', 'Length (cm)'), kind: 'number', min: 2, max: 100 },
+    ],
+    summary: (b) => `${b.length} cm`,
+  },
+  {
+    type: 'ring_sizer', label: T('Baguier', 'Ring sizer'), emoji: '💍', group: G.gadgets, desc: T('Une bande pour trouver sa taille de bague', 'A strip to find your ring size'),
+    defaults: {}, fields: [],
+  },
+  {
+    type: 'die', label: T('Patron de dé', 'Die template'), emoji: '🎲', group: G.gadgets, desc: T('Un dé à découper, plier et coller', 'A die to cut out, fold and glue'),
+    defaults: { face: 16, pips: true, tabs: true },
+    fields: [
+      { key: 'face', label: T('Côté d’une face (mm)', 'Face size (mm)'), kind: 'number', min: 10, max: 18, help: T('De 10 à 18 mm.', '10 to 18 mm.') },
+      { key: 'pips', label: T('Points du dé', 'Pips'), kind: 'toggle', help: T('Sans eux, un dé vierge à décorer.', 'Without them, a blank die to decorate.') },
+      { key: 'tabs', label: T('Languettes de collage', 'Glue tabs'), kind: 'toggle' },
+    ],
+    summary: (b) => mmSummary(b.face),
+  },
 ];
 const BLOCK = Object.fromEntries(BLOCKS.map((b) => [b.type, b]));
 // Noms français acceptés par le serveur dans les tickets JSON (scripts, exemples) : l'appli les
@@ -769,6 +854,8 @@ const ALIASES = {
   anagramme: 'anagram', logimage: 'nonogram', picross: 'nonogram', message_code: 'cipher', courses: 'shopping',
   bon: 'coupon', poubelles: 'bins', bilan: 'monthly_report', mots_fleches: 'arrow_word', fleches: 'arrow_word',
   mots_croises: 'crossword', croises: 'crossword', recette: 'recipe', recette_claude: 'recipe_claude', recette_ingredients: 'recipe_from_ingredients', ciel: 'sky',
+  regle: 'ruler', cible: 'target', cercle: 'circle', carre: 'rectangle', rapporteur: 'protractor', papier: 'grid_paper',
+  quadrillage: 'grid_paper', baguier: 'ring_sizer', patron_de: 'die', de: 'die',
   coloriage: 'coloring', taches: 'chores', echecs: 'chess', anniversaires: 'birthdays', histoire: 'story', binairo: 'takuzu', ponts: 'hashi',
 };
 for (const [alias, type] of Object.entries(ALIASES)) BLOCK[alias] = BLOCK[type];
@@ -1176,7 +1263,7 @@ function FieldInput({ field, value, onChange }) {
       return html`<textarea class="input" rows="3" value=${value ?? ''} placeholder=${field.placeholder} onInput=${(e) => onChange(e.target.value)}></textarea>`;
     case 'number':
       return html`<input class="input" type="number" inputmode="numeric" min=${field.min} max=${field.max} value=${value ?? ''}
-        placeholder=${field.optional ? T('Au hasard', 'Random') : ''} onInput=${(e) => onChange(e.target.value === '' ? '' : Number(e.target.value))} />`;
+        placeholder=${field.placeholder ?? (field.optional ? T('Au hasard', 'Random') : '')} onInput=${(e) => onChange(e.target.value === '' ? '' : Number(e.target.value))} />`;
     case 'select':
       return html`<select class="input" value=${value ?? ''} onChange=${(e) => onChange(e.target.value)}>
         ${field.options.map(([v, text]) => html`<option value=${v}>${text}</option>`)}
@@ -1212,9 +1299,18 @@ function BlockFields({ data, onChange }) {
     const hint = def?.desc?.toLowerCase() || T('ce bloc se suffit à lui-même', 'this block is self-explanatory');
     return html`<p class="muted first" style="margin-bottom:0">${T(`Rien à régler : ${hint}.`, `Nothing to set up: ${hint}.`)}</p>`;
   }
-  const set = (key) => (v) => onChange({ ...data, [key]: v });
+  // Libellé, aide et bornes peuvent dépendre des autres réglages (la règle : 6 cm en travers).
+  const resolve = (f, d) => Object.fromEntries(Object.entries(f).map(([k, v]) => [k, typeof v === 'function' && ['label', 'help', 'min', 'max'].includes(k) ? v(d) : v]));
+  const set = (key) => (v) => {
+    const next = { ...data, [key]: v };
+    // Une borne qui se resserre ramène la valeur dedans, plutôt que d'imprimer une erreur.
+    for (const f of def.fields) {
+      if (f.kind === 'number' && typeof f.max === 'function' && f.key !== key && Number(next[f.key]) > f.max(next)) next[f.key] = f.max(next);
+    }
+    onChange(next);
+  };
   // `when` : champ affiché seulement s'il a un sens pour les réglages en cours.
-  const fields = def.fields.filter((f) => !f.when || f.when(data));
+  const fields = def.fields.filter((f) => !f.when || f.when(data)).map((f) => resolve(f, data));
   return html`<div class="first">${fields.map((f) => f.kind === 'toggle'
     ? html`<${Switch} key=${f.key} label=${f.label} help=${f.help} checked=${data[f.key]} onChange=${set(f.key)} />`
     : html`<${Field} key=${f.key} label=${f.label} help=${f.help}><${FieldInput} field=${f} value=${data[f.key]} onChange=${set(f.key)} /></${Field}>`)}
@@ -1564,17 +1660,22 @@ const KEYWORDS = {
   todo: 'faire todo liste list taches tasks',
   recipe: 'recette recipe cuisine cooking ingredients plat dish site', recipe_claude: 'recette recipe cuisine cooking ingredients plat dish claude ia ai',
   recipe_from_ingredients: 'recette recipe cuisine cooking ingredients frigo fridge restes leftovers manger dinner diner repas meal claude ia ai', shopping: 'courses shopping liste list', agenda: 'agenda calendar calendrier evenements ics',
+  ruler: 'regle ruler mesure measure centimetre cm pouce inch gadget', target: 'cible target flechettes darts tir nerf jeu game gadget',
+  circle: 'cercle circle rond diametre diameter compas decouper cut gadget', rectangle: 'carre rectangle square forme shape decouper cut gadget',
+  protractor: 'rapporteur protractor angle degres degrees geometrie geometry gadget', grid_paper: 'papier quadrille grid paper ligne lined seyes carreaux points dots gadget',
+  ring_sizer: 'baguier ring sizer bague taille doigt finger gadget', die: 'de die patron template decouper cut plier fold jeu game gadget',
   bins: 'poubelles bins trash dechets recyclage', wifi: 'wifi invites guests reseau network', monthly_report: 'bilan mois monthly report statistiques stats',
 };
 
 // Étiquettes des blocs, pour les filtres du catalogue et la recherche (« Claude » vient de `ai`).
-const KIDS = ['fortune', 'story', 'picto', 'riddle', 'workout', 'word_search', 'maze', 'nonogram', 'petit_bac', 'mental_math', 'anagram', 'cipher', 'coloring'];
+const KIDS = ['fortune', 'story', 'picto', 'riddle', 'workout', 'word_search', 'maze', 'nonogram', 'petit_bac', 'mental_math', 'anagram', 'cipher', 'coloring', 'target', 'die'];
 const TOGETHER = ['riddle', 'workout', 'petit_bac', 'anagram'];
 // Ni réseau ni Claude : tout est calculé sur place, gratuitement.
 const OFFLINE = [
   'title', 'text', 'date', 'separator', 'feed', 'image', 'qr', 'picto', 'barnum', 'saint', 'quote', 'moon', 'holidays', 'countdown',
   'riddle', 'workout', 'sudoku', 'word_search', 'train_tracks', 'maze', 'nonogram', 'petit_bac', 'mental_math', 'anagram', 'cipher',
   'coloring', 'coupon', 'todo', 'shopping', 'bins', 'wifi', 'monthly_report', 'chores', 'birthdays', 'kakuro', 'takuzu', 'hashi', 'fortune',
+  'ruler', 'target', 'circle', 'rectangle', 'protractor', 'grid_paper', 'ring_sizer', 'die',
 ];
 const FILTERS = [
   { id: 'kids', emoji: '🧒', label: T('Pour les enfants', 'For kids'), words: 'enfants enfant kids children', test: (b) => KIDS.includes(b.type) },
@@ -2142,6 +2243,98 @@ function Message({ me, onSaved }) {
       state=${{ ...emptyComposer(), name: title.trim() || T('Petit mot', 'Little note'), icon: '💌', blocks: ticket.blocks.map((data) => ({ data })) }}
       onSave=${async (meta) => { await api('POST', '/api/presets', { ...meta, ticket }); toast(T('Modèle enregistré', 'Template saved'), 'ok', '✨'); onSaved(); }}
       onClose=${() => setSaveSheet(false)} />`}
+  </div></div>`;
+}
+
+// ============================================================================
+// Écran : gadgets
+// ============================================================================
+
+// Imprimés à l'unité, en deux gestes : choisir, imprimer. Les réglages de chaque gadget sont
+// gardés dans le navigateur pour la fois suivante.
+const GADGETS = ['ruler', 'target', 'circle', 'rectangle', 'protractor', 'grid_paper', 'ring_sizer', 'die', 'image', 'qr'];
+const percent = (perMille) => `${perMille >= 1000 ? '+' : '−'}${(Math.abs(perMille - 1000) / 10).toLocaleString(LOCALE, { maximumFractionDigits: 1 })}\u00a0%`;
+
+// Correction de l'avance du papier : on imprime une règle, on la mesure, Printr compense.
+function Calibration({ ruler }) {
+  const [current, setCurrent] = useState(null);
+  const [printed, setPrinted] = useState(ruler.orientation === 'vertical' && ruler.unit !== 'inch' ? ruler.length : 10);
+  const [measured, setMeasured] = useState('');
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { api('GET', '/api/calibration').then((r) => setCurrent(r.per_mille)).catch(() => {}); }, []);
+  if (current === null) return null;
+  const next = Number(measured) > 0 && Number(printed) > 0 ? Math.round((current * Number(printed) * 10) / Number(measured)) : null;
+  const invalid = next !== null && (next < 900 || next > 1100);
+  const save = async (perMille) => {
+    setBusy(true);
+    try {
+      const r = await api('PUT', '/api/calibration', { per_mille: perMille });
+      setCurrent(r.per_mille); setMeasured('');
+      toast(r.per_mille === 1000 ? T('Correction retirée', 'Correction removed') : T(`Correction enregistrée : ${percent(r.per_mille)}`, `Correction saved: ${percent(r.per_mille)}`), 'ok', '📏');
+    } catch (e) { toast(e.message, 'error'); } finally { setBusy(false); }
+  };
+  return html`<details class="card calibration">
+    <summary><strong>${T('Précision des longueurs', 'Length accuracy')}</strong>
+      <span class="muted">${current === 1000 ? T('aucune correction', 'no correction') : T(`correction ${percent(current)}`, `correction ${percent(current)}`)}</span></summary>
+    <p class="muted">${T('Le papier n’avance jamais tout à fait de la longueur prévue. Imprime une règle verticale (20 cm ou plus, c’est plus précis), pose-la sur une vraie règle et note ce que tu mesures : Printr corrigera tous les gadgets.',
+      'The paper never advances exactly as planned. Print a vertical ruler (20 cm or more is more precise), lay it on a real ruler and note what you measure: Printr will correct every gadget.')}</p>
+    <div class="calibration-row">
+      <${Field} label=${T('Règle imprimée (cm)', 'Printed ruler (cm)')}><input class="input" type="number" min="5" max="100" value=${printed} onInput=${(e) => setPrinted(e.target.value)} /></${Field}>
+      <${Field} label=${T('Longueur mesurée (mm)', 'Measured length (mm)')}><input class="input" type="number" step="0.5" min="1" value=${measured} placeholder=${String(Number(printed) * 10 || '')} onInput=${(e) => setMeasured(e.target.value)} /></${Field}>
+    </div>
+    ${invalid && html`<p class="gadget-error">${T('Écart de plus de 10 % : vérifie la mesure (en millimètres, du 0 au dernier trait).', 'More than 10% off: check the measurement (in millimetres, from 0 to the last mark).')}</p>`}
+    <div class="row" style="gap:8px;flex-wrap:wrap">
+      <button type="button" class="btn primary" disabled=${busy || next === null || invalid} onClick=${() => save(next)}>${T('Corriger', 'Correct')}${next !== null && !invalid ? ` (${percent(next)})` : ''}</button>
+      ${current !== 1000 && html`<button type="button" class="btn ghost" disabled=${busy} onClick=${() => save(1000)}>${T('Retirer la correction', 'Remove the correction')}</button>`}
+    </div>
+  </details>`;
+}
+
+function Gadgets({ me }) {
+  const gadgets = GADGETS.filter((t) => BLOCK[t]);
+  const [type, setType] = useState(() => { const t = store.get('printr.gadget', 'ruler'); return gadgets.includes(t) ? t : 'ruler'; });
+  const [saved, setSaved] = useState(() => store.get('printr.gadgets', {}));
+  const [printing, setPrinting] = useState(false);
+  const def = BLOCK[type];
+  const data = { ...clone(def.defaults), ...(saved[type] || {}), type };
+  const choose = (t) => { setType(t); store.set('printr.gadget', t); };
+  const change = (d) => { const next = { ...saved, [type]: d }; setSaved(next); store.set('printr.gadgets', next); };
+  const reset = () => { const next = { ...saved }; delete next[type]; setSaved(next); store.set('printr.gadgets', next); };
+  const block = cleanBlock(data);
+  const ready = type === 'image' ? !!(block.upload || block.url) : type === 'qr' ? !!block.data : true;
+  const ticket = useMemo(() => ({ cut: true, spacing: 0, blocks: ready ? [block] : [] }), [JSON.stringify(block), ready]);
+  const { preview, loading } = usePreview(ticket);
+  const error = !loading && preview?.reports?.find((r) => r.error)?.error;
+  const summary = def.summary?.(block);
+
+  const print = async () => {
+    setPrinting(true);
+    try {
+      const r = await api('POST', '/api/print', { ticket, label: `${def.label}${summary ? ` · ${summary}` : ''}` });
+      printedToast(r, T('C’est imprimé !', 'Printed!'), def.emoji);
+    } catch (e) { toast(e.message, 'error'); } finally { setPrinting(false); }
+  };
+
+  return html`<div class="page"><div class="composer">
+    <div class="message">
+      <div class="gadget-grid" role="radiogroup" aria-label=${T('Gadgets', 'Gadgets')}>
+        ${gadgets.map((t) => html`<button type="button" key=${t} role="radio" aria-checked=${t === type} class="gadget ${t === type ? 'on' : ''}" onClick=${() => choose(t)}>
+          <span class="emoji" aria-hidden="true">${BLOCK[t].emoji}</span><span>${BLOCK[t].label}</span></button>`)}
+      </div>
+      <div class="card gadget-card">
+        <div class="gadget-head"><span class="big-emoji" aria-hidden="true">${def.emoji}</span>
+          <div class="grow"><strong>${def.label}</strong><span class="muted">${def.desc}</span></div>
+          ${saved[type] && html`<button type="button" class="btn ghost small" onClick=${reset}>${T('Par défaut', 'Defaults')}</button>`}</div>
+        <${BlockFields} data=${data} onChange=${change} />
+      </div>
+      ${error && html`<p class="gadget-error" role="alert">${error}</p>`}
+      <button class="btn primary big block" disabled=${printing || !ready || !!error} onClick=${print}>
+        ${printing ? html`<${Spinner} />` : html`<${Icon} name="printer" /> ${T('Imprimer', 'Print')}`}</button>
+      ${type === 'ruler' && me.admin && html`<${Calibration} key="calibration" ruler=${data} />`}
+      <div class="section-title" style="display:block">${T('Aperçu', 'Preview')}</div>
+      <div style="display:block" class="message-preview"><${Paper} preview=${preview} loading=${loading} /></div>
+    </div>
+    <aside class="preview-col"><${Paper} preview=${preview} loading=${loading} /><${PaperMeta} preview=${preview} /></aside>
   </div></div>`;
 }
 
@@ -2821,6 +3014,7 @@ const NAV = [
   { hash: '#/', label: T('Accueil', 'Home'), icon: 'home', title: 'Printr' },
   { hash: '#/compose', label: T('Composer', 'Compose'), icon: 'ticket', title: T('Composer', 'Compose') },
   { hash: '#/message', label: T('Petit mot', 'Little note'), icon: 'heart', title: T('Un petit mot', 'A little note') },
+  { hash: '#/gadgets', label: T('Gadgets', 'Gadgets'), icon: 'ruler', title: T('Gadgets', 'Gadgets') },
   { hash: '#/history', label: T('Historique', 'History'), icon: 'history', title: T('Historique', 'History') },
 ];
 // Écrans accessibles depuis l'accueil, sans onglet.
@@ -2898,6 +3092,7 @@ function App() {
   let page;
   if (route.hash === '#/compose') page = html`<${Composer} initial=${composer} onSaved=${loadPresets} admin=${me.admin} />`;
   else if (route.hash === '#/message') page = html`<${Message} me=${me} onSaved=${loadPresets} />`;
+  else if (route.hash === '#/gadgets') page = html`<${Gadgets} me=${me} />`;
   else if (route.hash === '#/history') page = html`<${History} users=${users} me=${me} />`;
   else if (route.hash === '#/courses') page = html`<${Shopping} users=${users} />`;
   else page = html`<${Home} me=${me} presets=${presets} reload=${loadPresets} openComposer=${openComposer} />`;
