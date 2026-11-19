@@ -69,7 +69,8 @@ pub fn build(theme: Option<Theme>, count: u8, seed: Option<u64>) -> Doc {
         let letters = form.chars().count();
         let hint = tr!("{}{} · {} lettres", "{}{} · {} letters", number, theme.label(), letters);
         doc.text(&hint, Style::default().small().center());
-        doc.line(&format!("{:^42}", "_ ".repeat(form.len()).trim_end()), Style::default());
+        let width = Style::default().columns();
+        doc.line(&format!("{:^width$}", "_ ".repeat(form.len()).trim_end()), Style::default());
     }
     doc.text(&tr!("n° {seed}", "No. {seed}"), Style::default().small().align(Align::Right));
     doc.feed(1);

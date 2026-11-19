@@ -225,7 +225,7 @@ pub fn render(doc: &Doc, cut: bool) -> Result<Vec<u8>> {
     // PC858 = Europe de l'Ouest avec le symbole € ; le texte est encodé par `cp858`. PC850 (sans €)
     // pour les imprimantes qui n'ont pas la page 19 (`PRINTR_CODEPAGE=850`).
     let page = if crate::cp858::is_pc850() { PageCode::PC850 } else { PageCode::PC858 };
-    let options = PrinterOptions::new(Some(page), None, 42);
+    let options = PrinterOptions::new(Some(page), None, crate::doc::Style::default().columns() as u8);
     let mut printer = Printer::new(driver, Protocol::default(), Some(options));
     printer.init()?.page_code(page)?;
     doc.render(&mut printer)?;
