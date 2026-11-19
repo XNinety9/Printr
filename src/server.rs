@@ -358,6 +358,17 @@ impl App {
         if printed_now && ticket.blocks.iter().any(|b| matches!(b, Block::Shopping { clear: true, .. })) {
             store.data.shopping.retain(|item| item.added > started);
         }
+        // Pareil pour les listes À faire enregistrées imprimées avec `clear`.
+        if printed_now {
+            for block in &ticket.blocks {
+                if let Block::Todo { list: Some(id), clear: true, .. } = block
+                    && !id.is_empty()
+                    && let Some(list) = store.data.todo_lists.iter_mut().find(|l| l.id == *id)
+                {
+                    list.items.retain(|item| item.added > started);
+                }
+            }
+        }
         if let Err(e) = store.save() {
             eprintln!("{}", tr!("historique non enregistré : {e:#}", "history not saved: {e:#}"));
         }
@@ -904,6 +915,25 @@ fn shopping_json(store: &Store) -> Value {
     json!(store.data.shopping)
 }
 
+/// Limites des listes À faire : de quoi en faire beaucoup, sans remplir le fichier de données.
+const MAX_TODO_LISTS: usize = 50;
+const MAX_TODO_ITEMS: usize = 200;
+
+#[derive(Deserialize)]
+struct TodoListInput {
+    title: String,
+}
+
+fn todo_lists_json(store: &Store) -> Value {
+    json!(store.data.todo_lists)
+}
+
+/// Le titre d'une liste : nettoyé, 60 caractères au plus, jamais vide.
+fn todo_list_title(title: &str) -> Option<String> {
+    let title: String = title.trim().chars().filter(|c| !c.is_control()).take(60).collect();
+    (!title.is_empty()).then_some(title)
+}
+
 /// Les articles d'un texte : un par ligne, sans les lignes vides.
 pub fn shopping_items(text: &str) -> Vec<&str> {
     text.lines().map(str::trim).filter(|l| !l.is_empty()).collect()
@@ -933,7 +963,10 @@ impl TodoRequest {
         Ok(Ticket {
             cut: true,
             spacing: 1,
-            blocks: vec![Block::Date { date: None, offset: None }, Block::Todo { title: self.title, items }],
+            blocks: vec![
+                Block::Date { date: None, offset: None },
+                Block::Todo { title: self.title, items, list: None, clear: false },
+            ],
         })
     }
 }
@@ -1700,6 +1733,99 @@ fn handle(app: &App, request: &mut Request) -> Reply {
                 Err(e) => Reply::error(500, format!("{e:#}")),
             }
         }
+        (Method::Get, ["api", "todo-lists"]) => Reply::ok(todo_lists_json(&app.lock_store())),
+        (Method::Post, ["api", "todo-lists"]) => {
+            let input: TodoListInput = try_reply!(json_body(request));
+            let Some(title) = todo_list_title(&input.title) else {
+                return Reply::error(400, t("il faut un titre", "a title is needed"));
+            };
+            let mut store = app.lock_store();
+            if store.data.todo_lists.len() >= MAX_TODO_LISTS {
+                return Reply::error(400, t("trop de listes", "too many lists"));
+            }
+            let note = tr!("liste à faire créée : {title}", "to-do list created: {title}");
+            store.data.todo_lists.push(store::TodoList { id: store::new_id(6), title, items: Vec::new() });
+            match store.save() {
+                Ok(()) => Reply::ok(todo_lists_json(&store)).note(note),
+                Err(e) => Reply::error(500, format!("{e:#}")),
+            }
+        }
+        (Method::Put, ["api", "todo-lists", id]) => {
+            let input: TodoListInput = try_reply!(json_body(request));
+            let Some(title) = todo_list_title(&input.title) else {
+                return Reply::error(400, t("il faut un titre", "a title is needed"));
+            };
+            let mut store = app.lock_store();
+            let Some(list) = store.data.todo_lists.iter_mut().find(|l| l.id == *id) else {
+                return Reply::error(404, t("liste introuvable", "list not found"));
+            };
+            let note = tr!("liste à faire renommée : {title}", "to-do list renamed: {title}");
+            list.title = title;
+            match store.save() {
+                Ok(()) => Reply::ok(todo_lists_json(&store)).note(note),
+                Err(e) => Reply::error(500, format!("{e:#}")),
+            }
+        }
+        (Method::Delete, ["api", "todo-lists", id]) => {
+            let mut store = app.lock_store();
+            let before = store.data.todo_lists.len();
+            store.data.todo_lists.retain(|l| l.id != *id);
+            if store.data.todo_lists.len() == before {
+                return Reply::error(404, t("liste introuvable", "list not found"));
+            }
+            match store.save() {
+                Ok(()) => Reply::ok(todo_lists_json(&store)).note(t("liste à faire supprimée", "to-do list deleted")),
+                Err(e) => Reply::error(500, format!("{e:#}")),
+            }
+        }
+        (Method::Post, ["api", "todo-lists", id, "items"]) => {
+            let input: ShoppingInput = try_reply!(json_body(request));
+            let items = shopping_items(&input.text);
+            if items.is_empty() {
+                return Reply::error(400, t("rien à ajouter", "nothing to add"));
+            }
+            let mut store = app.lock_store();
+            let Some(list) = store.data.todo_lists.iter_mut().find(|l| l.id == *id) else {
+                return Reply::error(404, t("liste introuvable", "list not found"));
+            };
+            if list.items.len() + items.len() > MAX_TODO_ITEMS {
+                return Reply::error(400, t("la liste est pleine", "the list is full"));
+            }
+            for text in &items {
+                list.items.push(store::ShoppingItem {
+                    id: store::new_id(6),
+                    text: text.chars().take(120).collect(),
+                    by: by.clone(),
+                    added: Utc::now(),
+                });
+            }
+            let note = tr!("{} : {}", "{}: {}", list.title, items.join(", "));
+            match store.save() {
+                Ok(()) => Reply::ok(todo_lists_json(&store)).note(note),
+                Err(e) => Reply::error(500, format!("{e:#}")),
+            }
+        }
+        (Method::Delete, ["api", "todo-lists", id, "items", rest @ ..]) => {
+            let mut store = app.lock_store();
+            let Some(list) = store.data.todo_lists.iter_mut().find(|l| l.id == *id) else {
+                return Reply::error(404, t("liste introuvable", "list not found"));
+            };
+            let note = match rest {
+                [] => {
+                    list.items.clear();
+                    tr!("liste vidée : {}", "list cleared: {}", list.title)
+                }
+                [item] => {
+                    list.items.retain(|i| i.id != *item);
+                    t("chose à faire retirée", "to-do item removed").to_owned()
+                }
+                _ => return Reply::error(404, t("route inconnue", "unknown route")),
+            };
+            match store.save() {
+                Ok(()) => Reply::ok(todo_lists_json(&store)).note(note),
+                Err(e) => Reply::error(500, format!("{e:#}")),
+            }
+        }
         // Aperçu d'un ticket de l'historique : l'administrateur seulement (pas le jeton des scripts).
         (Method::Get, ["api", "history", id, "preview"]) => {
             if !user_id.as_deref().is_some_and(|me| app.lock_store().is_admin(me)) {
@@ -1884,6 +2010,24 @@ mod tests {
             Block::Todo { items, .. } => assert_eq!(items, &["Pain", "Lait", "Oeufs"]),
             _ => panic!("bloc todo attendu"),
         }
+    }
+
+    #[test]
+    fn todo_block_with_a_saved_list() {
+        let block: Block = serde_json::from_str(r#"{"type": "todo", "list": "abc", "clear": true}"#).unwrap();
+        assert!(
+            matches!(block, Block::Todo { list: Some(ref id), clear: true, ref items, .. } if id == "abc" && items.is_empty())
+        );
+        // Les tickets d'avant les listes enregistrées ne changent pas.
+        let block: Block = serde_json::from_str(r#"{"type": "todo", "items": ["Pain"]}"#).unwrap();
+        assert!(matches!(block, Block::Todo { list: None, clear: false, .. }));
+    }
+
+    #[test]
+    fn todo_list_titles_are_cleaned() {
+        assert_eq!(todo_list_title("  Ce week-end \n").as_deref(), Some("Ce week-end"));
+        assert_eq!(todo_list_title("   "), None);
+        assert_eq!(todo_list_title(&"a".repeat(100)).map(|t| t.len()), Some(60));
     }
 
     #[test]

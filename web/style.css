@@ -293,14 +293,14 @@ select.input { appearance: none; padding-right: 38px;
 .action-card.coral { background: linear-gradient(135deg, #ffd9c9, #ffc1aa); }
 .action-card.sky { background: linear-gradient(135deg, #d6ecf6, #bfe0ef); }
 .action-card.mint { background: linear-gradient(135deg, #dcf1df, #c4e8ca); }
-/* Troisième carte : pleine largeur et en ligne sur téléphone, en colonne sur grand écran. */
-.action-card.wide { grid-column: 1 / -1; flex-direction: row; align-items: center; justify-content: flex-start; min-height: 0; gap: 14px; }
+.action-card.sun { background: linear-gradient(135deg, #fbeec4, #f6e0a0); }
+/* Deux par ligne sur téléphone, les quatre côte à côte sur grand écran. */
 @media (min-width: 720px) {
-  .hero { grid-template-columns: 1fr 1fr 1fr; }
-  .action-card.wide { grid-column: auto; flex-direction: column; align-items: stretch; justify-content: space-between; min-height: 128px; gap: 18px; }
+  .hero { grid-template-columns: repeat(4, 1fr); }
 }
 @media (prefers-color-scheme: dark) {
   .action-card.mint { background: linear-gradient(135deg, #17331d, #1c3f24); }
+  .action-card.sun { background: linear-gradient(135deg, #3d3314, #4a3d17); }
   .action-card.coral { background: linear-gradient(135deg, #4a2418, #5b2a1b); }
   .action-card.sky { background: linear-gradient(135deg, #17323d, #1b3e4b); }
 }
@@ -635,6 +635,18 @@ textarea.input.code { font-family: var(--mono); font-size: 13px; line-height: 1.
 }
 .shop-check:hover { border-color: var(--ok); color: var(--ok); background: var(--ok-soft); }
 .shop-actions { display: grid; gap: 10px; margin-top: 16px; }
+
+/* ---------- Listes À faire ---------- */
+
+.todo-lists { display: grid; gap: 10px; margin-bottom: 18px; }
+.todo-list-card {
+  display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 16px;
+  font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+.todo-list-card strong { display: block; font-size: 16px; }
+.todo-list-card .muted { font-size: 13px; }
+.todo-head { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+.todo-head h3 { margin: 0; font-size: 20px; flex: 1; min-width: 0; overflow-wrap: anywhere; }
 
 /* ---------- Ramassages des poubelles ---------- */
 
