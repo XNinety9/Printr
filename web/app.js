@@ -460,6 +460,18 @@ const BLOCKS = [
     summary: (b) => label(LEVELS, b.difficulty),
   },
   {
+    type: 'battleship', label: T('Bataille navale', 'Battleship'), emoji: '🚢', group: G.grids, desc: T('Les flottes déjà placées, un ticket par joueur', 'Fleets already placed, one ticket per player'),
+    defaults: { size: 10, players: 2, checklist: true, rules: true },
+    fields: [
+      { key: 'size', label: T('Grille', 'Grid'), kind: 'segmented', options: [[10, T('10 × 10 (A-J)', '10 × 10 (A-J)')], [8, T('8 × 8', '8 × 8')], [6, T('6 × 6 (enfants)', '6 × 6 (kids)')]],
+        help: T('Navires de 5, 4, 3, 3 et 2 cases en 10 × 10 ; 4, 3, 2 et 2 en 8 × 8 ; 3, 2 et 2 en 6 × 6.', 'Ships of 5, 4, 3, 3 and 2 cells on 10 × 10; 4, 3, 2 and 2 on 8 × 8; 3, 2 and 2 on 6 × 6.') },
+      { key: 'players', label: T('Joueurs', 'Players'), kind: 'segmented', options: [[2, T('Deux tickets', 'Two tickets')], [1, T('Un ticket', 'One ticket')]] },
+      { key: 'checklist', label: T('Liste des navires adverses à cocher', 'Enemy ships to tick off'), kind: 'toggle' },
+      { key: 'rules', label: T('Règle du jeu', 'Game rules'), kind: 'toggle' },
+    ],
+    summary: (b) => `${b.size} × ${b.size}`,
+  },
+  {
     type: 'maze', label: T('Labyrinthe', 'Maze'), emoji: '🌀', group: G.grids, desc: T('Entrée en haut, sortie en bas', 'Entrance at the top, exit at the bottom'),
     defaults: { width: 12, height: 16 },
     fields: [
@@ -768,7 +780,7 @@ const ALIASES = {
   rails: 'train_tracks', defi_sportif: 'workout', enigme: 'riddle', calcul_mental: 'mental_math', mot_mystere: 'anagram',
   anagramme: 'anagram', logimage: 'nonogram', picross: 'nonogram', message_code: 'cipher', courses: 'shopping',
   bon: 'coupon', poubelles: 'bins', bilan: 'monthly_report', mots_fleches: 'arrow_word', fleches: 'arrow_word',
-  mots_croises: 'crossword', croises: 'crossword', recette: 'recipe', recette_claude: 'recipe_claude', recette_ingredients: 'recipe_from_ingredients', ciel: 'sky',
+  mots_croises: 'crossword', croises: 'crossword', bataille_navale: 'battleship', recette: 'recipe', recette_claude: 'recipe_claude', recette_ingredients: 'recipe_from_ingredients', ciel: 'sky',
   coloriage: 'coloring', taches: 'chores', echecs: 'chess', anniversaires: 'birthdays', histoire: 'story', binairo: 'takuzu', ponts: 'hashi',
 };
 for (const [alias, type] of Object.entries(ALIASES)) BLOCK[alias] = BLOCK[type];
@@ -1553,7 +1565,7 @@ const KEYWORDS = {
   sky: 'ciel sky etoiles stars planetes planets iss station spatiale space astronomie astronomy nuit night',
   air_quality: 'air pollution pollen qualite quality', holidays: 'feries holidays conge vacances',
   countdown: 'compte rebours countdown jours days vacances', riddle: 'enigme riddle devinette charade logique',
-  workout: 'sport defi workout exercice exercise', sudoku: 'sudoku grille chiffres numbers puzzle', maze: 'labyrinthe maze',
+  workout: 'sport defi workout exercice exercise', sudoku: 'sudoku grille chiffres numbers puzzle', maze: 'labyrinthe maze', battleship: 'bataille navale battleship bateaux ships flotte fleet touche coule jeu game deux joueurs two players',
   word_search: 'mots meles word search grille puzzle', train_tracks: 'voie ferree train tracks rails puzzle',
   arrow_word: 'mots fleches arrow words grille',
   crossword: 'mots croises crossword grille grid definitions clues', nonogram: 'logimage nonogram picross pixel',
@@ -1568,13 +1580,13 @@ const KEYWORDS = {
 };
 
 // Étiquettes des blocs, pour les filtres du catalogue et la recherche (« Claude » vient de `ai`).
-const KIDS = ['fortune', 'story', 'picto', 'riddle', 'workout', 'word_search', 'maze', 'nonogram', 'petit_bac', 'mental_math', 'anagram', 'cipher', 'coloring'];
-const TOGETHER = ['riddle', 'workout', 'petit_bac', 'anagram'];
+const KIDS = ['fortune', 'story', 'picto', 'riddle', 'workout', 'word_search', 'maze', 'battleship', 'nonogram', 'petit_bac', 'mental_math', 'anagram', 'cipher', 'coloring'];
+const TOGETHER = ['riddle', 'workout', 'petit_bac', 'anagram', 'battleship'];
 // Ni réseau ni Claude : tout est calculé sur place, gratuitement.
 const OFFLINE = [
   'title', 'text', 'date', 'separator', 'feed', 'image', 'qr', 'picto', 'barnum', 'saint', 'quote', 'moon', 'holidays', 'countdown',
   'riddle', 'workout', 'sudoku', 'word_search', 'train_tracks', 'maze', 'nonogram', 'petit_bac', 'mental_math', 'anagram', 'cipher',
-  'coloring', 'coupon', 'todo', 'shopping', 'bins', 'wifi', 'monthly_report', 'chores', 'birthdays', 'kakuro', 'takuzu', 'hashi', 'fortune',
+  'coloring', 'coupon', 'todo', 'shopping', 'bins', 'wifi', 'monthly_report', 'chores', 'birthdays', 'kakuro', 'takuzu', 'hashi', 'fortune', 'battleship',
 ];
 const FILTERS = [
   { id: 'kids', emoji: '🧒', label: T('Pour les enfants', 'For kids'), words: 'enfants enfant kids children', test: (b) => KIDS.includes(b.type) },
