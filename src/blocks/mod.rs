@@ -15,6 +15,7 @@ mod coupon;
 mod crossword;
 mod crypto;
 mod fortune;
+pub mod gadget;
 mod glitch;
 mod hashi;
 mod holidays;
@@ -106,6 +107,39 @@ fn six() -> u8 {
 fn ten() -> u8 {
     10
 }
+fn five() -> u8 {
+    5
+}
+fn fifteen() -> u16 {
+    15
+}
+fn ten_cm() -> u16 {
+    10
+}
+fn mm_60() -> f64 {
+    60.0
+}
+fn mm_50() -> f64 {
+    50.0
+}
+fn mm_30() -> f64 {
+    30.0
+}
+fn mm_16() -> f64 {
+    16.0
+}
+fn mm_5() -> f64 {
+    5.0
+}
+fn five_lines() -> u8 {
+    5
+}
+fn twenty() -> u16 {
+    20
+}
+fn default_chord() -> String {
+    "C".to_owned()
+}
 fn default_coins() -> Vec<String> {
     vec!["bitcoin".to_owned(), "ethereum".to_owned()]
 }
@@ -188,6 +222,13 @@ pub enum Block {
         dither: bool,
         #[serde(default)]
         dither_algorithm: raster::Dither,
+        /// Tourne l'image d'un quart de tour : une photo en paysage s'imprime alors en grand, dans
+        /// le sens du papier.
+        #[serde(default)]
+        rotate: bool,
+        /// Largeur imprimée, en mm (10 à 64) ; sans elle, toute la largeur pour une grande image.
+        #[serde(default)]
+        width_mm: Option<f64>,
     },
     Qr {
         data: String,
@@ -628,6 +669,130 @@ pub enum Block {
         #[serde(default)]
         seed: Option<u64>,
     },
+    /// Gadget : règle graduée, dans le sens du papier ou en travers.
+    #[serde(alias = "regle")]
+    Ruler {
+        /// En centimètres, ou en pouces pour `unit: inch`.
+        #[serde(default = "fifteen")]
+        length: u16,
+        #[serde(default)]
+        unit: gadget::ruler::Unit,
+        #[serde(default)]
+        orientation: gadget::ruler::Orientation,
+    },
+    /// Gadget : cible à anneaux.
+    #[serde(alias = "cible")]
+    Target {
+        /// En mm, de 20 à 60.
+        #[serde(default = "mm_60")]
+        diameter: f64,
+        #[serde(default = "five")]
+        rings: u8,
+        #[serde(default = "yes")]
+        filled: bool,
+        #[serde(default = "yes")]
+        numbers: bool,
+        #[serde(default)]
+        crosshair: bool,
+    },
+    /// Gadget : cercle à la taille exacte.
+    #[serde(alias = "cercle")]
+    Circle {
+        /// En mm, de 5 à 60.
+        #[serde(default = "mm_50")]
+        diameter: f64,
+        #[serde(default)]
+        dashed: bool,
+        #[serde(default = "yes")]
+        center: bool,
+        #[serde(default = "yes")]
+        label: bool,
+    },
+    /// Gadget : carré ou rectangle à la taille exacte.
+    #[serde(alias = "carre")]
+    Rectangle {
+        /// En mm, de 5 à 60.
+        #[serde(default = "mm_50")]
+        width: f64,
+        /// En mm, de 5 à 300.
+        #[serde(default = "mm_30")]
+        height: f64,
+        #[serde(default)]
+        dashed: bool,
+        #[serde(default = "yes")]
+        label: bool,
+    },
+    /// Gadget : rapporteur de 0 à 180°.
+    #[serde(alias = "rapporteur")]
+    Protractor {
+        /// En mm, de 30 à 60.
+        #[serde(default = "mm_60")]
+        radius: f64,
+    },
+    /// Gadget : papier quadrillé, ligné, pointillé ou Seyès.
+    #[serde(alias = "papier", alias = "quadrillage")]
+    GridPaper {
+        #[serde(default)]
+        pattern: gadget::grid_paper::Pattern,
+        /// Écart entre les lignes, en mm (3 à 15).
+        #[serde(default = "mm_5")]
+        spacing: f64,
+        /// En centimètres, de 2 à 100.
+        #[serde(default = "ten_cm")]
+        length: u16,
+    },
+    /// Gadget : baguier, pour trouver sa taille de bague.
+    #[serde(alias = "baguier")]
+    RingSizer {},
+    /// Gadget : patron de dé à découper et plier.
+    #[serde(alias = "patron_de", alias = "de")]
+    Die {
+        /// Côté d'une face, en mm (10 à 18).
+        #[serde(default = "mm_16")]
+        face: f64,
+        #[serde(default = "yes")]
+        pips: bool,
+        #[serde(default = "yes")]
+        tabs: bool,
+    },
+    /// Gadget : diagramme d'accord pour guitare ou basse, ou grilles vides à remplir.
+    #[serde(alias = "accord")]
+    Chord {
+        #[serde(default)]
+        instrument: gadget::chord::Instrument,
+        /// « C », « Am », « G7 », « Dsus4 », « F#m »… (ou en solfège : « Lam »), « random » pour
+        /// un accord au hasard, ou « blank » pour des grilles vides.
+        #[serde(default = "default_chord")]
+        chord: String,
+        /// Grilles vides : combien (1 à 12).
+        #[serde(default = "six")]
+        count: u8,
+    },
+    /// Gadget : papier à musique, portées ou tablature.
+    #[serde(alias = "papier_musique", alias = "portees")]
+    MusicPaper {
+        /// Lignes de chaque portée, de 4 à 8 (5 : portée classique ; 4 à 8 : tablature).
+        #[serde(default = "five_lines")]
+        lines: u8,
+        #[serde(default)]
+        clef: gadget::music_paper::Clef,
+        #[serde(default)]
+        layout: gadget::music_paper::Layout,
+        /// En largeur : nombre de portées (1 à 30).
+        #[serde(default = "six")]
+        staves: u8,
+        /// En longueur : longueur du papier, en cm (5 à 100).
+        #[serde(default = "twenty")]
+        length: u16,
+    },
+    /// Gadget : illusion d'optique, avec sa question et la réponse à l'envers.
+    #[serde(alias = "illusion_optique")]
+    Illusion {
+        #[serde(default)]
+        kind: gadget::illusion::Kind,
+        #[serde(default = "yes")]
+        answer: bool,
+    },
     /// Revue de presse à partir de flux RSS, sans IA.
     News {
         /// Titre du bandeau : « Actualités · <title> ».
@@ -790,6 +955,17 @@ impl Block {
             Block::Picto { .. } => i18n::t("pictogramme", "pictogram"),
             Block::Barnum { .. } => i18n::t("horoscope Barnum", "Barnum horoscope"),
             Block::News { .. } => i18n::t("actualités", "news"),
+            Block::Ruler { .. } => i18n::t("règle", "ruler"),
+            Block::Target { .. } => i18n::t("cible", "target"),
+            Block::Circle { .. } => i18n::t("cercle", "circle"),
+            Block::Rectangle { .. } => "rectangle",
+            Block::Protractor { .. } => i18n::t("rapporteur", "protractor"),
+            Block::GridPaper { .. } => i18n::t("papier", "paper"),
+            Block::RingSizer {} => i18n::t("baguier", "ring sizer"),
+            Block::Die { .. } => i18n::t("patron de dé", "die template"),
+            Block::Chord { .. } => i18n::t("accord", "chord"),
+            Block::Illusion { .. } => i18n::t("illusion d'optique", "optical illusion"),
+            Block::MusicPaper { .. } => i18n::t("papier à musique", "music paper"),
         }
     }
 
@@ -867,6 +1043,40 @@ impl Block {
             Block::Image { path, url, upload, .. } => {
                 path.as_ref().or(url.as_ref()).or(upload.as_ref()).map(|p| p.rsplit('/').next().unwrap_or(p).to_owned())
             }
+            Block::Ruler { length, unit, orientation } => Some(format!(
+                "{length} {}, {}",
+                unit.label(),
+                match orientation {
+                    gadget::ruler::Orientation::Vertical => i18n::t("verticale", "vertical"),
+                    gadget::ruler::Orientation::Horizontal => i18n::t("horizontale", "horizontal"),
+                }
+            )),
+            Block::Target { diameter, rings, .. } => {
+                Some(tr!("Ø {} mm, {rings} anneaux", "Ø {} mm, {rings} rings", gadget::fmt_mm(*diameter)))
+            }
+            Block::Circle { diameter, .. } => Some(format!("Ø {} mm", gadget::fmt_mm(*diameter))),
+            Block::Rectangle { width, height, .. } => {
+                Some(format!("{} × {} mm", gadget::fmt_mm(*width), gadget::fmt_mm(*height)))
+            }
+            Block::Protractor { radius } => Some(tr!("rayon {} mm", "radius {} mm", gadget::fmt_mm(*radius))),
+            Block::GridPaper { pattern, length, .. } => Some(format!("{}, {length} cm", pattern.label())),
+            Block::Die { face, .. } => Some(tr!("faces de {} mm", "{} mm faces", gadget::fmt_mm(*face))),
+            Block::Chord { instrument, chord, count } => Some(if gadget::chord::is_blank(chord) {
+                tr!("{count} grilles vides, {}", "{count} empty grids, {}", instrument.label())
+            } else if gadget::chord::is_random(chord) {
+                tr!("au hasard, {}", "random, {}", instrument.label())
+            } else {
+                format!("{chord}, {}", instrument.label())
+            }),
+            Block::Illusion { kind, .. } => Some(kind.label().to_owned()),
+            Block::MusicPaper { lines, clef, layout, staves, length } => Some(match layout {
+                gadget::music_paper::Layout::Across => {
+                    tr!("{staves} portées de {lines} lignes, {}", "{staves} staves of {lines} lines, {}", clef.label())
+                }
+                gadget::music_paper::Layout::Along => {
+                    tr!("{length} cm, {lines} lignes, {}", "{length} cm, {lines} lines, {}", clef.label())
+                }
+            }),
             _ => None,
         };
         match detail {
@@ -915,9 +1125,9 @@ impl Block {
             Block::Cut {} => {
                 doc.cut();
             }
-            Block::Image { path, url, upload, dither, dither_algorithm } => {
+            Block::Image { path, url, upload, dither, dither_algorithm, rotate, width_mm } => {
                 let dither = if *dither { *dither_algorithm } else { raster::Dither::None };
-                let img = match (path, url, upload) {
+                let bytes = match (path, url, upload) {
                     (None, None, Some(id)) => {
                         anyhow::ensure!(
                             id.chars().all(|c| c.is_ascii_hexdigit()),
@@ -925,30 +1135,37 @@ impl Block {
                         );
                         let dir = crate::store::uploads_dir()
                             .context(i18n::t("répertoire de données introuvable", "data directory not found"))?;
-                        raster::load(&dir.join(format!("{id}.png")), dither)?
+                        let file = dir.join(format!("{id}.png"));
+                        std::fs::read(&file).with_context(|| format!("impossible de lire {}", file.display()))?
                     }
                     (Some(path), None, None) => {
                         ctx.check_local_file(path)?;
-                        raster::load(path.as_ref(), dither)?
+                        std::fs::read(path).with_context(|| format!("impossible de lire {path}"))?
                     }
-                    (None, Some(url), None) => {
-                        let bytes = ctx
-                            .http
-                            .get(url)
-                            .call()
-                            .context(i18n::t("image injoignable", "image unreachable"))?
-                            .body_mut()
-                            .with_config()
-                            .limit(20 * 1024 * 1024)
-                            .read_to_vec()?;
-                        raster::prepare(&raster::decode(&bytes)?, dither)
-                    }
+                    (None, Some(url), None) => ctx
+                        .http
+                        .get(url)
+                        .call()
+                        .context(i18n::t("image injoignable", "image unreachable"))?
+                        .body_mut()
+                        .with_config()
+                        .limit(20 * 1024 * 1024)
+                        .read_to_vec()?,
                     _ => anyhow::bail!(i18n::t(
                         "indiquer `path`, `url` ou `upload` (un seul)",
                         "give `path`, `url` or `upload` (only one)"
                     )),
                 };
-                doc.image(img);
+                let mut img = raster::decode(&bytes)?;
+                if *rotate {
+                    img = img.rotate90();
+                }
+                if let Some(mm) = width_mm {
+                    gadget::check_range(i18n::t("largeur de l'image", "image width"), *mm, 10.0, 64.0, "mm")?;
+                    let dots = ((mm * gadget::Scale::current().x).round() as u32).min(raster::PRINT_WIDTH);
+                    img = img.resize(dots, u32::MAX, image::imageops::FilterType::Lanczos3);
+                }
+                doc.image(raster::prepare(&img, dither));
             }
             Block::Qr { data, size, caption } => {
                 doc.qr(data, size.unwrap_or(6));
@@ -1077,6 +1294,47 @@ impl Block {
             Block::Crossword { size, level, seed, solution } => {
                 let options = crossword::Options { size: *size, level: *level, seed: *seed, solution: *solution };
                 doc = crossword::build(ctx, &options)?;
+            }
+            Block::Ruler { length, unit, orientation } => {
+                doc = gadget::ruler::build(*length, *unit, *orientation, gadget::Scale::current())?;
+            }
+            Block::Target { diameter, rings, filled, numbers, crosshair } => {
+                let options = gadget::target::Options {
+                    diameter: *diameter,
+                    rings: *rings,
+                    filled: *filled,
+                    numbers: *numbers,
+                    crosshair: *crosshair,
+                };
+                doc = gadget::target::build(&options, gadget::Scale::current())?;
+            }
+            Block::Circle { diameter, dashed, center, label } => {
+                doc = gadget::shapes::circle(*diameter, *dashed, *center, *label, gadget::Scale::current())?;
+            }
+            Block::Rectangle { width, height, dashed, label } => {
+                doc = gadget::shapes::rectangle(*width, *height, *dashed, *label, gadget::Scale::current())?;
+            }
+            Block::Protractor { radius } => doc = gadget::protractor::build(*radius, gadget::Scale::current())?,
+            Block::GridPaper { pattern, spacing, length } => {
+                doc = gadget::grid_paper::build(*pattern, *spacing, *length, gadget::Scale::current())?;
+            }
+            Block::RingSizer {} => doc = gadget::ring_sizer::build(gadget::Scale::current())?,
+            Block::Die { face, pips, tabs } => doc = gadget::die::build(*face, *pips, *tabs, gadget::Scale::current())?,
+            Block::Chord { instrument, chord, count } => {
+                doc = gadget::chord::build(*instrument, chord, *count, gadget::Scale::current())?;
+            }
+            Block::MusicPaper { lines, clef, layout, staves, length } => {
+                let options = gadget::music_paper::Options {
+                    lines: *lines,
+                    clef: *clef,
+                    layout: *layout,
+                    staves: *staves,
+                    length: *length,
+                };
+                doc = gadget::music_paper::build(&options, gadget::Scale::current())?;
+            }
+            Block::Illusion { kind, answer } => {
+                doc = gadget::illusion::build(*kind, *answer, gadget::Scale::current())?
             }
             Block::News { title, feeds, count, qr, themes, exclude, max_age_hours } => {
                 let options = news::Options {

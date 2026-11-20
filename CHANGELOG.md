@@ -11,6 +11,23 @@ Koenig, Tolbert Lanston…
 ## [Unreleased]
 
 ### Added
+- **Gadgets**, a new screen between Little note and History: print a single true-to-size item in two
+  taps, a ruler (cm, inches or both, up to 1 m along the paper or 60 mm across), a target, a circle, a
+  square or rectangle, a protractor, grid, lined, dot or Seyès paper, a ring sizer, a die template, an
+  image or a QR code. Each gadget keeps its last settings. Sizes follow the printer's resolution (180 or
+  203 dpi), and the admin can correct the paper feed once by measuring a printed ruler. The gadgets are
+  also blocks (`ruler`, `target`, `circle`, `rectangle`, `protractor`, `grid_paper`, `ring_sizer`,
+  `die`), available in the composer.
+- **Chord** gadget (`chord`): a guitar or bass chord diagram with fingering, picked from the main chords
+  (or any chord name such as `F#m7`), at random, or a page of empty grids to fill in.
+- **Music paper** gadget (`music_paper`): staves of 4 to 8 lines with a treble, bass or alto clef, or
+  tablature, across the paper (pick the number of staves) or along it (pick the length).
+- **Optical illusion** gadget (`illusion`): 17 illusions drawn on the fly (Hermann grid, Zöllner lines,
+  Müller-Lyer arrows, Ebbinghaus circles, Ponzo rails, Ouchi pattern, Kanizsa triangle, Hering rays, café
+  wall, Poggendorff, Jastrow arcs, Sander parallelogram, Ehrenstein grid, afterimage, Necker cube,
+  upside-down T, Orbison square), or one at random, with a question and the answer printed upside down.
+- **`image`**: `rotate` turns it a quarter turn, so a landscape photo prints large; `width_mm` prints it
+  at an exact width.
 - **`PRINTR_PAPER_WIDTH=576`** for 80 mm printers at 203 dpi (most brands other than the TM-T88), also
   set in the app (My account → Settings → Paper width): tickets printed 64 mm wide and off-center there.
   Text now uses 48 columns in font A and 64 in font B, and images narrower than the paper are centered

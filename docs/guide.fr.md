@@ -95,8 +95,19 @@ Un paramètre inconnu est une erreur, pour repérer les fautes de frappe.
 | `date` | `offset` (jours, par ex. 1 pour demain), `date` (`AAAA-MM-JJ`) | « Mercredi 7 octobre 2026 » ; aujourd'hui par défaut, ou un autre jour, pour préparer des tickets à l'avance |
 | `feed` | `lines` (1) | Espace vertical |
 | `cut` (ou `coupe`) | — | Coupe le papier à cet endroit, après l'espacement habituel (`spacing`) : la suite sort sur un autre ticket. Le `cut` du ticket ajoute toujours la coupe finale |
-| `image` | `path` ou `url`, `dither` (true), `dither_algorithm` (`floyd-steinberg`, `atkinson`, `bayer`) | Réduite à 512 px |
+| `image` | `path` ou `url`, `dither` (true), `dither_algorithm` (`floyd-steinberg`, `atkinson`, `bayer`), `rotate` (false), `width_mm` | Réduite à 512 px ; `rotate` la tourne d'un quart de tour (une photo en paysage s'imprime en grand), `width_mm` l'imprime à une largeur exacte (10 à 64 mm) |
 | `qr` | `data`, `size` (6), `caption` | |
+| `ruler` (ou `regle`) | `length` (15), `unit` (`cm`, `inch` ou `pouces`, `both`), `orientation` (`vertical`, `horizontal`) | Règle à la taille réelle. Dans le sens du papier jusqu'à 100 cm (40 pouces) ; en travers, 6 cm au plus (60 mm) |
+| `target` (ou `cible`) | `diameter` (60 mm, de 20 à 60), `rings` (5), `filled` (true), `numbers` (true), `crosshair` (false) | Cible à anneaux noirs et blancs, avec les points |
+| `circle` (ou `cercle`) | `diameter` (50 mm, de 5 à 60), `dashed`, `center` (true), `label` (true) | Cercle au diamètre exact, à découper ou à tracer |
+| `rectangle` (ou `carre`) | `width` (50 mm, au plus 60), `height` (30 mm, au plus 300), `dashed`, `label` (true) | |
+| `protractor` (ou `rapporteur`) | `radius` (60 mm, de 30 à 60) | Demi-cercle de 0 à 180°, dans le sens du papier |
+| `grid_paper` (ou `papier`) | `pattern` (`grid`, `lines`, `dots`, `seyes`), `spacing` (5 mm), `length` (10 cm) | Toute la largeur du papier |
+| `ring_sizer` (ou `baguier`) | — | Bande à enrouler autour du doigt : la taille de bague française (tour de doigt en mm) |
+| `die` (ou `patron_de`) | `face` (16 mm, de 10 à 18), `pips` (true), `tabs` (true) | Patron de dé à découper, plier et coller |
+| `chord` (ou `accord`) | `instrument` (`guitar`/`guitare`, `bass`/`basse`), `chord` (`C`), `count` (6) | Diagramme d'accord avec les doigts : `C`, `Am`, `G7`, `Cmaj7`, `Dm7`, `Dsus4`, `F#m`, `Bb`… (aussi en solfège : `Lam`, `Fa#m`). Les accords ouverts habituels à la guitare, des barrés sinon ; à la basse, fondamentale, quinte et tierce. `random` (ou `hasard`) en tire un parmi les accords principaux ; `blank` (ou `vide`) imprime `count` grilles vides (1 à 12) |
+| `music_paper` (ou `papier_musique`) | `lines` (5, de 4 à 8), `clef` (`treble`/`sol`, `bass`/`fa`, `alto`/`ut`, `tab`, `none`), `layout` (`across`/`largeur`, `along`/`longueur`), `staves` (6, de 1 à 30), `length` (20 cm, de 5 à 100) | Portées avec leur clé, ou tablature (une ligne par corde). En largeur, `staves` portées d'un bord à l'autre ; en longueur, deux grandes portées côte à côte sur `length` cm, à lire en tournant le ticket |
+| `illusion` (ou `illusion_optique`) | `kind` (`hermann`, `zollner`, `muller_lyer`, `ebbinghaus`, `ponzo`, `ouchi`, `kanizsa`, `hering`, `cafe_wall`, `poggendorff`, `jastrow`, `sander`, `ehrenstein`, `afterimage`, `necker`, `vertical_horizontal`, `orbison`, ou `random`/`hasard`), `answer` (true) | Illusion d'optique dessinée à la volée, avec sa question ; `answer` imprime l'explication à l'envers, en dessous |
 | `weather` | `location` (ville par défaut), `days` (1, max 7), `outfit` (ou `tenue`, false), `wind` (true), `sun` (true) | [Open-Meteo](https://open-meteo.com), sans clé. `location` : ville ou `"lat,lon"` ; vide, la ville par défaut des réglages. Pictogrammes pour chaque jour ; `outfit` ajoute comment s'habiller aujourd'hui (« manteau et bonnet, prends un parapluie »), sans IA ; `wind` et `sun` affichent la ligne du vent et de l'UV, et le lever et le coucher du soleil. °F et mph avec `PRINTR_UNITS=imperial` (dans les réglages) |
 | `barnum` | `sign` ou `birth_date` (`AAAA-MM-JJ`), `sky` (false), `variant` | Horoscope hors ligne et gratuit, calculé sur le vrai ciel par [Barnum](https://github.com/XNinety9/Barnum) : jauges par domaine, conseil, et en option la position des planètes |
 | `horoscope` | `sign`, `tone` (`serieux`/`farfelu`/`vachard`/`insultant`) | Généré par Claude, sur un thème tiré au hasard. Signe en français ou en anglais |
@@ -289,6 +300,13 @@ France, nommés en anglais.
   la famille et à **planifier** (jours et heure). Une échéance manquée de plus de 15 minutes
   n'est pas rattrapée.
 - **Petit mot** : une photo prise avec le téléphone, un dessin (cœur, étoile…), quelques mots.
+- **Gadgets** : imprimer à l'unité une règle, une cible, un cercle, un carré, un rapporteur, du
+  papier quadrillé, un baguier, un patron de dé (tous à la taille réelle), un diagramme d'accord, une
+  illusion d'optique, une image ou un QR code. Chaque
+  gadget garde ses derniers réglages. Le papier n'avance jamais tout à fait de la longueur prévue :
+  sous la règle, l'administrateur indique la longueur qu'il mesure sur une règle imprimée
+  (**Précision des longueurs**), et Printr corrige tous les gadgets (`GET`/`PUT /api/calibration`,
+  en pour mille).
 - **Courses** : la liste partagée de la famille ; chacun ajoute ce qui manque, on l'imprime en
   partant (et elle se vide toute seule). Un raccourci iOS peut aussi y ajouter des articles
   avec `POST /api/shopping` et le jeton.

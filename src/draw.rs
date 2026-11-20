@@ -169,9 +169,14 @@ fn text_glyph(c: char) -> Option<&'static [&'static str; 7]> {
 /// Dessine un court texte en 5×7 (majuscules, chiffres, - / % ° . :), caractères séparés d'une
 /// colonne ; les autres caractères laissent un blanc.
 pub fn text(img: &mut GrayImage, s: &str, x: i64, y: i64, scale: i64) {
+    text_ink(img, s, x, y, scale, BLACK);
+}
+
+/// Comme `text`, dans la couleur `ink`.
+pub fn text_ink(img: &mut GrayImage, s: &str, x: i64, y: i64, scale: i64, ink: Luma<u8>) {
     for (i, c) in s.chars().enumerate() {
         if let Some(rows) = text_glyph(c) {
-            glyph(img, rows, x + i as i64 * (DIGIT_W + 1) * scale, y, scale, BLACK);
+            glyph(img, rows, x + i as i64 * (DIGIT_W + 1) * scale, y, scale, ink);
         }
     }
 }
