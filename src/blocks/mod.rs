@@ -5,6 +5,7 @@ mod air_quality;
 mod anagram;
 mod arrow_word;
 pub mod barnum;
+mod battleship;
 mod bins;
 mod birthdays;
 mod chess;
@@ -283,6 +284,24 @@ pub enum Block {
         seed: Option<u64>,
         #[serde(default)]
         solution: bool,
+    },
+    /// Bataille navale : flotte placée au hasard et grille des tirs, un ticket par joueur.
+    #[serde(alias = "bataille_navale")]
+    Battleship {
+        /// Côté de la grille, de 5 à 10 cases (10 : A-J, 1-10).
+        #[serde(default = "ten")]
+        size: u8,
+        /// 1 ou 2 joueurs (deux tickets, séparés par une coupe).
+        #[serde(default = "two")]
+        players: u8,
+        /// La liste des navires adverses, à cocher quand ils sont coulés.
+        #[serde(default = "yes")]
+        checklist: bool,
+        /// La règle du jeu, sous les grilles.
+        #[serde(default = "yes")]
+        rules: bool,
+        #[serde(default)]
+        seed: Option<u64>,
     },
     Maze {
         #[serde(default)]
@@ -775,6 +794,7 @@ impl Block {
             Block::WordSearch { .. } => i18n::t("mots mêlés", "word search"),
             Block::TrainTracks { .. } => i18n::t("voie ferrée", "train tracks"),
             Block::Maze { .. } => i18n::t("labyrinthe", "maze"),
+            Block::Battleship { .. } => i18n::t("bataille navale", "battleship"),
             Block::WordOfTheDay {} => i18n::t("mot du jour", "word of the day"),
             Block::Holidays { .. } => i18n::t("jours fériés", "public holidays"),
             Block::Moon {} => i18n::t("lune", "moon"),
@@ -981,6 +1001,16 @@ impl Block {
             }
             Block::TrainTracks { difficulty, seed, solution } => {
                 doc = train_tracks::build(*difficulty, *seed, *solution);
+            }
+            Block::Battleship { size, players, checklist, rules, seed } => {
+                let options = battleship::Options {
+                    size: *size,
+                    players: *players,
+                    checklist: *checklist,
+                    rules: *rules,
+                    seed: *seed,
+                };
+                doc = battleship::build(&options)?;
             }
             Block::Maze { width, height, seed } => {
                 doc = maze::build(width.unwrap_or(12), height.unwrap_or(16), *seed);
