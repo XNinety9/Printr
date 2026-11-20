@@ -131,6 +131,9 @@ fn mm_16() -> f64 {
 fn mm_5() -> f64 {
     5.0
 }
+fn default_chord() -> String {
+    "C".to_owned()
+}
 fn default_coins() -> Vec<String> {
     vec!["bitcoin".to_owned(), "ethereum".to_owned()]
 }
@@ -746,6 +749,27 @@ pub enum Block {
         #[serde(default = "yes")]
         tabs: bool,
     },
+    /// Gadget : diagramme d'accord pour guitare ou basse, ou grilles vides à remplir.
+    #[serde(alias = "accord")]
+    Chord {
+        #[serde(default)]
+        instrument: gadget::chord::Instrument,
+        /// « C », « Am », « G7 », « Dsus4 », « F#m »… (ou en solfège : « La m »), ou « blank »
+        /// pour des grilles vides.
+        #[serde(default = "default_chord")]
+        chord: String,
+        /// Grilles vides : combien (1 à 12).
+        #[serde(default = "six")]
+        count: u8,
+    },
+    /// Gadget : illusion d'optique, avec sa question et la réponse à l'envers.
+    #[serde(alias = "illusion_optique")]
+    Illusion {
+        #[serde(default)]
+        kind: gadget::illusion::Kind,
+        #[serde(default = "yes")]
+        answer: bool,
+    },
     /// Revue de presse à partir de flux RSS, sans IA.
     News {
         /// Titre du bandeau : « Actualités · <title> ».
@@ -916,6 +940,8 @@ impl Block {
             Block::GridPaper { .. } => i18n::t("papier", "paper"),
             Block::RingSizer {} => i18n::t("baguier", "ring sizer"),
             Block::Die { .. } => i18n::t("patron de dé", "die template"),
+            Block::Chord { .. } => i18n::t("accord", "chord"),
+            Block::Illusion { .. } => i18n::t("illusion d'optique", "optical illusion"),
         }
     }
 
@@ -1011,6 +1037,12 @@ impl Block {
             Block::Protractor { radius } => Some(tr!("rayon {} mm", "radius {} mm", gadget::fmt_mm(*radius))),
             Block::GridPaper { pattern, length, .. } => Some(format!("{}, {length} cm", pattern.label())),
             Block::Die { face, .. } => Some(tr!("faces de {} mm", "{} mm faces", gadget::fmt_mm(*face))),
+            Block::Chord { instrument, chord, count } => Some(if gadget::chord::is_blank(chord) {
+                tr!("{count} grilles vides, {}", "{count} empty grids, {}", instrument.label())
+            } else {
+                format!("{chord}, {}", instrument.label())
+            }),
+            Block::Illusion { kind, .. } => Some(kind.label().to_owned()),
             _ => None,
         };
         match detail {
@@ -1254,6 +1286,12 @@ impl Block {
             }
             Block::RingSizer {} => doc = gadget::ring_sizer::build(gadget::Scale::current())?,
             Block::Die { face, pips, tabs } => doc = gadget::die::build(*face, *pips, *tabs, gadget::Scale::current())?,
+            Block::Chord { instrument, chord, count } => {
+                doc = gadget::chord::build(*instrument, chord, *count, gadget::Scale::current())?;
+            }
+            Block::Illusion { kind, answer } => {
+                doc = gadget::illusion::build(*kind, *answer, gadget::Scale::current())?
+            }
             Block::News { title, feeds, count, qr, themes, exclude, max_age_hours } => {
                 let options = news::Options {
                     count: (*count).clamp(1, 5) as usize,

@@ -215,6 +215,25 @@ const G = {
 };
 // Longueur la plus grande d'une règle : 60 mm en travers du papier, 1 m (40 pouces) dans son sens.
 const rulerMax = (d) => (d.orientation === 'horizontal' ? (d.unit === 'inch' ? 2 : 6) : d.unit === 'inch' ? 40 : 100);
+// Accords proposés pour le gadget « Accord », avec leur nom en solfège ; « blank » : grilles vides.
+const CHORDS = ['C', 'Cm', 'C7', 'Cmaj7', 'C#m', 'D', 'Dm', 'D7', 'Dm7', 'Dsus2', 'Dsus4', 'E', 'Em', 'E7', 'Em7', 'Esus4', 'F', 'Fm', 'Fmaj7', 'F#m',
+  'G', 'Gm', 'G7', 'Gmaj7', 'A', 'Am', 'A7', 'Am7', 'Amaj7', 'Asus2', 'Asus4', 'Bb', 'B', 'Bm', 'B7', 'Bm7'];
+const chordSpoken = (name) => {
+  const [, root, acc, suffix] = name.match(/^([A-G])([#b]?)(.*)$/);
+  const note = T({ C: 'Do', D: 'Ré', E: 'Mi', F: 'Fa', G: 'Sol', A: 'La', B: 'Si' }[root], root) + (acc === '#' ? T(' dièse', ' sharp') : acc === 'b' ? T(' bémol', ' flat') : '');
+  const quality = {
+    '': T('majeur', 'major'), m: T('mineur', 'minor'), 7: T('septième', 'seventh'), m7: T('mineur septième', 'minor seventh'),
+    maj7: T('septième majeure', 'major seventh'), sus2: 'sus2', sus4: 'sus4',
+  }[suffix];
+  return `${note} ${quality}`;
+};
+const CHORD_OPTIONS = [['blank', T('Grille vide', 'Empty grid')], ...CHORDS.map((c) => [c, `${c} · ${chordSpoken(c)}`])];
+const ILLUSIONS = [
+  ['hermann', T('Grille de Hermann', 'Hermann grid')], ['zollner', T('Lignes de Zöllner', 'Zöllner lines')],
+  ['muller_lyer', T('Flèches de Müller-Lyer', 'Müller-Lyer arrows')], ['ebbinghaus', T('Cercles d’Ebbinghaus', 'Ebbinghaus circles')],
+  ['ponzo', T('Rails de Ponzo', 'Ponzo rails')], ['ouchi', T('Motif d’Ouchi', 'Ouchi pattern')],
+  ['kanizsa', T('Triangle de Kanizsa', 'Kanizsa triangle')], ['hering', T('Rayons de Hering', 'Hering rays')],
+];
 const mmSummary = (v) => `${String(v).replace('.', T(',', '.'))}\u00a0mm`;
 const FAMILY_THEMES = WORD_THEMES.filter(([v]) => !['developpement', 'devops', 'reseaux', 'ia'].includes(v));
 const WEEKDAYS = [
@@ -844,6 +863,26 @@ const BLOCKS = [
     ],
     summary: (b) => mmSummary(b.face),
   },
+  {
+    type: 'chord', label: T('Accord', 'Chord'), emoji: '🎸', group: G.gadgets, desc: T('Le diagramme d’un accord de guitare ou de basse, ou des grilles vides', 'A guitar or bass chord diagram, or empty grids'),
+    defaults: { instrument: 'guitar', chord: 'C', count: 6 },
+    fields: [
+      { key: 'instrument', label: T('Instrument', 'Instrument'), kind: 'segmented', options: [['guitar', T('Guitare', 'Guitar')], ['bass', T('Basse', 'Bass')]] },
+      { key: 'chord', label: T('Accord', 'Chord'), kind: 'select', options: CHORD_OPTIONS },
+      { key: 'count', label: T('Nombre de grilles', 'Number of grids'), kind: 'number', min: 1, max: 12, when: (d) => d.chord === 'blank',
+        help: T('Deux par rangée, avec la place d’écrire le nom de l’accord.', 'Two per row, with room to write the chord name.') },
+    ],
+    summary: (b) => `${b.chord === 'blank' ? T('grilles vides', 'empty grids') : b.chord}, ${b.instrument === 'bass' ? T('basse', 'bass') : T('guitare', 'guitar')}`,
+  },
+  {
+    type: 'illusion', label: T('Illusion d’optique', 'Optical illusion'), emoji: '👁️', group: G.gadgets, desc: T('Une illusion qui trompe l’œil, avec sa question', 'An illusion that fools the eye, with its question'),
+    defaults: { kind: 'hermann', answer: true },
+    fields: [
+      { key: 'kind', label: T('Illusion', 'Illusion'), kind: 'select', options: ILLUSIONS },
+      { key: 'answer', label: T('Réponse à l’envers, en dessous', 'Upside-down answer below'), kind: 'toggle' },
+    ],
+    summary: (b) => ILLUSIONS.find(([v]) => v === b.kind)?.[1] ?? '',
+  },
 ];
 const BLOCK = Object.fromEntries(BLOCKS.map((b) => [b.type, b]));
 // Noms français acceptés par le serveur dans les tickets JSON (scripts, exemples) : l'appli les
@@ -855,7 +894,7 @@ const ALIASES = {
   bon: 'coupon', poubelles: 'bins', bilan: 'monthly_report', mots_fleches: 'arrow_word', fleches: 'arrow_word',
   mots_croises: 'crossword', croises: 'crossword', recette: 'recipe', recette_claude: 'recipe_claude', recette_ingredients: 'recipe_from_ingredients', ciel: 'sky',
   regle: 'ruler', cible: 'target', cercle: 'circle', carre: 'rectangle', rapporteur: 'protractor', papier: 'grid_paper',
-  quadrillage: 'grid_paper', baguier: 'ring_sizer', patron_de: 'die', de: 'die',
+  quadrillage: 'grid_paper', baguier: 'ring_sizer', patron_de: 'die', de: 'die', accord: 'chord', illusion_optique: 'illusion',
   coloriage: 'coloring', taches: 'chores', echecs: 'chess', anniversaires: 'birthdays', histoire: 'story', binairo: 'takuzu', ponts: 'hashi',
 };
 for (const [alias, type] of Object.entries(ALIASES)) BLOCK[alias] = BLOCK[type];
@@ -1664,18 +1703,20 @@ const KEYWORDS = {
   circle: 'cercle circle rond diametre diameter compas decouper cut gadget', rectangle: 'carre rectangle square forme shape decouper cut gadget',
   protractor: 'rapporteur protractor angle degres degrees geometrie geometry gadget', grid_paper: 'papier quadrille grid paper ligne lined seyes carreaux points dots gadget',
   ring_sizer: 'baguier ring sizer bague taille doigt finger gadget', die: 'de die patron template decouper cut plier fold jeu game gadget',
+  chord: 'accord chord guitare guitar basse bass musique music diagramme grille tablature gadget',
+  illusion: 'illusion optique optical oeil eye hermann zollner muller lyer ebbinghaus ponzo ouchi kanizsa hering gadget',
   bins: 'poubelles bins trash dechets recyclage', wifi: 'wifi invites guests reseau network', monthly_report: 'bilan mois monthly report statistiques stats',
 };
 
 // Étiquettes des blocs, pour les filtres du catalogue et la recherche (« Claude » vient de `ai`).
-const KIDS = ['fortune', 'story', 'picto', 'riddle', 'workout', 'word_search', 'maze', 'nonogram', 'petit_bac', 'mental_math', 'anagram', 'cipher', 'coloring', 'target', 'die'];
+const KIDS = ['fortune', 'story', 'picto', 'riddle', 'workout', 'word_search', 'maze', 'nonogram', 'petit_bac', 'mental_math', 'anagram', 'cipher', 'coloring', 'target', 'die', 'illusion'];
 const TOGETHER = ['riddle', 'workout', 'petit_bac', 'anagram'];
 // Ni réseau ni Claude : tout est calculé sur place, gratuitement.
 const OFFLINE = [
   'title', 'text', 'date', 'separator', 'feed', 'image', 'qr', 'picto', 'barnum', 'saint', 'quote', 'moon', 'holidays', 'countdown',
   'riddle', 'workout', 'sudoku', 'word_search', 'train_tracks', 'maze', 'nonogram', 'petit_bac', 'mental_math', 'anagram', 'cipher',
   'coloring', 'coupon', 'todo', 'shopping', 'bins', 'wifi', 'monthly_report', 'chores', 'birthdays', 'kakuro', 'takuzu', 'hashi', 'fortune',
-  'ruler', 'target', 'circle', 'rectangle', 'protractor', 'grid_paper', 'ring_sizer', 'die',
+  'ruler', 'target', 'circle', 'rectangle', 'protractor', 'grid_paper', 'ring_sizer', 'die', 'chord', 'illusion',
 ];
 const FILTERS = [
   { id: 'kids', emoji: '🧒', label: T('Pour les enfants', 'For kids'), words: 'enfants enfant kids children', test: (b) => KIDS.includes(b.type) },
@@ -2252,7 +2293,7 @@ function Message({ me, onSaved }) {
 
 // Imprimés à l'unité, en deux gestes : choisir, imprimer. Les réglages de chaque gadget sont
 // gardés dans le navigateur pour la fois suivante.
-const GADGETS = ['ruler', 'target', 'circle', 'rectangle', 'protractor', 'grid_paper', 'ring_sizer', 'die', 'image', 'qr'];
+const GADGETS = ['ruler', 'target', 'circle', 'rectangle', 'protractor', 'grid_paper', 'ring_sizer', 'die', 'chord', 'illusion', 'image', 'qr'];
 const percent = (perMille) => `${perMille >= 1000 ? '+' : '−'}${(Math.abs(perMille - 1000) / 10).toLocaleString(LOCALE, { maximumFractionDigits: 1 })}\u00a0%`;
 
 // Correction de l'avance du papier : on imprime une règle, on la mesure, Printr compense.

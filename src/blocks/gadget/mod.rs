@@ -2,8 +2,10 @@
 //! papier quadrillé, baguier, patron de dé…). Tout se mesure en millimètres, convertis en points
 //! selon la résolution de l'imprimante, avec la correction d'avance du papier réglée dans l'appli.
 
+pub mod chord;
 pub mod die;
 pub mod grid_paper;
+pub mod illusion;
 pub mod protractor;
 pub mod ring_sizer;
 pub mod ruler;
@@ -181,6 +183,22 @@ impl Sheet {
         for (px, py) in pixels {
             let (x, y) = self.mm(px, py);
             if (x - cx).hypot(y - cy) <= r {
+                self.put(px, py, ink);
+            }
+        }
+    }
+
+    /// Peint de `ink` les pixels de la zone (en mm) qui vérifient `inside`.
+    pub fn fill_where(
+        &mut self,
+        (x0, y0, x1, y1): (f64, f64, f64, f64),
+        ink: Luma<u8>,
+        inside: impl Fn(f64, f64) -> bool,
+    ) {
+        let pixels: Vec<_> = self.pixels(x0, y0, x1, y1).collect();
+        for (px, py) in pixels {
+            let (x, y) = self.mm(px, py);
+            if inside(x, y) {
                 self.put(px, py, ink);
             }
         }
