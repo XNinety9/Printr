@@ -4,6 +4,7 @@
 //! autres, et tous ceux de la basse, viennent de formes mobiles posées sur la bonne case.
 
 use anyhow::Result;
+use rand::seq::IndexedRandom;
 use serde::Deserialize;
 
 use super::{Scale, Sheet, check_range};
@@ -45,8 +46,7 @@ impl Instrument {
     }
 }
 
-/// Les accords proposés dans l'appli (`web/app.js`), vérifiés par les tests.
-#[cfg(test)]
+/// Les accords proposés dans l'appli (`web/app.js`), où « au hasard » pioche.
 const MAIN: &[&str] = &[
     "C", "Cm", "C7", "Cmaj7", "C#m", "D", "Dm", "D7", "Dm7", "Dsus2", "Dsus4", "E", "Em", "E7", "Em7", "Esus4", "F",
     "Fm", "Fmaj7", "F#m", "G", "Gm", "G7", "Gmaj7", "A", "Am", "A7", "Am7", "Amaj7", "Asus2", "Asus4", "Bb", "B", "Bm",
@@ -491,6 +491,12 @@ fn blank(instrument: Instrument, count: u8, s: Scale) -> image::GrayImage {
     sheet.into_image()
 }
 
+/// « random » ou « au hasard » : un des accords principaux, tiré à chaque impression.
+pub fn is_random(name: &str) -> bool {
+    let n = name.trim().to_lowercase().replace(['_', '-'], " ");
+    ["random", "hasard", "au hasard"].contains(&n.as_str())
+}
+
 pub fn is_blank(name: &str) -> bool {
     let n = name.trim().to_lowercase().replace(['_', '-'], " ");
     ["blank", "vide", "grille vide", "grilles vides", "empty", "blank grid"].contains(&n.as_str())
@@ -504,6 +510,7 @@ pub fn build(instrument: Instrument, chord: &str, count: u8, s: Scale) -> Result
         doc.image(blank(instrument, count, s));
         return Ok(doc);
     }
+    let chord = if is_random(chord) { MAIN.choose(&mut rand::rng()).expect("au moins un accord") } else { chord };
     let parsed = Chord::parse(chord).ok_or_else(|| {
         anyhow::anyhow!(tr!(
             "accord inconnu : « {chord} » (par exemple C, Am, G7, Cmaj7, Dsus4, F#m, ou « blank » pour des grilles vides)",
@@ -605,6 +612,7 @@ mod tests {
             assert!(build(instrument, "B", 6, s).is_ok());
             assert!(build(instrument, "blank", 5, s).is_ok());
             assert!(build(instrument, "Grille vide", 13, s).is_err());
+            assert!(build(instrument, "au_hasard", 1, s).is_ok());
         }
         assert!(build(Instrument::Guitar, "Xyz", 1, s).is_err());
         // Assez de place pour les grilles de la basse aussi, sur le papier le plus étroit.

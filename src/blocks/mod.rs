@@ -754,8 +754,8 @@ pub enum Block {
     Chord {
         #[serde(default)]
         instrument: gadget::chord::Instrument,
-        /// « C », « Am », « G7 », « Dsus4 », « F#m »… (ou en solfège : « La m »), ou « blank »
-        /// pour des grilles vides.
+        /// « C », « Am », « G7 », « Dsus4 », « F#m »… (ou en solfège : « Lam »), « random » pour
+        /// un accord au hasard, ou « blank » pour des grilles vides.
         #[serde(default = "default_chord")]
         chord: String,
         /// Grilles vides : combien (1 à 12).
@@ -1039,6 +1039,8 @@ impl Block {
             Block::Die { face, .. } => Some(tr!("faces de {} mm", "{} mm faces", gadget::fmt_mm(*face))),
             Block::Chord { instrument, chord, count } => Some(if gadget::chord::is_blank(chord) {
                 tr!("{count} grilles vides, {}", "{count} empty grids, {}", instrument.label())
+            } else if gadget::chord::is_random(chord) {
+                tr!("au hasard, {}", "random, {}", instrument.label())
             } else {
                 format!("{chord}, {}", instrument.label())
             }),

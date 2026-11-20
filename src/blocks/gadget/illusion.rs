@@ -1,10 +1,13 @@
 //! Illusions d'optique, dessinées à la volée : grille de Hermann, lignes de Zöllner, flèches de
-//! Müller-Lyer, cercles d'Ebbinghaus, rails de Ponzo, motif d'Ouchi, triangle de Kanizsa et
-//! rayons de Hering. Chacune pose sa question ; la réponse s'imprime à l'envers, en dessous.
+//! Müller-Lyer, cercles d'Ebbinghaus, rails de Ponzo, motif d'Ouchi, triangle de Kanizsa, rayons
+//! de Hering, mur du café, Poggendorff, Jastrow, Sander, Ehrenstein, image rémanente, cube de
+//! Necker, T renversé et Orbison. Chacune pose sa question ; la réponse s'imprime à l'envers, en
+//! dessous.
 
 use std::f64::consts::PI;
 
 use anyhow::Result;
+use rand::seq::IndexedRandom;
 use serde::Deserialize;
 
 use super::{Scale, Sheet};
@@ -32,11 +35,32 @@ pub enum Kind {
     Kanizsa,
     #[serde(alias = "rayons")]
     Hering,
+    #[serde(alias = "mur", alias = "cafe")]
+    CafeWall,
+    #[serde(alias = "decalage")]
+    Poggendorff,
+    #[serde(alias = "arcs")]
+    Jastrow,
+    #[serde(alias = "parallelogramme")]
+    Sander,
+    #[serde(alias = "disques_fantomes")]
+    Ehrenstein,
+    #[serde(alias = "remanente", alias = "image_remanente")]
+    Afterimage,
+    #[serde(alias = "cube")]
+    Necker,
+    #[serde(alias = "t", alias = "t_renverse")]
+    VerticalHorizontal,
+    #[serde(alias = "carre")]
+    Orbison,
+    /// Une des illusions, tirée au sort à chaque impression.
+    #[serde(alias = "hasard", alias = "au_hasard")]
+    Random,
 }
 
 impl Kind {
-    #[cfg(test)]
-    const ALL: [Kind; 8] = [
+    /// Toutes les illusions, sans « au hasard ».
+    const ALL: [Kind; 17] = [
         Kind::Hermann,
         Kind::Zollner,
         Kind::MullerLyer,
@@ -45,7 +69,24 @@ impl Kind {
         Kind::Ouchi,
         Kind::Kanizsa,
         Kind::Hering,
+        Kind::CafeWall,
+        Kind::Poggendorff,
+        Kind::Jastrow,
+        Kind::Sander,
+        Kind::Ehrenstein,
+        Kind::Afterimage,
+        Kind::Necker,
+        Kind::VerticalHorizontal,
+        Kind::Orbison,
     ];
+
+    /// L'illusion à dessiner : « au hasard » en tire une.
+    fn resolve(self) -> Kind {
+        match self {
+            Kind::Random => *Kind::ALL.choose(&mut rand::rng()).expect("au moins une illusion"),
+            k => k,
+        }
+    }
 
     pub fn label(self) -> &'static str {
         match self {
@@ -57,6 +98,16 @@ impl Kind {
             Kind::Ouchi => i18n::t("motif d'Ouchi", "Ouchi pattern"),
             Kind::Kanizsa => i18n::t("triangle de Kanizsa", "Kanizsa triangle"),
             Kind::Hering => i18n::t("rayons de Hering", "Hering rays"),
+            Kind::CafeWall => i18n::t("mur du café", "café wall"),
+            Kind::Poggendorff => i18n::t("illusion de Poggendorff", "Poggendorff illusion"),
+            Kind::Jastrow => i18n::t("arcs de Jastrow", "Jastrow arcs"),
+            Kind::Sander => i18n::t("parallélogramme de Sander", "Sander parallelogram"),
+            Kind::Ehrenstein => i18n::t("grille d'Ehrenstein", "Ehrenstein grid"),
+            Kind::Afterimage => i18n::t("image rémanente", "afterimage"),
+            Kind::Necker => i18n::t("cube de Necker", "Necker cube"),
+            Kind::VerticalHorizontal => i18n::t("T renversé", "upside-down T"),
+            Kind::Orbison => i18n::t("carré d'Orbison", "Orbison square"),
+            Kind::Random => i18n::t("au hasard", "random"),
         }
     }
 
@@ -77,6 +128,25 @@ impl Kind {
             Kind::Hering => {
                 i18n::t("Les deux lignes épaisses sont-elles droites ?", "Are the two thick lines straight?")
             }
+            Kind::CafeWall => i18n::t("Les rangées de briques sont-elles penchées ?", "Are the rows of bricks tilted?"),
+            Kind::Poggendorff => i18n::t(
+                "Quel trait de droite, A ou B, prolonge celui de gauche ?",
+                "Which line on the right, A or B, continues the one on the left?",
+            ),
+            Kind::Jastrow => i18n::t("Quelle forme est la plus grande ?", "Which shape is bigger?"),
+            Kind::Sander => i18n::t("Quel trait épais est le plus long ?", "Which thick line is longer?"),
+            Kind::Ehrenstein => i18n::t(
+                "Vois-tu des disques plus blancs que le papier aux croisements ?",
+                "Do you see discs whiter than the paper at the crossings?",
+            ),
+            Kind::Afterimage => i18n::t(
+                "Fixe le point blanc 30 secondes sans bouger, puis regarde un mur blanc. Que vois-tu ?",
+                "Stare at the white dot for 30 seconds without moving, then look at a white wall. What do you see?",
+            ),
+            Kind::Necker => i18n::t("Quelle face du cube est devant ?", "Which face of the cube is in front?"),
+            Kind::VerticalHorizontal => i18n::t("Quel trait est le plus long ?", "Which line is longer?"),
+            Kind::Orbison => i18n::t("Les côtés du carré sont-ils droits ?", "Are the sides of the square straight?"),
+            Kind::Random => unreachable!("tirée au sort avant"),
         }
     }
 
@@ -114,6 +184,42 @@ impl Kind {
                 "Oui, droites et parallèles : ce sont les rayons qui les font paraître courbées.",
                 "Yes, straight and parallel: the rays make them look bent.",
             ),
+            Kind::CafeWall => i18n::t(
+                "Non, toutes les rangées sont parfaitement horizontales : c'est le décalage des briques qui les tord.",
+                "No, every row is perfectly horizontal: the shifted bricks make them look skewed.",
+            ),
+            Kind::Poggendorff => i18n::t(
+                "B, celle du bas ! Pose une règle dessus pour vérifier.",
+                "B, the lower one! Lay a ruler on it to check.",
+            ),
+            Kind::Jastrow => i18n::t(
+                "Aucune : elles sont identiques. Découpe-les et pose-les l'une sur l'autre !",
+                "Neither: they are identical. Cut them out and stack them!",
+            ),
+            Kind::Sander => {
+                i18n::t("Aucun : ils ont exactement la même longueur.", "Neither: they are exactly the same length.")
+            }
+            Kind::Ehrenstein => i18n::t(
+                "Aucun disque n'est dessiné : ce sont juste des lignes coupées.",
+                "No disc is drawn: the lines are simply cut short.",
+            ),
+            Kind::Afterimage => i18n::t(
+                "Une étoile claire flotte devant toi : tes yeux, fatigués du noir, la dessinent en négatif.",
+                "A bright star floats in front of you: your eyes, tired of the black, draw it in negative.",
+            ),
+            Kind::Necker => i18n::t(
+                "Les deux ! Fixe un coin : le cube se retourne d'un coup.",
+                "Both! Stare at a corner: the cube suddenly flips.",
+            ),
+            Kind::VerticalHorizontal => i18n::t(
+                "Aucun : ils ont la même longueur. Le trait debout paraît toujours plus grand.",
+                "Neither: they are the same length. The standing line always looks longer.",
+            ),
+            Kind::Orbison => i18n::t(
+                "Oui, parfaitement droits : ce sont les cercles qui les font paraître creusés.",
+                "Yes, perfectly straight: the circles make them look curved in.",
+            ),
+            Kind::Random => unreachable!("tirée au sort avant"),
         }
     }
 }
@@ -126,6 +232,18 @@ fn in_triangle((x, y): (f64, f64), [a, b, c]: [(f64, f64); 3]) -> bool {
     let side = |p: (f64, f64), q: (f64, f64)| (q.0 - p.0) * (y - p.1) - (q.1 - p.1) * (x - p.0);
     let (d1, d2, d3) = (side(a, b), side(b, c), side(c, a));
     !((d1 < 0.0 || d2 < 0.0 || d3 < 0.0) && (d1 > 0.0 || d2 > 0.0 || d3 > 0.0))
+}
+
+/// Le point est-il dans le polygone (règle pair-impair) ?
+fn in_polygon((x, y): (f64, f64), points: &[(f64, f64)]) -> bool {
+    let mut inside = false;
+    for (i, &(x1, y1)) in points.iter().enumerate() {
+        let (x2, y2) = points[(i + 1) % points.len()];
+        if (y1 > y) != (y2 > y) && x < x1 + (y - y1) * (x2 - x1) / (y2 - y1) {
+            inside = !inside;
+        }
+    }
+    inside
 }
 
 /// Dessine l'illusion dans une feuille ; `ox` est le bord gauche du dessin.
@@ -286,10 +404,153 @@ fn draw(kind: Kind, s: Scale) -> image::GrayImage {
             }
             sheet.into_image()
         }
+        Kind::CafeWall => {
+            let (tile, row, rows, mortar) = (7.5, 6.0, 9, 0.6);
+            let mut sheet = Sheet::new(s, row * f64::from(rows) + 2.0);
+            // Rangées décalées en zigzag ; le joint gris (un point sur deux) fait l'illusion.
+            for r in 0..rows {
+                let shift = [0.0, 0.25, 0.5, 0.25][r as usize % 4] * tile;
+                let y = top + f64::from(r) * row;
+                sheet.fill_where((ox, y, ox + W, y + row), BLACK, |x, _| {
+                    let i = ((x - ox + 2.0 * tile - shift) / tile).floor() as i64;
+                    x >= ox && x < ox + W && i % 2 == 0
+                });
+            }
+            let (sx, sy) = (s.x, s.y);
+            for r in 0..=rows {
+                let y = top + f64::from(r) * row;
+                let band = (ox, y - mortar / 2.0, ox + W, y + mortar / 2.0);
+                let on = move |x: f64, py: f64| x >= ox && x < ox + W && (py - y).abs() <= mortar / 2.0;
+                sheet.fill_where(band, WHITE, on);
+                sheet.fill_where(band, BLACK, |x, py| {
+                    on(x, py) && ((x * sx).floor() as i64 + (py * sy).floor() as i64) % 2 == 0
+                });
+            }
+            sheet.into_image()
+        }
+        Kind::Poggendorff => {
+            let h = 50.0;
+            let mut sheet = Sheet::new(s, h + 2.0);
+            let line = |x: f64| top + h - 6.0 - x * 0.6;
+            let (b0, b1, end) = (24.0, 36.0, W - 5.0);
+            let at = |x: f64, dy: f64| (ox + x, line(x) + dy);
+            sheet.line(at(0.0, 0.0), at(b0, 0.0), 0.5, None);
+            // B prolonge vraiment le trait de gauche ; A, au-dessus, semble le faire.
+            let decoy = -6.0;
+            sheet.line(at(b1, decoy), at(end, decoy), 0.5, None);
+            sheet.line(at(b1, 0.0), at(end, 0.0), 0.5, None);
+            sheet.fill_where((ox + b0, top, ox + b1, top + h), BLACK, |x, y| {
+                x >= ox + b0 && x < ox + b1 && y >= top && y < top + h
+            });
+            sheet.label("A", (ox + W - 2.0, line(end) + decoy), s.digits(), BLACK);
+            sheet.label("B", (ox + W - 2.0, line(end)), s.digits(), BLACK);
+            sheet.into_image()
+        }
+        Kind::Jastrow => {
+            let (r1, r2, half) = (28.0, 44.0, 40f64.to_radians());
+            let gap = r2 - r1 + 3.0;
+            let cx = s.width_mm() / 2.0;
+            let cy = top + r2;
+            let mut sheet = Sheet::new(s, cy + gap - r1 * half.cos() + 1.0);
+            // Deux arcs identiques : le petit bord de celui du haut touche presque le grand bord
+            // de celui du bas.
+            for c in [cy, cy + gap] {
+                sheet.fill_where((cx - r2, c - r2, cx + r2, c), BLACK, |x, y| {
+                    let d = (x - cx).hypot(y - c);
+                    (r1..=r2).contains(&d) && (x - cx).atan2(c - y).abs() <= half
+                });
+            }
+            sheet.into_image()
+        }
+        Kind::Sander => {
+            let (shear, small, big, h) = (12.0, 10.0, 34.0, 26.0);
+            let x0 = s.width_mm() / 2.0 - (shear + small + big) / 2.0;
+            let p = |x: f64, y: f64| (x0 + x, top + y);
+            let mut sheet = Sheet::new(s, h + 2.0);
+            sheet.polygon(&[p(shear, 0.0), p(shear + small, 0.0), p(small, h), p(0.0, h)], 0.35, None);
+            sheet.polygon(
+                &[p(shear + small, 0.0), p(shear + small + big, 0.0), p(small + big, h), p(small, h)],
+                0.35,
+                None,
+            );
+            // Les deux diagonales partent du même coin et ont la même longueur.
+            sheet.line(p(shear + small, 0.0), p(0.0, h), 1.0, None);
+            sheet.line(p(shear + small, 0.0), p(2.0 * (shear + small), h), 1.0, None);
+            sheet.into_image()
+        }
+        Kind::Ehrenstein => {
+            let (n, step, hole) = (6, 10.0, 2.0);
+            let mut sheet = Sheet::new(s, W + 2.0);
+            let at = |i: i32| step / 2.0 + f64::from(i) * step;
+            for i in 0..n {
+                sheet.line((ox + at(i), top), (ox + at(i), top + W), 0.6, None);
+                sheet.line((ox, top + at(i)), (ox + W, top + at(i)), 0.6, None);
+            }
+            for i in 0..n {
+                for j in 0..n {
+                    sheet.disc((ox + at(i), top + at(j)), hole, WHITE);
+                }
+            }
+            sheet.into_image()
+        }
+        Kind::Afterimage => {
+            let mut sheet = Sheet::new(s, W + 2.0);
+            let c = (s.width_mm() / 2.0, top + W / 2.0 + 2.0);
+            let star: Vec<(f64, f64)> = (0..10)
+                .map(|i| {
+                    let r = if i % 2 == 0 { W / 2.0 } else { W / 5.0 };
+                    let a = -PI / 2.0 + PI * f64::from(i) / 5.0;
+                    (c.0 + r * a.cos(), c.1 + r * a.sin())
+                })
+                .collect();
+            sheet.fill_where((c.0 - W / 2.0, top, c.0 + W / 2.0, top + W), BLACK, |x, y| in_polygon((x, y), &star));
+            sheet.disc(c, 1.2, WHITE);
+            sheet.into_image()
+        }
+        Kind::Necker => {
+            let (side, depth) = (34.0, 16.0);
+            let x0 = s.width_mm() / 2.0 - (side + depth) / 2.0;
+            let mut sheet = Sheet::new(s, side + depth + 2.0);
+            let face = [(0.0, depth), (side, depth), (side, depth + side), (0.0, depth + side)];
+            let p = |(x, y): (f64, f64), d: f64| (x0 + x + d, top + y - d);
+            sheet.polygon(&face.map(|q| p(q, 0.0)), 0.5, None);
+            sheet.polygon(&face.map(|q| p(q, depth)), 0.5, None);
+            for q in face {
+                sheet.line(p(q, 0.0), p(q, depth), 0.5, None);
+            }
+            sheet.into_image()
+        }
+        Kind::VerticalHorizontal => {
+            let len = 40.0;
+            let mut sheet = Sheet::new(s, len + 4.0);
+            let cx = s.width_mm() / 2.0;
+            let base = top + len + 1.0;
+            sheet.line((cx - len / 2.0, base), (cx + len / 2.0, base), 0.8, None);
+            sheet.line((cx, base), (cx, base - len), 0.8, None);
+            sheet.into_image()
+        }
+        Kind::Orbison => {
+            let mut sheet = Sheet::new(s, W + 2.0);
+            let c = (s.width_mm() / 2.0, top + W / 2.0);
+            for k in 1..=12 {
+                sheet.circle(c, 2.5 * f64::from(k), 0.3, None);
+            }
+            let half = 17.0;
+            let square = [
+                (c.0 - half, c.1 - half),
+                (c.0 + half, c.1 - half),
+                (c.0 + half, c.1 + half),
+                (c.0 - half, c.1 + half),
+            ];
+            sheet.polygon(&square, 1.0, None);
+            sheet.into_image()
+        }
+        Kind::Random => unreachable!("tirée au sort avant"),
     }
 }
 
 pub fn build(kind: Kind, answer: bool, s: Scale) -> Result<Doc> {
+    let kind = kind.resolve();
     let mut doc = Doc::new();
     doc.header(kind.label());
     doc.image(draw(kind, s));

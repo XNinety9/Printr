@@ -211,7 +211,7 @@ const G = {
   grids: T('Jeux : grilles et chiffres', 'Games: grids and numbers'), words: T('Jeux : mots et lettres', 'Games: words and letters'),
   challenges: T('Jeux : défis et créativité', 'Games: challenges and creativity'),
   gift: T('Petites attentions', 'Little gifts'), info: T('Infos', 'Info'), org: T('Organisation', 'Organization'),
-  gadgets: T('Gadgets à la taille réelle', 'True-to-size gadgets'),
+  gadgets: T('Gadgets', 'Gadgets'),
 };
 // Longueur la plus grande d'une règle : 60 mm en travers du papier, 1 m (40 pouces) dans son sens.
 const rulerMax = (d) => (d.orientation === 'horizontal' ? (d.unit === 'inch' ? 2 : 6) : d.unit === 'inch' ? 40 : 100);
@@ -227,13 +227,19 @@ const chordSpoken = (name) => {
   }[suffix];
   return `${note} ${quality}`;
 };
-const CHORD_OPTIONS = [['blank', T('Grille vide', 'Empty grid')], ...CHORDS.map((c) => [c, `${c} · ${chordSpoken(c)}`])];
+const CHORD_OPTIONS = [['random', T('Au hasard', 'Random')], ['blank', T('Grille vide', 'Empty grid')], ...CHORDS.map((c) => [c, `${c} · ${chordSpoken(c)}`])];
 const ILLUSIONS = [
   ['hermann', T('Grille de Hermann', 'Hermann grid')], ['zollner', T('Lignes de Zöllner', 'Zöllner lines')],
   ['muller_lyer', T('Flèches de Müller-Lyer', 'Müller-Lyer arrows')], ['ebbinghaus', T('Cercles d’Ebbinghaus', 'Ebbinghaus circles')],
   ['ponzo', T('Rails de Ponzo', 'Ponzo rails')], ['ouchi', T('Motif d’Ouchi', 'Ouchi pattern')],
   ['kanizsa', T('Triangle de Kanizsa', 'Kanizsa triangle')], ['hering', T('Rayons de Hering', 'Hering rays')],
+  ['cafe_wall', T('Mur du café', 'Café wall')], ['poggendorff', T('Illusion de Poggendorff', 'Poggendorff illusion')],
+  ['jastrow', T('Arcs de Jastrow', 'Jastrow arcs')], ['sander', T('Parallélogramme de Sander', 'Sander parallelogram')],
+  ['ehrenstein', T('Grille d’Ehrenstein', 'Ehrenstein grid')], ['afterimage', T('Image rémanente', 'Afterimage')],
+  ['necker', T('Cube de Necker', 'Necker cube')], ['vertical_horizontal', T('T renversé', 'Upside-down T')],
+  ['orbison', T('Carré d’Orbison', 'Orbison square')],
 ];
+const ILLUSION_OPTIONS = [['random', T('Au hasard', 'Random')], ...ILLUSIONS];
 const mmSummary = (v) => `${String(v).replace('.', T(',', '.'))}\u00a0mm`;
 const FAMILY_THEMES = WORD_THEMES.filter(([v]) => !['developpement', 'devops', 'reseaux', 'ia'].includes(v));
 const WEEKDAYS = [
@@ -872,16 +878,16 @@ const BLOCKS = [
       { key: 'count', label: T('Nombre de grilles', 'Number of grids'), kind: 'number', min: 1, max: 12, when: (d) => d.chord === 'blank',
         help: T('Deux par rangée, avec la place d’écrire le nom de l’accord.', 'Two per row, with room to write the chord name.') },
     ],
-    summary: (b) => `${b.chord === 'blank' ? T('grilles vides', 'empty grids') : b.chord}, ${b.instrument === 'bass' ? T('basse', 'bass') : T('guitare', 'guitar')}`,
+    summary: (b) => `${b.chord === 'blank' ? T('grilles vides', 'empty grids') : b.chord === 'random' ? T('au hasard', 'random') : b.chord}, ${b.instrument === 'bass' ? T('basse', 'bass') : T('guitare', 'guitar')}`,
   },
   {
     type: 'illusion', label: T('Illusion d’optique', 'Optical illusion'), emoji: '👁️', group: G.gadgets, desc: T('Une illusion qui trompe l’œil, avec sa question', 'An illusion that fools the eye, with its question'),
     defaults: { kind: 'hermann', answer: true },
     fields: [
-      { key: 'kind', label: T('Illusion', 'Illusion'), kind: 'select', options: ILLUSIONS },
+      { key: 'kind', label: T('Illusion', 'Illusion'), kind: 'select', options: ILLUSION_OPTIONS },
       { key: 'answer', label: T('Réponse à l’envers, en dessous', 'Upside-down answer below'), kind: 'toggle' },
     ],
-    summary: (b) => ILLUSIONS.find(([v]) => v === b.kind)?.[1] ?? '',
+    summary: (b) => ILLUSION_OPTIONS.find(([v]) => v === b.kind)?.[1] ?? '',
   },
 ];
 const BLOCK = Object.fromEntries(BLOCKS.map((b) => [b.type, b]));
@@ -1704,7 +1710,7 @@ const KEYWORDS = {
   protractor: 'rapporteur protractor angle degres degrees geometrie geometry gadget', grid_paper: 'papier quadrille grid paper ligne lined seyes carreaux points dots gadget',
   ring_sizer: 'baguier ring sizer bague taille doigt finger gadget', die: 'de die patron template decouper cut plier fold jeu game gadget',
   chord: 'accord chord guitare guitar basse bass musique music diagramme grille tablature gadget',
-  illusion: 'illusion optique optical oeil eye hermann zollner muller lyer ebbinghaus ponzo ouchi kanizsa hering gadget',
+  illusion: 'illusion optique optical oeil eye hermann zollner muller lyer ebbinghaus ponzo ouchi kanizsa hering cafe poggendorff jastrow sander ehrenstein remanente afterimage necker cube orbison gadget',
   bins: 'poubelles bins trash dechets recyclage', wifi: 'wifi invites guests reseau network', monthly_report: 'bilan mois monthly report statistiques stats',
 };
 
