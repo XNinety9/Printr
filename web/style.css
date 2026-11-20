@@ -522,6 +522,8 @@ textarea.input.code { font-family: var(--mono); font-size: 13px; line-height: 1.
 
 /* ---------- Gadgets ---------- */
 
+/* Toujours la même largeur, quel que soit le gadget : la grille garde ses colonnes. */
+.message.gadgets { width: 100%; }
 .gadget-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; margin-bottom: 16px; }
 .gadget {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;

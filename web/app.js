@@ -2378,7 +2378,7 @@ function Gadgets({ me }) {
   };
 
   return html`<div class="page"><div class="composer">
-    <div class="message">
+    <div class="message gadgets">
       <div class="gadget-grid" role="radiogroup" aria-label=${T('Gadgets', 'Gadgets')}>
         ${gadgets.map((t) => html`<button type="button" key=${t} role="radio" aria-checked=${t === type} class="gadget ${t === type ? 'on' : ''}" onClick=${() => choose(t)}>
           <span class="emoji" aria-hidden="true">${BLOCK[t].emoji}</span><span>${BLOCK[t].label}</span></button>`)}
