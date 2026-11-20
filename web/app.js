@@ -881,6 +881,20 @@ const BLOCKS = [
     summary: (b) => `${b.chord === 'blank' ? T('grilles vides', 'empty grids') : b.chord === 'random' ? T('au hasard', 'random') : b.chord}, ${b.instrument === 'bass' ? T('basse', 'bass') : T('guitare', 'guitar')}`,
   },
   {
+    type: 'music_paper', label: T('Papier à musique', 'Music paper'), emoji: '🎼', group: G.gadgets, desc: T('Des portées ou une tablature, avec leur clé', 'Staves or tablature, with their clef'),
+    defaults: { lines: 5, clef: 'treble', layout: 'across', staves: 6, length: 20 },
+    fields: [
+      { key: 'clef', label: T('Clé', 'Clef'), kind: 'segmented', options: [['treble', T('Sol', 'Treble')], ['bass', T('Fa', 'Bass')], ['alto', T('Ut', 'Alto')], ['tab', 'TAB'], ['none', T('Aucune', 'None')]] },
+      { key: 'lines', label: T('Lignes par portée', 'Lines per staff'), kind: 'number', min: 4, max: 8,
+        help: T('5 pour une portée ; pour une tablature, une ligne par corde : 4 ou 5 pour la basse, 6 à 8 pour la guitare.', '5 for a staff; for tablature, one line per string: 4 or 5 for bass, 6 to 8 for guitar.') },
+      { key: 'layout', label: T('Disposition', 'Layout'), kind: 'segmented', options: [['across', T('En largeur', 'Across')], ['along', T('En longueur', 'Lengthwise')]],
+        help: (d) => (d.layout === 'along' ? T('Deux grandes portées suivent le papier : tourne le ticket pour écrire.', 'Two large staves run along the paper: turn the ticket to write.') : T('Les portées vont d’un bord à l’autre du papier.', 'The staves run from one edge of the paper to the other.')) },
+      { key: 'staves', label: T('Nombre de portées', 'Number of staves'), kind: 'number', min: 1, max: 30, when: (d) => d.layout !== 'along' },
+      { key: 'length', label: T('Longueur (cm)', 'Length (cm)'), kind: 'number', min: 5, max: 100, when: (d) => d.layout === 'along' },
+    ],
+    summary: (b) => (b.layout === 'along' ? `${b.length} cm` : T(`${b.staves} portées`, `${b.staves} staves`)),
+  },
+  {
     type: 'illusion', label: T('Illusion d’optique', 'Optical illusion'), emoji: '👁️', group: G.gadgets, desc: T('Une illusion qui trompe l’œil, avec sa question', 'An illusion that fools the eye, with its question'),
     defaults: { kind: 'hermann', answer: true },
     fields: [
@@ -900,7 +914,7 @@ const ALIASES = {
   bon: 'coupon', poubelles: 'bins', bilan: 'monthly_report', mots_fleches: 'arrow_word', fleches: 'arrow_word',
   mots_croises: 'crossword', croises: 'crossword', recette: 'recipe', recette_claude: 'recipe_claude', recette_ingredients: 'recipe_from_ingredients', ciel: 'sky',
   regle: 'ruler', cible: 'target', cercle: 'circle', carre: 'rectangle', rapporteur: 'protractor', papier: 'grid_paper',
-  quadrillage: 'grid_paper', baguier: 'ring_sizer', patron_de: 'die', de: 'die', accord: 'chord', illusion_optique: 'illusion',
+  quadrillage: 'grid_paper', baguier: 'ring_sizer', patron_de: 'die', de: 'die', accord: 'chord', illusion_optique: 'illusion', papier_musique: 'music_paper', portees: 'music_paper',
   coloriage: 'coloring', taches: 'chores', echecs: 'chess', anniversaires: 'birthdays', histoire: 'story', binairo: 'takuzu', ponts: 'hashi',
 };
 for (const [alias, type] of Object.entries(ALIASES)) BLOCK[alias] = BLOCK[type];
@@ -1710,6 +1724,7 @@ const KEYWORDS = {
   protractor: 'rapporteur protractor angle degres degrees geometrie geometry gadget', grid_paper: 'papier quadrille grid paper ligne lined seyes carreaux points dots gadget',
   ring_sizer: 'baguier ring sizer bague taille doigt finger gadget', die: 'de die patron template decouper cut plier fold jeu game gadget',
   chord: 'accord chord guitare guitar basse bass musique music diagramme grille tablature gadget',
+  music_paper: 'papier musique music paper portee staff partition score cle clef sol fa ut tablature tab guitare basse gadget',
   illusion: 'illusion optique optical oeil eye hermann zollner muller lyer ebbinghaus ponzo ouchi kanizsa hering cafe poggendorff jastrow sander ehrenstein remanente afterimage necker cube orbison gadget',
   bins: 'poubelles bins trash dechets recyclage', wifi: 'wifi invites guests reseau network', monthly_report: 'bilan mois monthly report statistiques stats',
 };
@@ -1722,7 +1737,7 @@ const OFFLINE = [
   'title', 'text', 'date', 'separator', 'feed', 'image', 'qr', 'picto', 'barnum', 'saint', 'quote', 'moon', 'holidays', 'countdown',
   'riddle', 'workout', 'sudoku', 'word_search', 'train_tracks', 'maze', 'nonogram', 'petit_bac', 'mental_math', 'anagram', 'cipher',
   'coloring', 'coupon', 'todo', 'shopping', 'bins', 'wifi', 'monthly_report', 'chores', 'birthdays', 'kakuro', 'takuzu', 'hashi', 'fortune',
-  'ruler', 'target', 'circle', 'rectangle', 'protractor', 'grid_paper', 'ring_sizer', 'die', 'chord', 'illusion',
+  'ruler', 'target', 'circle', 'rectangle', 'protractor', 'grid_paper', 'ring_sizer', 'die', 'chord', 'music_paper', 'illusion',
 ];
 const FILTERS = [
   { id: 'kids', emoji: '🧒', label: T('Pour les enfants', 'For kids'), words: 'enfants enfant kids children', test: (b) => KIDS.includes(b.type) },
@@ -2299,7 +2314,7 @@ function Message({ me, onSaved }) {
 
 // Imprimés à l'unité, en deux gestes : choisir, imprimer. Les réglages de chaque gadget sont
 // gardés dans le navigateur pour la fois suivante.
-const GADGETS = ['ruler', 'target', 'circle', 'rectangle', 'protractor', 'grid_paper', 'ring_sizer', 'die', 'chord', 'illusion', 'image', 'qr'];
+const GADGETS = ['ruler', 'target', 'circle', 'rectangle', 'protractor', 'grid_paper', 'ring_sizer', 'die', 'chord', 'music_paper', 'illusion', 'image', 'qr'];
 const percent = (perMille) => `${perMille >= 1000 ? '+' : '−'}${(Math.abs(perMille - 1000) / 10).toLocaleString(LOCALE, { maximumFractionDigits: 1 })}\u00a0%`;
 
 // Correction de l'avance du papier : on imprime une règle, on la mesure, Printr compense.

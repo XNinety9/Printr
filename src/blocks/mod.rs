@@ -131,6 +131,12 @@ fn mm_16() -> f64 {
 fn mm_5() -> f64 {
     5.0
 }
+fn five_lines() -> u8 {
+    5
+}
+fn twenty() -> u16 {
+    20
+}
 fn default_chord() -> String {
     "C".to_owned()
 }
@@ -762,6 +768,23 @@ pub enum Block {
         #[serde(default = "six")]
         count: u8,
     },
+    /// Gadget : papier à musique, portées ou tablature.
+    #[serde(alias = "papier_musique", alias = "portees")]
+    MusicPaper {
+        /// Lignes de chaque portée, de 4 à 8 (5 : portée classique ; 4 à 8 : tablature).
+        #[serde(default = "five_lines")]
+        lines: u8,
+        #[serde(default)]
+        clef: gadget::music_paper::Clef,
+        #[serde(default)]
+        layout: gadget::music_paper::Layout,
+        /// En largeur : nombre de portées (1 à 30).
+        #[serde(default = "six")]
+        staves: u8,
+        /// En longueur : longueur du papier, en cm (5 à 100).
+        #[serde(default = "twenty")]
+        length: u16,
+    },
     /// Gadget : illusion d'optique, avec sa question et la réponse à l'envers.
     #[serde(alias = "illusion_optique")]
     Illusion {
@@ -942,6 +965,7 @@ impl Block {
             Block::Die { .. } => i18n::t("patron de dé", "die template"),
             Block::Chord { .. } => i18n::t("accord", "chord"),
             Block::Illusion { .. } => i18n::t("illusion d'optique", "optical illusion"),
+            Block::MusicPaper { .. } => i18n::t("papier à musique", "music paper"),
         }
     }
 
@@ -1045,6 +1069,14 @@ impl Block {
                 format!("{chord}, {}", instrument.label())
             }),
             Block::Illusion { kind, .. } => Some(kind.label().to_owned()),
+            Block::MusicPaper { lines, clef, layout, staves, length } => Some(match layout {
+                gadget::music_paper::Layout::Across => {
+                    tr!("{staves} portées de {lines} lignes, {}", "{staves} staves of {lines} lines, {}", clef.label())
+                }
+                gadget::music_paper::Layout::Along => {
+                    tr!("{length} cm, {lines} lignes, {}", "{length} cm, {lines} lines, {}", clef.label())
+                }
+            }),
             _ => None,
         };
         match detail {
@@ -1290,6 +1322,16 @@ impl Block {
             Block::Die { face, pips, tabs } => doc = gadget::die::build(*face, *pips, *tabs, gadget::Scale::current())?,
             Block::Chord { instrument, chord, count } => {
                 doc = gadget::chord::build(*instrument, chord, *count, gadget::Scale::current())?;
+            }
+            Block::MusicPaper { lines, clef, layout, staves, length } => {
+                let options = gadget::music_paper::Options {
+                    lines: *lines,
+                    clef: *clef,
+                    layout: *layout,
+                    staves: *staves,
+                    length: *length,
+                };
+                doc = gadget::music_paper::build(&options, gadget::Scale::current())?;
             }
             Block::Illusion { kind, answer } => {
                 doc = gadget::illusion::build(*kind, *answer, gadget::Scale::current())?

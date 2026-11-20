@@ -6,6 +6,7 @@ pub mod chord;
 pub mod die;
 pub mod grid_paper;
 pub mod illusion;
+pub mod music_paper;
 pub mod protractor;
 pub mod ring_sizer;
 pub mod ruler;

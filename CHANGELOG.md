@@ -20,6 +20,8 @@ Koenig, Tolbert Lanston…
   `die`), available in the composer.
 - **Chord** gadget (`chord`): a guitar or bass chord diagram with fingering, picked from the main chords
   (or any chord name such as `F#m7`), at random, or a page of empty grids to fill in.
+- **Music paper** gadget (`music_paper`): staves of 4 to 8 lines with a treble, bass or alto clef, or
+  tablature, across the paper (pick the number of staves) or along it (pick the length).
 - **Optical illusion** gadget (`illusion`): 17 illusions drawn on the fly (Hermann grid, Zöllner lines,
   Müller-Lyer arrows, Ebbinghaus circles, Ponzo rails, Ouchi pattern, Kanizsa triangle, Hering rays, café
   wall, Poggendorff, Jastrow arcs, Sander parallelogram, Ehrenstein grid, afterimage, Necker cube,
