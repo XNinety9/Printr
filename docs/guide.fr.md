@@ -286,8 +286,12 @@ France, nommés en anglais.
   Les blocs Claude (horoscope, mot du jour) n'appellent pas Claude en aperçu : ils ne sont
   rédigés qu'à l'impression.
 - **Mes tickets** : les tickets enregistrés (presets), à imprimer en un geste, à partager avec
-  la famille et à **planifier** (jours et heure). Une échéance manquée de plus de 15 minutes
-  n'est pas rattrapée.
+  la famille et à **planifier** (jours et heure). **Répété** règle la fréquence : jamais (une
+  fois, à une date), toutes les heures, tous les jours, jours de semaine, week-ends, toutes les
+  semaines, toutes les 2 semaines, tous les mois, tous les 3 ou 6 mois, tous les ans. Les
+  répétitions mensuelles et plus longues partent d'une date de référence : le 31 devient le
+  dernier jour des mois plus courts, le 29 février le 28 hors années bissextiles. Une échéance
+  manquée de plus de 15 minutes n'est pas rattrapée.
 - **Petit mot** : une photo prise avec le téléphone, un dessin (cœur, étoile…), quelques mots.
 - **Courses** : la liste partagée de la famille ; chacun ajoute ce qui manque, on l'imprime en
   partant (et elle se vide toute seule). Un raccourci iOS peut aussi y ajouter des articles

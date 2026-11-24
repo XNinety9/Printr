@@ -156,6 +156,7 @@ const ICONS = {
   edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>',
   x: '<path d="M18 6 6 18M6 6l12 12"/>',
   check: '<path d="m5 12 5 5L20 7"/>',
+  repeat: '<path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>',
   camera: '<path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="4"/>',
   eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
   logout: '<path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 17l-5-5 5-5M5 12h11"/>',
@@ -887,7 +888,62 @@ function daysLabel(days) {
   return days.slice().sort().map((n) => DAY_NAMES[n - 1]).join(' ');
 }
 const timeLabel = (t) => T(t.replace(':', ' h '), t);
-const scheduleLabel = (s) => `${daysLabel(s.days)} · ${timeLabel(s.time)}`;
+
+// Périodicités, dans l'ordre du sélecteur (mêmes valeurs que `store::Repeat` côté serveur).
+// `days` : jours imposés ; `start` : se compte à partir d'une date de référence.
+const ALL_DAYS = [1, 2, 3, 4, 5, 6, 7];
+const REPEATS = [
+  { value: 'never', label: T('Jamais', 'Never'), start: true },
+  { value: 'hourly', label: T('Toutes les heures', 'Every hour') },
+  { value: 'daily', label: T('Tous les jours', 'Every day'), days: ALL_DAYS },
+  { value: 'weekdays', label: T('Jours de semaine', 'Weekdays'), days: [1, 2, 3, 4, 5] },
+  { value: 'weekends', label: T('Week-ends', 'Weekends'), days: [6, 7] },
+  { value: 'weekly', label: T('Toutes les semaines', 'Every week') },
+  { value: 'biweekly', label: T('Toutes les 2 semaines', 'Every 2 weeks'), start: true },
+  { value: 'monthly', label: T('Tous les mois', 'Every month'), start: true, calendar: true },
+  { value: 'quarterly', label: T('Tous les 3 mois', 'Every 3 months'), start: true, calendar: true },
+  { value: 'semiannual', label: T('Tous les 6 mois', 'Every 6 months'), start: true, calendar: true },
+  { value: 'yearly', label: T('Tous les ans', 'Every year'), start: true, calendar: true },
+];
+const REPEAT = Object.fromEntries(REPEATS.map((r) => [r.value, r]));
+// Périodicités qui ne font que choisir des jours de la semaine : elles suivent les jours cochés.
+const DAY_REPEATS = new Set(['daily', 'weekdays', 'weekends', 'weekly']);
+
+// Périodicité affichée. Sans `repeat` (planifications d'avant), on la déduit des jours cochés :
+// c'est toujours « chaque semaine, ces jours-là ».
+function repeatOf(s) {
+  if (s.repeat) return s.repeat;
+  const d = [...s.days].sort().join('');
+  return d === '1234567' ? 'daily' : d === '12345' ? 'weekdays' : d === '67' ? 'weekends' : 'weekly';
+}
+
+// Changement des jours cochés : une périodicité « jours de la semaine » suit les nouveaux jours.
+function withDays(s, days) {
+  if (!s.repeat || !DAY_REPEATS.has(s.repeat)) return { days };
+  return { days, repeat: repeatOf({ days }) };
+}
+
+const isoDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+// Choix d'une périodicité : jours imposés, date de référence (aujourd'hui à défaut) si besoin.
+function withRepeat(s, repeat) {
+  const r = REPEAT[repeat];
+  return { repeat, days: r.days || s.days, start: r.start ? s.start || isoDate(new Date()) : undefined };
+}
+
+function scheduleLabel(s) {
+  const time = timeLabel(s.time);
+  const r = repeatOf(s);
+  if (DAY_REPEATS.has(r)) return `${daysLabel(s.days)} · ${time}`;
+  const { label } = REPEAT[r];
+  if (r === 'hourly') return `${daysLabel(s.days)} · ${label} · ${T('dès', 'from')} ${time}`;
+  if (r === 'biweekly') return `${label} · ${daysLabel(s.days)} · ${time}`;
+  const start = s.start && new Date(`${s.start}T00:00`);
+  if (!start) return `${label} · ${time}`;
+  if (r === 'never') return `${start.toLocaleDateString(LOCALE, { day: 'numeric', month: 'short', year: 'numeric' })} · ${time}`;
+  const day = r === 'yearly' ? start.toLocaleDateString(LOCALE, { day: 'numeric', month: 'short' }) : start.getDate();
+  return `${label} · ${T('le', r === 'yearly' ? 'on' : 'on the')} ${day} · ${time}`;
+}
 
 // ============================================================================
 // Composants de formulaire
@@ -1862,30 +1918,139 @@ function TimePicker({ value, onChange }) {
   </div>`;
 }
 
+// Le menu flottant (téléphone) prend le relais du panneau sous les jours en dessous de cette
+// largeur ; la même requête est dans style.css.
+const FLOATING_MENU = '(max-width: 699px)';
+const MENU_MARGIN = 16;
+
+// Bouton « Répété » et choix de la périodicité : panneau horizontal sous les jours sur ordinateur,
+// menu flottant vertical ancré au bouton sur téléphone. Une seule liste, un seul état ; seule la
+// présentation change, par CSS (le menu flottant est seulement placé ici, à l'ouverture).
+function RepeatSelector({ value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const [place, setPlace] = useState(null);
+  const root = useRef();
+  const trigger = useRef();
+  const list = useRef();
+  const id = useMemo(() => `repeat-${uid()}`, []);
+  const current = REPEAT[value] || REPEAT.weekly;
+
+  const close = (refocus) => {
+    setOpen(false);
+    if (refocus) trigger.current?.focus();
+  };
+  const choose = (v) => {
+    if (v !== value) onChange(v);
+    close(true);
+  };
+
+  // Clic ou toucher en dehors : on referme, sans voler le focus.
+  useEffect(() => {
+    if (!open) return undefined;
+    const outside = (e) => !root.current?.contains(e.target) && !list.current?.contains(e.target) && close(false);
+    document.addEventListener('pointerdown', outside, true);
+    return () => document.removeEventListener('pointerdown', outside, true);
+  }, [open]);
+
+  // Menu flottant : sous le bouton, ou au-dessus s'il y a plus de place, jamais hors de l'écran.
+  useLayoutEffect(() => {
+    if (!open || !matchMedia(FLOATING_MENU).matches) { setPlace(null); return undefined; }
+    const position = () => {
+      const r = trigger.current.getBoundingClientRect();
+      const width = Math.min(280, innerWidth - 2 * MENU_MARGIN);
+      const left = Math.min(Math.max(r.left, MENU_MARGIN), innerWidth - MENU_MARGIN - width);
+      const below = innerHeight - r.bottom - MENU_MARGIN - 6;
+      const above = r.top - MENU_MARGIN - 6;
+      const needed = Math.min(list.current?.scrollHeight || 0, 320);
+      setPlace(below >= needed || below >= above
+        ? { left, width, top: r.bottom + 6, maxHeight: below }
+        : { left, width, bottom: innerHeight - r.top + 6, maxHeight: above });
+    };
+    const onScroll = (e) => !list.current?.contains(e.target) && position();
+    position();
+    addEventListener('resize', position);
+    addEventListener('scroll', onScroll, true);
+    return () => { removeEventListener('resize', position); removeEventListener('scroll', onScroll, true); };
+  }, [open]);
+
+  // À l'ouverture, le focus va sur l'option choisie (une fois le menu flottant placé).
+  const focused = useRef(false);
+  useEffect(() => {
+    if (!open) { focused.current = false; return; }
+    if (focused.current || (matchMedia(FLOATING_MENU).matches && !place)) return;
+    focused.current = true;
+    list.current?.querySelector('[aria-selected="true"]')?.focus();
+  }, [open, place]);
+
+  // Clavier dans la liste : flèches, Début/Fin, Échap (sans fermer la fenêtre autour), Tab.
+  const onKeyDown = (e) => {
+    if (e.key === 'Escape') { e.stopPropagation(); close(true); return; }
+    if (e.key === 'Tab') { close(false); return; }
+    const options = [...list.current.querySelectorAll('[role="option"]')];
+    const i = options.indexOf(document.activeElement);
+    const next = { ArrowDown: i + 1, ArrowRight: i + 1, ArrowUp: i - 1, ArrowLeft: i - 1, Home: 0, End: options.length - 1 }[e.key];
+    if (next === undefined) return;
+    e.preventDefault();
+    options[(next + options.length) % options.length].focus();
+  };
+
+  // Les jours cochés disent déjà « chaque semaine » : la valeur n'est visible que sinon, pour
+  // garder l'heure sur la ligne des jours.
+  return html`<div class="repeat" ref=${root}>
+    <button type="button" class="repeat-trigger ${open ? 'open' : ''}" ref=${trigger}
+      aria-haspopup="listbox" aria-expanded=${open} aria-controls=${id}
+      onClick=${() => setOpen(!open)}
+      onKeyDown=${(e) => { if (e.key === 'ArrowDown' && !open) { e.preventDefault(); setOpen(true); } if (e.key === 'Escape' && open) { e.stopPropagation(); close(true); } }}>
+      <${Icon} name="repeat" size=${16} />
+      <span>${T('Répété', 'Repeat')}</span>
+      ${DAY_REPEATS.has(current.value) ? html`<span class="visually-hidden">${current.label}</span>` : html`<span class="repeat-value">${current.label}</span>`}
+    </button>
+    ${open && html`<div class="repeat-options" id=${id} ref=${list} role="listbox" aria-label=${T('Répété', 'Repeat')} data-placed=${place ? '' : undefined}
+      style=${place ? { left: `${place.left}px`, width: `${place.width}px`, top: place.top !== undefined ? `${place.top}px` : 'auto',
+        bottom: place.bottom !== undefined ? `${place.bottom}px` : 'auto', maxHeight: `${place.maxHeight}px` } : undefined}
+      onKeyDown=${onKeyDown}>
+      ${REPEATS.map((r) => html`<button type="button" role="option" key=${r.value} aria-selected=${r.value === current.value}
+        tabindex=${r.value === current.value ? 0 : -1} onClick=${() => choose(r.value)}>
+        <span class="repeat-check" aria-hidden="true">${r.value === current.value && html`<${Icon} name="check" size=${16} />`}</span>${r.label}
+      </button>`)}
+    </div>`}
+  </div>`;
+}
+
 function ScheduleEditor({ schedules, onChange }) {
   const update = (i, patch) => onChange(schedules.map((s, j) => (j === i ? { ...s, ...patch } : s)));
+  const setDays = (i, days) => update(i, withDays(schedules[i], days));
   const toggleDay = (i, d) => {
     const days = schedules[i].days.includes(d) ? schedules[i].days.filter((x) => x !== d) : [...schedules[i].days, d];
-    update(i, { days: days.sort() });
+    setDays(i, days.sort());
   };
   return html`<div>
-    ${schedules.map((s, i) => html`<div class="schedule" key=${s.id || i}>
-      <div class="row wrap" style="justify-content:space-between">
-        <div class="days">${DAY_LETTERS.map((l, k) => html`<button type="button" class=${s.days.includes(k + 1) ? 'on' : ''}
+    ${schedules.map((s, i) => {
+      const repeat = REPEAT[repeatOf(s)];
+      return html`<div class="schedule" key=${s.id || i}>
+      <div class="row wrap schedule-line">
+        <div class="days ${repeat.calendar || repeat.value === 'never' ? 'unused' : ''}">${DAY_LETTERS.map((l, k) => html`<button type="button" class=${s.days.includes(k + 1) ? 'on' : ''}
           aria-label=${DAY_NAMES[k]} onClick=${() => toggleDay(i, k + 1)}>${l}</button>`)}</div>
+        <${RepeatSelector} value=${repeat.value} onChange=${(v) => update(i, withRepeat(s, v))} />
         <${TimePicker} value=${s.time} onChange=${(time) => update(i, { time })} />
       </div>
+      ${repeat.start && html`<label class="repeat-start">
+        <span>${repeat.value === 'never' ? T('Le', 'On') : T('À partir du', 'Starting')}</span>
+        <input class="input" type="date" required value=${s.start || ''}
+          onChange=${(e) => update(i, { start: e.target.value || undefined })} />
+      </label>`}
       <div class="row" style="margin-top:8px">
         <div class="quick-days">
-          <button type="button" class="btn ghost small" onClick=${() => update(i, { days: [1, 2, 3, 4, 5, 6, 7] })}>${T('Tous les jours', 'Every day')}</button>
-          <button type="button" class="btn ghost small" onClick=${() => update(i, { days: [1, 2, 3, 4, 5] })}>${T('En semaine', 'Weekdays')}</button>
-          <button type="button" class="btn ghost small" onClick=${() => update(i, { days: [6, 7] })}>${T('Week-end', 'Weekend')}</button>
+          <button type="button" class="btn ghost small" onClick=${() => setDays(i, [1, 2, 3, 4, 5, 6, 7])}>${T('Tous les jours', 'Every day')}</button>
+          <button type="button" class="btn ghost small" onClick=${() => setDays(i, [1, 2, 3, 4, 5])}>${T('En semaine', 'Weekdays')}</button>
+          <button type="button" class="btn ghost small" onClick=${() => setDays(i, [6, 7])}>${T('Week-end', 'Weekend')}</button>
         </div>
         <span class="grow"></span>
         <label class="switch" style="padding:0"><input type="checkbox" checked=${s.enabled} onChange=${(e) => update(i, { enabled: e.target.checked })} /><span class="track"></span></label>
         <button class="iconbtn danger" aria-label=${T('Retirer', 'Remove')} onClick=${() => onChange(schedules.filter((_, j) => j !== i))}><${Icon} name="trash" /></button>
       </div>
-    </div>`)}
+    </div>`;
+    })}
     <button type="button" class="btn secondary small" onClick=${() => onChange([...schedules, { days: [1, 2, 3, 4, 5], time: '08:00', enabled: true }])}>
       <${Icon} name="clock" size=${16} /> ${T('Ajouter un horaire', 'Add a schedule')}</button>
   </div>`;
@@ -1895,7 +2060,7 @@ function SaveSheet({ state, onSave, onClose, focusSchedule }) {
   const [draft, setDraft] = useState({ name: state.name, icon: state.icon, shared: state.shared, schedules: clone(state.schedules) });
   const [busy, setBusy] = useState(false);
   const set = (patch) => setDraft((d) => ({ ...d, ...patch }));
-  const invalid = draft.schedules.some((s) => !s.days.length || !s.time);
+  const invalid = draft.schedules.some((s) => !s.days.length || !s.time || (REPEAT[repeatOf(s)].start && !s.start));
   const ai = usesAi(state.blocks.map((b) => b.data));
   const save = async () => { setBusy(true); try { await onSave(draft); onClose(); } catch (e) { toast(e.message, 'error'); } finally { setBusy(false); } };
   return html`<${Sheet} title=${state.id ? T('Réglages du ticket', 'Ticket settings') : T('Enregistrer le ticket', 'Save ticket')} onClose=${onClose} footer=${html`

@@ -14,7 +14,7 @@ use std::time::SystemTime;
 
 use anyhow::{Context, Result, bail};
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
-use chrono::{DateTime, Duration, Local, Utc};
+use chrono::{DateTime, Datelike, Duration, Local, NaiveDate, NaiveTime, TimeZone, Timelike, Utc};
 use rand::RngExt;
 use serde::{Deserialize, Serialize};
 
@@ -162,6 +162,34 @@ pub struct Schedule {
     pub enabled: bool,
     #[serde(default)]
     pub last_run: Option<DateTime<Utc>>,
+    /// Périodicité ; absente (planifications d'avant) : chaque semaine, les jours cochés.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repeat: Option<Repeat>,
+    /// Date de référence des périodicités qui en ont besoin (voir `Repeat::needs_start`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub start: Option<NaiveDate>,
+}
+
+/// Périodicité d'une planification.
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
+#[serde(rename_all = "snake_case")]
+pub enum Repeat {
+    /// Une seule fois, à la date de référence.
+    Never,
+    /// Chaque heure, de l'heure choisie jusqu'à minuit, les jours cochés.
+    Hourly,
+    Daily,
+    Weekdays,
+    Weekends,
+    /// Les jours cochés, chaque semaine (comportement d'origine).
+    Weekly,
+    /// Les jours cochés, une semaine sur deux depuis la date de référence.
+    Biweekly,
+    /// Le jour du mois de la date de référence, tous les 1, 3, 6 ou 12 mois.
+    Monthly,
+    Quarterly,
+    Semiannual,
+    Yearly,
 }
 
 fn enabled() -> bool {
@@ -572,25 +600,114 @@ fn hash(password: &str) -> Result<String> {
         .map_err(|e| anyhow::anyhow!("{}", tr!("hachage impossible : {e}", "hashing failed: {e}")))
 }
 
+impl Repeat {
+    /// Écart en mois entre deux impressions, pour les périodicités calendaires.
+    fn months(self) -> Option<u32> {
+        match self {
+            Repeat::Monthly => Some(1),
+            Repeat::Quarterly => Some(3),
+            Repeat::Semiannual => Some(6),
+            Repeat::Yearly => Some(12),
+            _ => None,
+        }
+    }
+
+    /// La périodicité se compte à partir d'une date de référence (`Schedule::start`).
+    pub fn needs_start(self) -> bool {
+        matches!(self, Repeat::Never | Repeat::Biweekly) || self.months().is_some()
+    }
+
+    /// Jours imposés par la périodicité, quels que soient les jours cochés.
+    pub fn fixed_days(self) -> Option<&'static [u8]> {
+        match self {
+            Repeat::Daily => Some(&[1, 2, 3, 4, 5, 6, 7]),
+            Repeat::Weekdays => Some(&[1, 2, 3, 4, 5]),
+            Repeat::Weekends => Some(&[6, 7]),
+            _ => None,
+        }
+    }
+}
+
 impl Schedule {
     /// Prochaine échéance passée non encore exécutée, à moins de `grace` minutes.
     /// Renvoie l'heure d'échéance si la planification doit partir maintenant.
     pub fn due(&self, now: DateTime<Local>, grace: Duration) -> Option<DateTime<Utc>> {
+        self.due_in(&now, grace)
+    }
+
+    /// Comme `due`, dans un fuseau horaire quelconque (les tests en fixent un).
+    pub fn due_in<Tz: TimeZone>(&self, now: &DateTime<Tz>, grace: Duration) -> Option<DateTime<Utc>> {
         if !self.enabled {
             return None;
         }
         let (h, m) = self.time.split_once(':')?;
-        let time = chrono::NaiveTime::from_hms_opt(h.parse().ok()?, m.parse().ok()?, 0)?;
+        let time = NaiveTime::from_hms_opt(h.parse().ok()?, m.parse().ok()?, 0)?;
+        let tz = &now.timezone();
+        let utc_now = now.with_timezone(&Utc);
         let today = now.date_naive();
-        let weekday = chrono::Datelike::weekday(&today).number_from_monday() as u8;
-        if !self.days.contains(&weekday) {
-            return None;
-        }
-        let due = today.and_time(time).and_local_timezone(Local).single()?.with_timezone(&Utc);
-        let now = now.with_timezone(&Utc);
-        let pending = self.last_run.is_none_or(|last| last < due);
-        (now >= due && now - due <= grace && pending).then_some(due)
+        // La veille aussi : une échéance de 23 h 55 part encore à 0 h 05.
+        [today.pred_opt()?, today]
+            .into_iter()
+            .filter(|&date| self.occurs_on(date))
+            .flat_map(|date| self.times(time).into_iter().filter_map(move |t| local_instant(tz, date, t)))
+            .filter(|&due| utc_now >= due && utc_now - due <= grace && self.last_run.is_none_or(|last| last < due))
+            .max()
     }
+
+    /// Heures d'impression d'une journée : l'heure choisie, ou chaque heure jusqu'à minuit.
+    fn times(&self, first: NaiveTime) -> Vec<NaiveTime> {
+        if self.repeat != Some(Repeat::Hourly) {
+            return vec![first];
+        }
+        (first.hour()..24).filter_map(|h| NaiveTime::from_hms_opt(h, first.minute(), 0)).collect()
+    }
+
+    /// La planification imprime-t-elle ce jour-là ?
+    fn occurs_on(&self, date: NaiveDate) -> bool {
+        let weekday = date.weekday().number_from_monday() as u8;
+        let on_day = self.days.contains(&weekday);
+        let repeat = self.repeat.unwrap_or(Repeat::Weekly);
+        if !repeat.needs_start() {
+            return on_day;
+        }
+        let Some(start) = self.start.filter(|&start| date >= start) else {
+            return false;
+        };
+        match repeat {
+            Repeat::Never => date == start,
+            // Une semaine sur deux, comptée depuis le lundi de la semaine de référence.
+            Repeat::Biweekly => {
+                let monday = |d: NaiveDate| d - Duration::days(i64::from(d.weekday().num_days_from_monday()));
+                on_day && (monday(date) - monday(start)).num_weeks() % 2 == 0
+            }
+            _ => {
+                let every = repeat.months().unwrap_or(1);
+                let elapsed = (date.year() - start.year()) * 12 + date.month() as i32 - start.month() as i32;
+                // Le 31 devient le dernier jour des mois plus courts, le 29 février le 28 hors bissextiles.
+                elapsed % every as i32 == 0 && date.day() == start.day().min(days_in_month(date))
+            }
+        }
+    }
+}
+
+/// Nombre de jours du mois de `date`.
+fn days_in_month(date: NaiveDate) -> u32 {
+    let next = if date.month() == 12 {
+        NaiveDate::from_ymd_opt(date.year() + 1, 1, 1)
+    } else {
+        NaiveDate::from_ymd_opt(date.year(), date.month() + 1, 1)
+    };
+    next.and_then(|d| d.pred_opt()).map_or(31, |d| d.day())
+}
+
+/// Instant d'une heure locale, changements d'heure compris : une heure sautée au passage à l'heure
+/// d'été part une heure plus tard, une heure doublée au passage à l'heure d'hiver part la première fois.
+fn local_instant<Tz: TimeZone>(tz: &Tz, date: NaiveDate, time: NaiveTime) -> Option<DateTime<Utc>> {
+    let naive = date.and_time(time);
+    tz.from_local_datetime(&naive)
+        .earliest()
+        .or_else(|| tz.from_local_datetime(&(naive + Duration::hours(1))).earliest())
+        .map(|t| t.with_timezone(&Utc))
 }
 
 #[cfg(test)]
@@ -627,7 +744,15 @@ mod tests {
     fn schedule_fires_once_within_grace() {
         // Mercredi 7 octobre 2026.
         let at = |h, m| Local.with_ymd_and_hms(2026, 10, 7, h, m, 0).unwrap();
-        let mut s = Schedule { id: "s".into(), days: vec![3], time: "08:00".into(), enabled: true, last_run: None };
+        let mut s = Schedule {
+            id: "s".into(),
+            days: vec![3],
+            time: "08:00".into(),
+            enabled: true,
+            last_run: None,
+            repeat: None,
+            start: None,
+        };
         let grace = Duration::minutes(15);
         assert!(s.due(at(7, 59), grace).is_none());
         assert!(s.due(at(8, 5), grace).is_some());
@@ -637,6 +762,174 @@ mod tests {
         s.days = vec![1, 2];
         s.last_run = None;
         assert!(s.due(at(8, 5), grace).is_none(), "pas le bon jour");
+    }
+
+    // --- Périodicités, dans un fuseau fixé (Paris, avec ses changements d'heure). ---
+
+    use chrono_tz::Europe::Paris;
+
+    const GRACE: Duration = Duration::minutes(15);
+
+    fn date(y: i32, m: u32, d: u32) -> NaiveDate {
+        NaiveDate::from_ymd_opt(y, m, d).unwrap()
+    }
+
+    fn repeating(repeat: Repeat, days: &[u8], time: &str, start: Option<NaiveDate>) -> Schedule {
+        Schedule {
+            id: "s".into(),
+            days: days.to_vec(),
+            time: time.into(),
+            enabled: true,
+            last_run: None,
+            repeat: Some(repeat),
+            start,
+        }
+    }
+
+    /// Fait tourner le planificateur minute par minute entre deux dates (incluses) et renvoie
+    /// les instants d'impression, en heure de Paris.
+    fn run(mut s: Schedule, from: NaiveDate, to: NaiveDate) -> Vec<chrono::NaiveDateTime> {
+        let mut printed = Vec::new();
+        let mut now = Paris.from_local_datetime(&from.and_hms_opt(0, 0, 0).unwrap()).unwrap().with_timezone(&Utc);
+        let end = Paris.from_local_datetime(&to.and_hms_opt(23, 59, 0).unwrap()).unwrap().with_timezone(&Utc);
+        while now <= end {
+            if let Some(due) = s.due_in(&now.with_timezone(&Paris), GRACE) {
+                s.last_run = Some(now);
+                printed.push(due.with_timezone(&Paris).naive_local());
+            }
+            now += Duration::minutes(1);
+        }
+        printed
+    }
+
+    fn days_printed(s: Schedule, from: NaiveDate, to: NaiveDate) -> Vec<NaiveDate> {
+        run(s, from, to).into_iter().map(|t| t.date()).collect()
+    }
+
+    #[test]
+    fn schedules_without_repeat_keep_working() {
+        // Planification enregistrée avant les périodicités : même format, même comportement.
+        let json = r#"{"id":"s","days":[1,3],"time":"08:00","enabled":true,"last_run":null}"#;
+        let old: Schedule = serde_json::from_str(json).unwrap();
+        assert_eq!((old.repeat, old.start), (None, None));
+        let weekly = repeating(Repeat::Weekly, &[1, 3], "08:00", None);
+        let (from, to) = (date(2026, 10, 1), date(2026, 10, 31));
+        assert_eq!(days_printed(old.clone(), from, to), days_printed(weekly, from, to));
+        assert_eq!(days_printed(old.clone(), from, to).len(), 8);
+        let saved = serde_json::to_value(&old).unwrap();
+        assert!(saved.get("repeat").is_none() && saved.get("start").is_none(), "format inchangé");
+    }
+
+    #[test]
+    fn hourly_prints_every_hour_until_midnight() {
+        let s = repeating(Repeat::Hourly, &[3], "20:30", None);
+        let hours: Vec<_> = run(s, date(2026, 10, 6), date(2026, 10, 8)).iter().map(|t| t.to_string()).collect();
+        assert_eq!(hours, ["2026-10-07 20:30:00", "2026-10-07 21:30:00", "2026-10-07 22:30:00", "2026-10-07 23:30:00"]);
+    }
+
+    #[test]
+    fn daily_weekdays_and_weekends_follow_their_days() {
+        let week = (date(2026, 10, 5), date(2026, 10, 11)); // lundi → dimanche
+        let count = |repeat: Repeat| {
+            days_printed(repeating(repeat, repeat.fixed_days().unwrap(), "08:00", None), week.0, week.1)
+        };
+        assert_eq!(count(Repeat::Daily).len(), 7);
+        assert_eq!(count(Repeat::Weekdays), (5..=9).map(|d| date(2026, 10, d)).collect::<Vec<_>>());
+        assert_eq!(count(Repeat::Weekends), vec![date(2026, 10, 10), date(2026, 10, 11)]);
+    }
+
+    #[test]
+    fn weekly_prints_on_checked_days() {
+        let s = repeating(Repeat::Weekly, &[2], "08:00", None);
+        let expected: Vec<_> = [6, 13, 20, 27].map(|d| date(2026, 10, d)).into();
+        assert_eq!(days_printed(s, date(2026, 10, 1), date(2026, 10, 31)), expected);
+    }
+
+    #[test]
+    fn biweekly_counts_weeks_from_the_start_date() {
+        // Référence le mercredi 7 octobre : lundis et mercredis, une semaine sur deux, pas avant.
+        let s = repeating(Repeat::Biweekly, &[1, 3], "08:00", Some(date(2026, 10, 7)));
+        let expected: Vec<_> = [(10, 7), (10, 19), (10, 21), (11, 2), (11, 4)].map(|(m, d)| date(2026, m, d)).into();
+        assert_eq!(days_printed(s, date(2026, 10, 1), date(2026, 11, 8)), expected);
+    }
+
+    #[test]
+    fn monthly_keeps_the_end_of_month() {
+        let s = repeating(Repeat::Monthly, &[1], "08:00", Some(date(2026, 1, 31)));
+        let expected: Vec<_> =
+            [(1, 31), (2, 28), (3, 31), (4, 30), (5, 31), (6, 30)].map(|(m, d)| date(2026, m, d)).into();
+        assert_eq!(days_printed(s, date(2026, 1, 1), date(2026, 6, 30)), expected);
+    }
+
+    #[test]
+    fn quarterly_and_semiannual_keep_their_calendar_reference() {
+        let quarterly = repeating(Repeat::Quarterly, &[1], "08:00", Some(date(2026, 11, 30)));
+        let expected: Vec<_> = [(2026, 11, 30), (2027, 2, 28), (2027, 5, 30), (2027, 8, 30), (2027, 11, 30)]
+            .map(|(y, m, d)| date(y, m, d))
+            .into();
+        assert_eq!(days_printed(quarterly, date(2026, 11, 1), date(2027, 12, 31)), expected);
+
+        let semiannual = repeating(Repeat::Semiannual, &[1], "08:00", Some(date(2026, 8, 31)));
+        let expected: Vec<_> =
+            [(2026, 8, 31), (2027, 2, 28), (2027, 8, 31), (2028, 2, 29)].map(|(y, m, d)| date(y, m, d)).into();
+        assert_eq!(days_printed(semiannual, date(2026, 8, 1), date(2028, 3, 31)), expected);
+    }
+
+    #[test]
+    fn yearly_handles_leap_years() {
+        let s = repeating(Repeat::Yearly, &[1], "08:00", Some(date(2024, 2, 29)));
+        let expected: Vec<_> = [(2024, 2, 29), (2025, 2, 28), (2026, 2, 28), (2027, 2, 28), (2028, 2, 29)]
+            .map(|(y, m, d)| date(y, m, d))
+            .into();
+        assert_eq!(days_printed(s, date(2024, 1, 1), date(2028, 12, 31)), expected);
+    }
+
+    #[test]
+    fn never_prints_once_on_the_start_date() {
+        let s = repeating(Repeat::Never, &[1, 2, 3, 4, 5, 6, 7], "08:00", Some(date(2026, 10, 7)));
+        assert_eq!(days_printed(s, date(2026, 10, 1), date(2026, 10, 31)), vec![date(2026, 10, 7)]);
+    }
+
+    #[test]
+    fn calendar_repeats_need_a_start_date() {
+        let s = repeating(Repeat::Monthly, &[1], "08:00", None);
+        assert!(days_printed(s, date(2026, 1, 1), date(2026, 3, 31)).is_empty());
+    }
+
+    #[test]
+    fn daylight_saving_time_does_not_shift_or_skip_prints() {
+        // 29 mars 2026 : 2 h 30 n'existe pas, l'impression part à 3 h 30.
+        let s = repeating(Repeat::Daily, &[1, 2, 3, 4, 5, 6, 7], "02:30", None);
+        let spring: Vec<_> =
+            run(s.clone(), date(2026, 3, 28), date(2026, 3, 30)).iter().map(|t| t.to_string()).collect();
+        assert_eq!(spring, ["2026-03-28 02:30:00", "2026-03-29 03:30:00", "2026-03-30 02:30:00"]);
+        // 25 octobre 2026 : 2 h 30 existe deux fois, une seule impression.
+        assert_eq!(run(s, date(2026, 10, 24), date(2026, 10, 26)).len(), 3);
+        // Une heure ordinaire reste la même heure locale de part et d'autre du changement.
+        let s = repeating(Repeat::Daily, &[1, 2, 3, 4, 5, 6, 7], "08:00", None);
+        let times: Vec<_> =
+            run(s, date(2026, 10, 24), date(2026, 10, 26)).iter().map(|t| t.time().to_string()).collect();
+        assert_eq!(times, ["08:00:00"; 3]);
+        // Toutes les heures, le jour du passage à l'heure d'hiver : 1 h 30, 2 h 30 (une fois), 3 h 30.
+        let s = repeating(Repeat::Hourly, &[7], "01:30", None);
+        assert_eq!(run(s, date(2026, 10, 25), date(2026, 10, 25)).len(), 23);
+    }
+
+    #[test]
+    fn due_times_follow_the_time_zone() {
+        let s = repeating(Repeat::Weekly, &[3], "08:00", None);
+        let at = |tz: chrono_tz::Tz, h| tz.with_ymd_and_hms(2026, 10, 7, h, 1, 0).unwrap();
+        let paris = s.due_in(&at(Paris, 8), GRACE).unwrap();
+        let new_york = s.due_in(&at(chrono_tz::America::New_York, 8), GRACE).unwrap();
+        assert_eq!(paris.to_rfc3339(), "2026-10-07T06:00:00+00:00");
+        assert_eq!(new_york.to_rfc3339(), "2026-10-07T12:00:00+00:00");
+    }
+
+    #[test]
+    fn a_print_just_before_midnight_still_leaves_after_midnight() {
+        let s = repeating(Repeat::Weekly, &[3], "23:55", None);
+        let after = Paris.with_ymd_and_hms(2026, 10, 8, 0, 5, 0).unwrap();
+        assert!(s.due_in(&after, GRACE).is_some());
     }
 
     #[test]
