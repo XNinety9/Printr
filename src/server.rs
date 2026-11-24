@@ -22,7 +22,7 @@ use crate::blocks::{Block, Ctx, Silent, Ticket};
 use crate::guard::{self, LoginGuard};
 use crate::i18n::t;
 use crate::output::{Status, Target};
-use crate::store::{self, HistoryEntry, Preset, Schedule, Store, User};
+use crate::store::{self, HistoryEntry, Preset, Repeat, Schedule, Store, User};
 use crate::ui;
 
 /// Taille maximale d'un corps JSON, et d'une photo envoyée.
@@ -888,6 +888,10 @@ struct ScheduleInput {
     time: String,
     #[serde(default = "yes")]
     enabled: bool,
+    #[serde(default)]
+    repeat: Option<Repeat>,
+    #[serde(default)]
+    start: Option<chrono::NaiveDate>,
 }
 
 fn yes() -> bool {
@@ -956,9 +960,17 @@ fn validate_schedules(inputs: Vec<ScheduleInput>, previous: &[Schedule]) -> Resu
             if !valid_time {
                 bail!("{}", tr!("heure invalide : {}", "invalid time: {}", s.time));
             }
+            if let Some(fixed) = s.repeat.and_then(Repeat::fixed_days) {
+                days = fixed.to_vec();
+            }
+            // Date de référence : seulement pour les périodicités qui la comptent, aujourd'hui à défaut.
+            let start = s
+                .repeat
+                .is_some_and(Repeat::needs_start)
+                .then(|| s.start.unwrap_or_else(|| chrono::Local::now().date_naive()));
             let id = s.id.unwrap_or_else(|| store::new_id(6));
             let last_run = previous.iter().find(|p| p.id == id).and_then(|p| p.last_run);
-            Ok(Schedule { id, days, time: s.time, enabled: s.enabled, last_run })
+            Ok(Schedule { id, days, time: s.time, enabled: s.enabled, last_run, repeat: s.repeat, start })
         })
         .collect()
 }
@@ -1910,12 +1922,38 @@ mod tests {
 
     #[test]
     fn schedules_are_validated() {
-        let ok = vec![ScheduleInput { id: None, days: vec![5, 1, 1], time: "08:30".into(), enabled: true }];
+        let ok = vec![input(vec![5, 1, 1], "08:30", None, None)];
         let s = validate_schedules(ok, &[]).unwrap();
         assert_eq!(s[0].days, vec![1, 5]);
-        let bad_time = vec![ScheduleInput { id: None, days: vec![1], time: "25:00".into(), enabled: true }];
+        let bad_time = vec![input(vec![1], "25:00", None, None)];
         assert!(validate_schedules(bad_time, &[]).is_err());
-        let bad_day = vec![ScheduleInput { id: None, days: vec![8], time: "08:00".into(), enabled: true }];
+        let bad_day = vec![input(vec![8], "08:00", None, None)];
         assert!(validate_schedules(bad_day, &[]).is_err());
+    }
+
+    #[test]
+    fn schedule_repeats_are_normalised() {
+        let start = chrono::NaiveDate::from_ymd_opt(2026, 1, 31);
+        let s = validate_schedules(
+            vec![
+                input(vec![1], "08:00", Some(Repeat::Weekends), start),
+                input(vec![2], "08:00", Some(Repeat::Monthly), start),
+                input(vec![2], "08:00", Some(Repeat::Yearly), None),
+                input(vec![2], "08:00", None, start),
+            ],
+            &[],
+        )
+        .unwrap();
+        assert_eq!((s[0].days.clone(), s[0].start), (vec![6, 7], None), "jours imposés, pas de date");
+        assert_eq!(s[1].start, start);
+        assert!(s[2].start.is_some(), "date de référence par défaut");
+        assert_eq!((s[3].repeat, s[3].start), (None, None), "ancien format conservé");
+        let unknown: Result<ScheduleInput, _> =
+            serde_json::from_str(r#"{"days":[1],"time":"08:00","repeat":"fortnightly"}"#);
+        assert!(unknown.is_err());
+    }
+
+    fn input(days: Vec<u8>, time: &str, repeat: Option<Repeat>, start: Option<chrono::NaiveDate>) -> ScheduleInput {
+        ScheduleInput { id: None, days, time: time.into(), enabled: true, repeat, start }
     }
 }

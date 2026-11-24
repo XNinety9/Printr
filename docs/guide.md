@@ -288,7 +288,11 @@ English.
   Claude blocks (horoscope, word of the day) don't call Claude in preview: they are only
   written when printed.
 - **My tickets**: saved tickets (presets), printed in one tap, shared with the family, and
-  **scheduled** (days and time). A missed schedule more than 15 minutes late is not caught up.
+  **scheduled** (days and time). **Repeat** sets how often: never (once, on a date), every hour,
+  every day, weekdays, weekends, every week, every 2 weeks, every month, every 3 or 6 months, every
+  year. Monthly and longer repeats count from a start date: the 31st becomes the last day of shorter
+  months, and February 29 becomes February 28 outside leap years. A missed schedule more than
+  15 minutes late is not caught up.
 - **Little note**: a photo taken with the phone, a drawing (heart, star…), a few words.
 - **Shopping**: the family's shared list. Everyone adds what is missing, and it gets printed on the
   way out (then it empties itself). An iOS shortcut can also add items to it with

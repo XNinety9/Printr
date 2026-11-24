@@ -15,6 +15,17 @@ Koenig, Tolbert Lanston…
   set in the app (My account → Settings → Paper width): tickets printed 64 mm wide and off-center there.
   Text now uses 48 columns in font A and 64 in font B, and images narrower than the paper are centered
   when printed, so drawn blocks keep their 512-dot layout. Without the setting, nothing changes.
+- **Repeat for schedules**: a “Repeat” button next to the days, with never (once, on a date), every
+  hour, every day, weekdays, weekends, every week, every 2 weeks, every month, every 3 or 6 months and
+  every year. A panel under the days on a computer, a floating menu on a phone. Monthly and longer
+  repeats keep the day of their start date (the 31st becomes the last day of shorter months, February 29
+  becomes February 28 outside leap years). Existing schedules are unchanged.
+
+### Fixed
+- **Schedules at a time skipped or repeated by a daylight saving change** (2:30 on the last Sunday of
+  March or October in Paris) never printed. They now print at 3:30 in spring, and once in autumn. A
+  schedule a few minutes before midnight also still prints just after midnight, within the usual 15
+  minutes.
 
 ## [2.0.2] “Mergenthaler” - 2026-10-26
 
