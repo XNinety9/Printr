@@ -9,6 +9,8 @@ Pierre-Simon Fournier, Johannes Gutenberg, Richard Hoe, Frederic Ives, Nicolas J
 Koenig, Tolbert Lanston…
 
 ## [Unreleased]
+- **rotating images** add a 'Rotate' button in the crop dialog of Photo block. Also update photo formats:
+  'original', 'square', '3/4', '9/16'.
 
 ### Added
 - **`PRINTR_PAPER_WIDTH=576`** for 80 mm printers at 203 dpi (most brands other than the TM-T88), also
