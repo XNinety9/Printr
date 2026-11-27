@@ -116,19 +116,32 @@ async function loadPhoto(file) {
   }
 }
 
-// Découpe la zone cadrée d'une photo et la réduit avant l'envoi : rapide même en 4G. Une petite
-// zone (fort zoom) est agrandie à la largeur du papier : le cadre remplit toujours le ticket.
+// Découpe la zone cadrée avant l'envoi. La limite de 10 000 px correspond au décodeur du serveur.
 const PAPER_DOTS = 512;
-function cropPhoto(source, crop, max = 1024) {
-  const scale = Math.max(PAPER_DOTS, Math.min(max, crop.w)) / crop.w;
+const MAX_UPLOAD_DIMENSION = 10_000;
+function cropPhoto(photo, crop, max = 1024) {
+  const scale = Math.min(
+    Math.max(PAPER_DOTS, Math.min(max, crop.w)) / crop.w,
+    MAX_UPLOAD_DIMENSION / crop.w,
+    MAX_UPLOAD_DIMENSION / crop.h,
+  );
   const canvas = document.createElement('canvas');
-  canvas.width = Math.round(crop.w * scale);
-  canvas.height = Math.round(crop.h * scale);
+  canvas.width = Math.max(1, Math.round(crop.w * scale));
+  canvas.height = Math.max(1, Math.round(crop.h * scale));
   const ctx = canvas.getContext('2d');
   ctx.fillStyle = '#fff';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(source, crop.x, crop.y, crop.w, crop.h, 0, 0, canvas.width, canvas.height);
-  return new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+  ctx.scale(canvas.width / crop.w, canvas.height / crop.h);
+  ctx.translate(-crop.x, -crop.y);
+  if (photo.rotation === 1) ctx.translate(photo.w, 0);
+  else if (photo.rotation === 2) ctx.translate(photo.w, photo.h);
+  else if (photo.rotation === 3) ctx.translate(0, photo.h);
+  ctx.rotate(photo.rotation * Math.PI / 2);
+  ctx.drawImage(photo.source, 0, 0);
+  return new Promise((resolve, reject) => canvas.toBlob(
+    (blob) => blob ? resolve(blob) : reject(new Error(T('Impossible de préparer cette image', 'Could not prepare this image'))),
+    'image/jpeg', 0.9,
+  ));
 }
 
 async function uploadBlob(blob) {
@@ -991,13 +1004,16 @@ function BinsEdit({ value, onChange }) {
 }
 
 // Formats du cadre (largeur / hauteur) : le ticket imprime exactement la zone cadrée.
-const PHOTO_FORMATS = [['portrait', T('Portrait', 'Portrait'), 3 / 4], ['carre', T('Carré', 'Square'), 1], ['paysage', T('Paysage', 'Landscape'), 4 / 3]];
+const PHOTO_FORMATS = [
+  ['original', T('Original', 'Original'), null], ['carre', T('Carré', 'Square'), 1],
+  ['3:4', '3:4', 3 / 4], ['9:16', '9:16', 9 / 16],
+];
 const MAX_ZOOM = 5;
 
 function PhotoField({ value, onChange }) {
   const input = useRef();
-  const [photo, setPhoto] = useState(null); // { source, url, w, h }
-  const [format, setFormat] = useState('portrait');
+  const [photo, setPhoto] = useState(null); // { source, url, w, h, rotation }
+  const [format, setFormat] = useState('original');
   const [view, setView] = useState({ zoom: 1, cx: 0.5, cy: 0.5 }); // zoom 1 : la photo couvre le cadre
   const [busy, setBusy] = useState(false);
   // Le cadrage se fait dans une fenêtre à part : dans la page, le doigt doit faire défiler.
@@ -1007,28 +1023,38 @@ function PhotoField({ value, onChange }) {
     try {
       const source = await loadPhoto(file);
       const w = source.width, h = source.height;
-      setFormat(w > h * 1.15 ? 'paysage' : h > w * 1.15 ? 'portrait' : 'carre');
+      setFormat('original');
       setView({ zoom: 1, cx: 0.5, cy: 0.5 });
-      setPhoto({ source, url: URL.createObjectURL(file), w, h });
+      setPhoto({ source, url: URL.createObjectURL(file), w, h, rotation: 0 });
       setEditing(true);
     } catch (e) { toast(e.message, 'error'); }
   };
+  const rotate = () => {
+    setPhoto((p) => ({ ...p, w: p.h, h: p.w, rotation: (p.rotation + 1) % 4 }));
+    setView({ zoom: 1, cx: 0.5, cy: 0.5 });
+  };
   const remove = () => { setPhoto(null); onChange(null); if (input.current) input.current.value = ''; };
-  const ratio = PHOTO_FORMATS.find(([v]) => v === format)[2];
+  const ratio = PHOTO_FORMATS.find(([v]) => v === format)[2] ?? (photo ? photo.w / photo.h : 1);
+
+  useEffect(() => {
+    if (!photo?.url) return;
+    return () => URL.revokeObjectURL(photo.url);
+  }, [photo?.url]);
 
   // Envoie la zone cadrée une fois le geste terminé ; seul le dernier envoi compte.
   const sent = useRef(0);
   useEffect(() => {
     if (!photo) return;
     const n = ++sent.current;
+    setBusy(true);
+    onChange(null);
     const timer = setTimeout(async () => {
-      setBusy(true);
       try {
-        const id = await uploadBlob(await cropPhoto(photo.source, cropArea(photo, ratio, view)));
+        const id = await uploadBlob(await cropPhoto(photo, cropArea(photo, ratio, view)));
         if (n === sent.current) onChange(id);
-      } catch (e) { toast(e.message, 'error'); } finally { if (n === sent.current) setBusy(false); }
+      } catch (e) { if (n === sent.current) toast(e.message, 'error'); } finally { if (n === sent.current) setBusy(false); }
     }, 600);
-    return () => clearTimeout(timer);
+    return () => { clearTimeout(timer); if (n === sent.current) sent.current++; };
   }, [photo, ratio, view.zoom, view.cx, view.cy]);
 
   const chooser = html`<input ref=${input} type="file" accept="image/*" hidden onChange=${(e) => pick(e.target.files[0])} />`;
@@ -1055,10 +1081,13 @@ function PhotoField({ value, onChange }) {
       <button type="button" class="btn ghost small" onClick=${remove}><${Icon} name="x" size=${16} /> ${T('Retirer', 'Remove')}</button>
     </div>
     ${editing && html`<${Sheet} title=${T('Cadrer la photo', 'Crop the photo')} onClose=${() => setEditing(false)}
-      footer=${html`<button type="button" class="btn primary block" onClick=${() => setEditing(false)}><${Icon} name="check" /> ${T('Valider le cadrage', 'Confirm crop')}</button>`}>
+      footer=${html`<button type="button" class="btn primary block" disabled=${busy} onClick=${() => setEditing(false)}><${Icon} name="check" /> ${T('Valider le cadrage', 'Confirm crop')}</button>`}>
       <div class="photo-editor">
         <${Cropper} photo=${photo} ratio=${ratio} view=${view} onView=${setView} busy=${busy} interactive />
         <div class="photo-tools">
+          <button type="button" class="btn ghost small" onClick=${rotate}>
+            ${T('Pivoter ↻', 'Rotate ↻')}
+          </button>
           <${Segmented} options=${PHOTO_FORMATS.map(([v, t]) => [v, t])} value=${format}
             onChange=${(f) => { setFormat(f); setView({ zoom: 1, cx: 0.5, cy: 0.5 }); }} />
           <label class="zoom"><${Icon} name="search" size=${16} />
@@ -1164,7 +1193,9 @@ function Cropper({ photo, ratio, view, onView, busy, interactive = false }) {
   const size = { aspectRatio: String(ratio), width: `min(100%, calc(${interactive ? 58 : 70}dvh * ${ratio}))` };
   return html`<div class="cropper ${interactive ? 'interactive' : ''}" ref=${frame} style=${size} ...${gestures}>
     ${width > 0 && html`<img src=${photo.url} alt=${T('Photo à cadrer', 'Photo to crop')} draggable="false"
-      style=${{ width: `${photo.w * scale}px`, height: `${photo.h * scale}px`, left: `${-crop.x * scale}px`, top: `${-crop.y * scale}px` }} />`}
+      style=${{ width: `${photo.source.width * scale}px`, height: `${photo.source.height * scale}px`,
+        left: `${(photo.w / 2 - crop.x) * scale}px`, top: `${(photo.h / 2 - crop.y) * scale}px`,
+        transform: `translate(-50%, -50%) rotate(${photo.rotation * 90}deg)` }} />`}
     <div class="cropper-grid" aria-hidden="true"></div>
     ${busy && html`<div class="cropper-busy"><${Spinner} /></div>`}
   </div>`;
