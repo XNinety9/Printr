@@ -40,7 +40,9 @@ async function api(method, path, body) {
   return data;
 }
 
-const toast = (message, kind = 'ok', emoji) => bus.emit('toast', { message, kind, emoji });
+// `options` : `action` et `onAction` pour un bouton (« Annuler »), `duration` en millisecondes, et
+// `key` pour qu'une notification remplace la précédente de même clé (seule la dernière s'annule).
+const toast = (message, kind = 'ok', emoji, options = {}) => bus.emit('toast', { message, kind, emoji, ...options });
 
 // Réponse d'une impression : imprimé, imprimé avec des blocs en erreur, ou en attente de
 // l'imprimante (absente : le ticket sortira à son retour).
@@ -659,10 +661,22 @@ const BLOCKS = [
     type: 'todo', label: T('À faire', 'To do'), emoji: '✅', group: G.org, desc: T('Une liste à cocher au stylo', 'A checklist to tick with a pen'),
     defaults: { title: T('À faire', 'To do'), items: [''] },
     fields: [
-      { key: 'title', label: T('Titre', 'Title'), kind: 'text' },
-      { key: 'items', label: T('Choses à faire', 'Things to do'), kind: 'list', placeholder: T('Acheter du pain', 'Buy bread'), add: T('Ajouter une ligne', 'Add a line') },
+      // Choisir une liste enregistrée : son titre remplace celui par défaut du bloc.
+      { key: 'list', label: T('Les choses à faire', 'Things to do'), kind: 'todoList',
+        onSet: (b, list) => ({ ...b, list, title: list && b.title === T('À faire', 'To do') ? '' : !list && !b.title ? T('À faire', 'To do') : b.title }) },
+      { key: 'title', label: T('Titre', 'Title'), kind: 'text', placeholder: T('Celui de la liste', 'The list’s own') },
+      { key: 'items', label: T('Choses à faire', 'Things to do'), kind: 'list', placeholder: T('Acheter du pain', 'Buy bread'), add: T('Ajouter une ligne', 'Add a line'), when: (b) => !b.list },
+      { key: 'clear', label: T('Vider la liste une fois imprimée', 'Clear the list once printed'), kind: 'toggle', when: (b) => !!b.list,
+        help: T('Pour toute la famille. Sinon, la liste reste telle quelle, prête pour la prochaine fois.', 'For the whole family. Otherwise the list stays as is, ready for next time.') },
     ],
-    summary: (b) => `${(b.items || []).filter(Boolean).length} ${T('élément(s)', 'item(s)')}`,
+    // Liste enregistrée : les lignes du bloc ne servent pas, inutile de les garder.
+    normalize: (b) => {
+      if (b.list) delete b.items; else delete b.clear;
+      return b;
+    },
+    summary: (b) => (b.list
+      ? (TODO_LISTS.all?.find((l) => l.id === b.list)?.title || T('Liste enregistrée', 'Saved list'))
+      : `${(b.items || []).filter(Boolean).length} ${T('élément(s)', 'item(s)')}`),
   },
   {
     type: 'recipe', label: T('Recette', 'Recipe'), emoji: '🍳', group: G.org, desc: T('Une recette lue sur son site, sans la pub', 'A recipe read from its website, without the ads'),
@@ -936,6 +950,45 @@ function ListEdit({ value, onChange, placeholder, add }) {
   </div>`;
 }
 
+// Listes À faire enregistrées, partagées entre l'éditeur de blocs et leur écran.
+const TODO_LISTS = { all: null };
+const loadTodoLists = () => api('GET', '/api/todo-lists').then((lists) => { TODO_LISTS.all = lists; bus.emit('todo-lists'); return lists; });
+
+function useTodoLists() {
+  const [lists, setLists] = useState(TODO_LISTS.all);
+  useEffect(() => {
+    const off = bus.on('todo-lists', () => setLists(TODO_LISTS.all));
+    loadTodoLists().catch(() => setLists((l) => l || []));
+    return off;
+  }, []);
+  return lists;
+}
+
+// Bloc À faire : les lignes écrites dans le bloc (comme avant), ou une liste enregistrée.
+function TodoListPicker({ value, onChange }) {
+  const lists = useTodoLists();
+  const [saved, setSaved] = useState(!!value);
+  const mode = value || saved ? 'list' : 'block';
+  // « Liste enregistrée » choisi avant que les listes n'arrivent : la première, plutôt que les
+  // lignes du bloc imprimées sans le dire.
+  useEffect(() => { if (saved && !value && lists?.length) onChange(lists[0].id); }, [saved, value, lists]);
+  const choose = (m) => {
+    setSaved(m === 'list');
+    onChange(m === 'list' ? (value || lists?.[0]?.id || '') : '');
+  };
+  const missing = value && lists && !lists.some((l) => l.id === value);
+  return html`<${Segmented} options=${[['block', T('Dans le bloc', 'In the block')], ['list', T('Liste enregistrée', 'Saved list')]]} value=${mode} onChange=${choose} />
+    ${mode === 'list' && (lists === null ? html`<div style="padding:10px"><${Spinner} /></div>`
+      : !lists.length && !value ? html`<p class="help muted" style="margin:8px 0 0">${T('Aucune liste enregistrée pour l’instant.', 'No saved list yet.')}
+          <a href="#/listes">${T('En créer une', 'Create one')}</a></p>`
+      : html`<select class="input" style="margin-top:8px" value=${value || ''} onChange=${(e) => onChange(e.target.value)}>
+          ${missing && html`<option value=${value}>${T('(liste supprimée)', '(deleted list)')}</option>`}
+          ${lists.map((l) => html`<option value=${l.id}>${l.title} (${l.items.length})</option>`)}
+        </select>
+        <p class="help muted" style="margin:6px 0 0">${T('Imprimée telle qu’elle est au moment du ticket. ', 'Printed as it is when the ticket comes out. ')}
+          <a href="#/listes">${T('Gérer les listes', 'Manage lists')}</a></p>`)}`;
+}
+
 // Ramassages des poubelles : un nom, un jour, une fréquence (et une date de référence).
 // La liste des anniversaires commune à la famille, enregistrée sur le serveur (bloc Anniversaires).
 function FamilyBirthdays() {
@@ -1198,6 +1251,8 @@ function FieldInput({ field, value, onChange }) {
       return html`<${BinsEdit} value=${value} onChange=${onChange} />`;
     case 'familyBirthdays':
       return html`<${FamilyBirthdays} />`;
+    case 'todoList':
+      return html`<${TodoListPicker} value=${value} onChange=${onChange} />`;
     case 'image':
       return html`<${PhotoField} value=${value} onChange=${onChange} />`;
     default:
@@ -1212,12 +1267,13 @@ function BlockFields({ data, onChange }) {
     const hint = def?.desc?.toLowerCase() || T('ce bloc se suffit à lui-même', 'this block is self-explanatory');
     return html`<p class="muted first" style="margin-bottom:0">${T(`Rien à régler : ${hint}.`, `Nothing to set up: ${hint}.`)}</p>`;
   }
-  const set = (key) => (v) => onChange({ ...data, [key]: v });
+  // `onSet` : un champ qui en ajuste d'autres quand il change.
+  const set = (f) => (v) => onChange(f.onSet ? f.onSet(data, v) : { ...data, [f.key]: v });
   // `when` : champ affiché seulement s'il a un sens pour les réglages en cours.
   const fields = def.fields.filter((f) => !f.when || f.when(data));
   return html`<div class="first">${fields.map((f) => f.kind === 'toggle'
-    ? html`<${Switch} key=${f.key} label=${f.label} help=${f.help} checked=${data[f.key]} onChange=${set(f.key)} />`
-    : html`<${Field} key=${f.key} label=${f.label} help=${f.help}><${FieldInput} field=${f} value=${data[f.key]} onChange=${set(f.key)} /></${Field}>`)}
+    ? html`<${Switch} key=${f.key} label=${f.label} help=${f.help} checked=${data[f.key]} onChange=${set(f)} />`
+    : html`<${Field} key=${f.key} label=${f.label} help=${f.help}><${FieldInput} field=${f} value=${data[f.key]} onChange=${set(f)} /></${Field}>`)}
   </div>`;
 }
 
@@ -1494,7 +1550,8 @@ function Home({ me, presets, reload, openComposer }) {
     <div class="hero">
       <a class="action-card coral" href="#/message"><div class="big-emoji">💌</div><div><strong>${T('Petit mot', 'Little note')}</strong><span>${T('Une photo, quelques mots', 'A photo, a few words')}</span></div></a>
       <button class="action-card sky" onClick=${() => openComposer(emptyComposer())}><div class="big-emoji">🧾</div><div><strong>${T('Nouveau ticket', 'New ticket')}</strong><span>${T('Compose bloc par bloc', 'Compose block by block')}</span></div></button>
-      <a class="action-card mint wide" href="#/courses"><div class="big-emoji">🛒</div><div><strong>${T('Courses', 'Shopping')}</strong><span>${T('La liste de toute la famille', "The whole family's list")}</span></div></a>
+      <a class="action-card mint" href="#/courses"><div class="big-emoji">🛒</div><div><strong>${T('Courses', 'Shopping')}</strong><span>${T('La liste de toute la famille', "The whole family's list")}</span></div></a>
+      <a class="action-card sun" href="#/listes"><div class="big-emoji">📝</div><div><strong>${T('À faire', 'To do')}</strong><span>${T('Semaine, week-end… à cocher', 'Week, weekend… to tick off')}</span></div></a>
     </div>
     <div class="section-title">${T('Mes tickets', 'My tickets')}</div>
     ${presets === null ? html`<div style="padding:30px;display:grid;place-items:center"><${Spinner} /></div>`
@@ -2210,6 +2267,134 @@ function Shopping({ users }) {
 }
 
 // ============================================================================
+// Écran : listes À faire
+// ============================================================================
+
+// Toutes les listes, ou celle qu'on a ouverte.
+function TodoLists({ users }) {
+  const lists = useTodoLists();
+  const [open, setOpen] = useState(null);
+  const [title, setTitle] = useState('');
+  const apply = (all) => { TODO_LISTS.all = all; bus.emit('todo-lists'); };
+  const list = open && lists?.find((l) => l.id === open);
+  if (list) return html`<${TodoListDetail} list=${list} users=${users} apply=${apply} onBack=${() => setOpen(null)} />`;
+
+  const create = async (e) => {
+    e.preventDefault();
+    if (!title.trim()) return;
+    try {
+      const all = await api('POST', '/api/todo-lists', { title });
+      apply(all); setTitle(''); setOpen(all[all.length - 1]?.id || null);
+    } catch (err) { toast(err.message, 'error'); }
+  };
+  return html`<div class="page" style="max-width:640px">
+    <form class="shop-add" onSubmit=${create}>
+      <input class="input" value=${title} maxlength="60" placeholder=${T('À faire ce week-end…', 'To do this weekend…')} onInput=${(e) => setTitle(e.target.value)}
+        aria-label=${T('Titre de la nouvelle liste', 'New list title')} enterkeyhint="done" />
+      <button class="btn primary" disabled=${!title.trim()}><${Icon} name="plus" /> ${T('Créer', 'Create')}</button>
+    </form>
+    ${lists === null ? html`<div style="padding:30px;display:grid;place-items:center"><${Spinner} /></div>`
+      : !lists.length ? html`<div class="empty"><div class="big-emoji">📝</div><h3>${T('Aucune liste pour l’instant', 'No list yet')}</h3>
+          <p class="muted" style="margin:0">${T(
+            'Crée une liste (« À faire cette semaine », « Ce week-end »…) : toute la famille la complète, et un bloc À faire l’imprime.',
+            'Create a list (“This week”, “This weekend”…): the whole family adds to it, and a To do block prints it.',
+          )}</p></div>`
+      : html`<div class="todo-lists">${lists.map((l) => html`<button type="button" class="card todo-list-card" key=${l.id} onClick=${() => setOpen(l.id)}>
+          <div class="big-emoji" style="font-size:26px">📝</div>
+          <div class="grow"><strong>${l.title}</strong>
+            <span class="muted">${l.items.length ? T(`${l.items.length} chose${l.items.length > 1 ? 's' : ''} à faire`, `${l.items.length} thing${l.items.length > 1 ? 's' : ''} to do`) : T('Rien à faire', 'Nothing to do')}</span></div>
+          <${Icon} name="edit" size=${18} />
+        </button>`)}</div>`}
+  </div>`;
+}
+
+function TodoListDetail({ list, users, apply, onBack }) {
+  const [text, setText] = useState('');
+  const [clear, setClear] = useState(() => store.get('printr.todo.clear', false));
+  const [busy, setBusy] = useState(false);
+  const [confirm, setConfirm] = useState(null); // 'clear' ou 'delete'
+  const [rename, setRename] = useState(null);
+  const input = useRef();
+  const byName = Object.fromEntries((users || []).map((u) => [u.name, u]));
+  const path = `/api/todo-lists/${list.id}`;
+  const reload = () => loadTodoLists().catch((e) => toast(e.message, 'error'));
+
+  const add = async (e) => {
+    e.preventDefault();
+    if (!text.trim()) return;
+    try { apply(await api('POST', `${path}/items`, { text })); setText(''); input.current?.focus(); } catch (err) { toast(err.message, 'error'); }
+  };
+  // Retirée par erreur ? « Annuler » la remet à sa place, pendant quelques secondes (la dernière seulement).
+  const remove = async (item) => {
+    const index = list.items.findIndex((i) => i.id === item.id);
+    try {
+      apply(await api('DELETE', `${path}/items/${item.id}`));
+      toast(T(`« ${item.text} » retiré`, `“${item.text}” removed`), 'ok', '✓', {
+        key: 'todo-undo', duration: 8000, action: T('Annuler', 'Undo'),
+        onAction: async () => {
+          try { apply(await api('POST', `${path}/items/restore`, { item, index })); } catch (err) { toast(err.message, 'error'); reload(); }
+        },
+      });
+    } catch (err) { toast(err.message, 'error'); reload(); }
+  };
+  const print = async () => {
+    setBusy(true);
+    try {
+      const ticket = { cut: true, spacing: 1, blocks: [{ type: 'date' }, { type: 'todo', list: list.id, clear }] };
+      printedToast(await api('POST', '/api/print', { ticket, label: list.title }), T('Liste imprimée, au travail !', 'List printed, get to it!'), '✅');
+      reload();
+    } catch (err) { toast(err.message, 'error'); } finally { setBusy(false); }
+  };
+  const saveTitle = async () => {
+    try { apply(await api('PUT', path, { title: rename })); setRename(null); } catch (err) { toast(err.message, 'error'); }
+  };
+  const setClearPref = (v) => { setClear(v); store.set('printr.todo.clear', v); };
+
+  return html`<div class="page" style="max-width:640px">
+    <div class="todo-head">
+      <button type="button" class="btn ghost small" onClick=${onBack} aria-label=${T('Toutes les listes', 'All lists')}>←</button>
+      <h3>${list.title}</h3>
+      <button type="button" class="btn ghost small" onClick=${() => setRename(list.title)} aria-label=${T('Renommer', 'Rename')}><${Icon} name="edit" size=${18} /></button>
+      <button type="button" class="btn ghost small" onClick=${() => setConfirm('delete')} aria-label=${T('Supprimer la liste', 'Delete the list')}><${Icon} name="trash" size=${18} /></button>
+    </div>
+    <form class="shop-add" onSubmit=${add}>
+      <input ref=${input} class="input" value=${text} placeholder=${T('Tondre la pelouse, appeler mamie…', 'Mow the lawn, call grandma…')} onInput=${(e) => setText(e.target.value)}
+        aria-label=${T('Chose à faire', 'Thing to do')} enterkeyhint="done" />
+      <button class="btn primary" disabled=${!text.trim()}><${Icon} name="plus" /> ${T('Ajouter', 'Add')}</button>
+    </form>
+    ${!list.items.length ? html`<div class="empty"><div class="big-emoji">🌤️</div><h3>${T('Rien à faire', 'Nothing to do')}</h3>
+          <p class="muted" style="margin:0">${T(
+            'Ajoute ce qu’il y a à faire : toute la famille voit la même liste.',
+            'Add what needs doing: the whole family sees the same list.',
+          )}</p></div>`
+      : html`<div class="card shop-list">${list.items.map((item) => html`<div class="shop-item" key=${item.id}>
+          <button class="shop-check" aria-label=${T(`Retirer ${item.text}`, `Remove ${item.text}`)} title=${T('C’est fait !', 'Done!')} onClick=${() => remove(item)}><${Icon} name="check" size=${16} /></button>
+          <span class="grow">${item.text}</span>
+          ${byName[item.by] ? html`<${Avatar} user=${byName[item.by]} size="small" />` : html`<span class="muted" style="font-size:12px">${item.by}</span>`}
+        </div>`)}</div>
+        <div class="shop-actions">
+          <${Switch} label=${T('Vider la liste une fois imprimée', 'Clear the list once printed')} checked=${clear} onChange=${setClearPref} />
+          <button class="btn primary big block" disabled=${busy} onClick=${print}>${busy ? html`<${Spinner} />` : html`<${Icon} name="printer" />`} ${T('Imprimer la liste', 'Print the list')}</button>
+          <button class="btn ghost block" onClick=${() => setConfirm('clear')}><${Icon} name="trash" /> ${T('Tout effacer', 'Clear all')}</button>
+        </div>`}
+    ${confirm === 'clear' && html`<${Confirm} title=${T('Effacer toute la liste ?', 'Clear the whole list?')}
+      message=${T('Toutes les choses à faire seront retirées, pour toute la famille.', 'Every item will be removed, for the whole family.')}
+      action=${T('Effacer', 'Clear')} danger onConfirm=${async () => { apply(await api('DELETE', `${path}/items`)); toast(T('Liste effacée', 'List cleared'), 'ok', '🧹'); }}
+      onClose=${() => setConfirm(null)} />`}
+    ${confirm === 'delete' && html`<${Confirm} title=${T(`Supprimer « ${list.title} » ?`, `Delete “${list.title}”?`)}
+      message=${T('La liste disparaît pour toute la famille. Les tickets qui l’impriment l’indiqueront sur le papier.', 'The list is gone for the whole family. Tickets that print it will say so on paper.')}
+      action=${T('Supprimer', 'Delete')} danger onConfirm=${async () => { apply(await api('DELETE', path)); toast(T('Liste supprimée', 'List deleted'), 'ok', '🗑️'); onBack(); }}
+      onClose=${() => setConfirm(null)} />`}
+    ${rename !== null && html`<${Sheet} title=${T('Renommer la liste', 'Rename the list')} onClose=${() => setRename(null)} footer=${html`
+      <button class="btn secondary" onClick=${() => setRename(null)}>${T('Annuler', 'Cancel')}</button>
+      <button class="btn primary grow" disabled=${!rename.trim()} onClick=${saveTitle}><${Icon} name="check" /> ${T('Enregistrer', 'Save')}</button>`}>
+      <input class="input" value=${rename} maxlength="60" onInput=${(e) => setRename(e.target.value)}
+        onKeyDown=${(e) => { if (e.key === 'Enter' && rename.trim()) saveTitle(); }} aria-label=${T('Titre', 'Title')} />
+    </${Sheet}>`}
+  </div>`;
+}
+
+// ============================================================================
 // Écran : historique
 // ============================================================================
 
@@ -2283,13 +2468,15 @@ function History({ users, me }) {
 
 function Toasts() {
   const [items, setItems] = useState([]);
+  const close = (id) => setItems((x) => x.filter((i) => i.id !== id));
   useEffect(() => bus.on('toast', (t) => {
     const id = uid();
-    setItems((x) => [...x.slice(-2), { ...t, id }]);
-    setTimeout(() => setItems((x) => x.filter((i) => i.id !== id)), t.kind === 'error' ? 5000 : 2600);
+    setItems((x) => [...x.filter((i) => !t.key || i.key !== t.key).slice(-2), { ...t, id }]);
+    setTimeout(() => close(id), t.duration || (t.kind === 'error' ? 5000 : 2600));
   }), []);
   return html`<div class="toasts" aria-live="polite">${items.map((t) => html`<div class="toast ${t.kind}" key=${t.id}>
-    <span class="emoji">${t.emoji || (t.kind === 'error' ? '⚠️' : '✓')}</span><span>${t.message}</span></div>`)}</div>`;
+    <span class="emoji">${t.emoji || (t.kind === 'error' ? '⚠️' : '✓')}</span><span class="grow">${t.message}</span>
+    ${t.action && html`<button type="button" class="toast-action" onClick=${() => { close(t.id); t.onAction(); }}>${t.action}</button>`}</div>`)}</div>`;
 }
 
 // Réglage de l'administrateur : les blocs proposés à toute la famille dans le catalogue.
@@ -2824,7 +3011,7 @@ const NAV = [
   { hash: '#/history', label: T('Historique', 'History'), icon: 'history', title: T('Historique', 'History') },
 ];
 // Écrans accessibles depuis l'accueil, sans onglet.
-const ROUTES = [...NAV, { hash: '#/courses', title: T('Liste de courses', 'Shopping list') }];
+const ROUTES = [...NAV, { hash: '#/courses', title: T('Liste de courses', 'Shopping list') }, { hash: '#/listes', title: T('Listes à faire', 'To-do lists') }];
 
 function App() {
   const [me, setMe] = useState(undefined);
@@ -2900,6 +3087,7 @@ function App() {
   else if (route.hash === '#/message') page = html`<${Message} me=${me} onSaved=${loadPresets} />`;
   else if (route.hash === '#/history') page = html`<${History} users=${users} me=${me} />`;
   else if (route.hash === '#/courses') page = html`<${Shopping} users=${users} />`;
+  else if (route.hash === '#/listes') page = html`<${TodoLists} users=${users} />`;
   else page = html`<${Home} me=${me} presets=${presets} reload=${loadPresets} openComposer=${openComposer} />`;
 
   return html`<div class="shell">

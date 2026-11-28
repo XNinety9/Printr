@@ -1,6 +1,6 @@
 //! Sauvegarde et restauration de tout ce que la famille a fait dans l'appli : comptes, tickets,
-//! planifications, historique, courses, anniversaires, réglages et photos, dans un seul fichier
-//! JSON. Les sessions et la file d'attente de l'imprimante restent propres à la machine.
+//! planifications, historique, courses, listes à faire, anniversaires, réglages et photos, dans un
+//! seul fichier JSON. Les sessions et la file d'attente de l'imprimante restent propres à la machine.
 //!
 //! Avant une restauration, l'état actuel est gardé dans `backups/` (les cinq derniers) : une
 //! restauration ratée se rattrape.

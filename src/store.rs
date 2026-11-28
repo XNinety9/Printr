@@ -220,6 +220,16 @@ pub struct ShoppingItem {
     pub added: DateTime<Utc>,
 }
 
+/// Une liste de choses à faire enregistrée (« À faire ce week-end »…), que toute la famille
+/// complète depuis l'appli et qu'un bloc À faire imprime.
+#[derive(Serialize, Deserialize, Clone)]
+pub struct TodoList {
+    pub id: String,
+    pub title: String,
+    #[serde(default)]
+    pub items: Vec<ShoppingItem>,
+}
+
 #[derive(Serialize, Deserialize, Default)]
 pub struct Data {
     #[serde(default)]
@@ -232,6 +242,9 @@ pub struct Data {
     pub history: Vec<HistoryEntry>,
     #[serde(default)]
     pub shopping: Vec<ShoppingItem>,
+    /// Listes de choses à faire enregistrées, pour le bloc À faire.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub todo_lists: Vec<TodoList>,
     /// Anniversaires communs à la famille, que chacun complète : une personne par ligne, comme
     /// dans le bloc Anniversaires, qui les ajoute aux siens.
     #[serde(default, skip_serializing_if = "String::is_empty")]
