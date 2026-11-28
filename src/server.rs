@@ -928,6 +928,29 @@ fn todo_lists_json(store: &Store) -> Value {
     json!(store.data.todo_lists)
 }
 
+/// Une chose à faire retirée par erreur, à remettre telle quelle (« Annuler » dans l'appli).
+#[derive(Deserialize)]
+struct RestoreInput {
+    item: store::ShoppingItem,
+    /// Sa place dans la liste avant d'être retirée.
+    index: usize,
+}
+
+/// Remet une chose à faire retirée à sa place, avec son auteur et sa date. Rien à faire si elle y
+/// est déjà (double clic) ; `false` si elle n'a pas lieu d'être remise (vide, liste pleine).
+fn restore_todo_item(items: &mut Vec<store::ShoppingItem>, mut item: store::ShoppingItem, index: usize) -> bool {
+    if items.iter().any(|i| i.id == item.id) {
+        return true;
+    }
+    item.text = item.text.trim().chars().filter(|c| !c.is_control()).take(120).collect();
+    item.by = item.by.chars().take(40).collect();
+    if item.text.is_empty() || item.id.is_empty() || items.len() >= MAX_TODO_ITEMS {
+        return false;
+    }
+    items.insert(index.min(items.len()), item);
+    true
+}
+
 /// Le titre d'une liste : nettoyé, 60 caractères au plus, jamais vide.
 fn todo_list_title(title: &str) -> Option<String> {
     let title: String = title.trim().chars().filter(|c| !c.is_control()).take(60).collect();
@@ -1805,6 +1828,21 @@ fn handle(app: &App, request: &mut Request) -> Reply {
                 Err(e) => Reply::error(500, format!("{e:#}")),
             }
         }
+        (Method::Post, ["api", "todo-lists", id, "items", "restore"]) => {
+            let input: RestoreInput = try_reply!(json_body(request));
+            let mut store = app.lock_store();
+            let Some(list) = store.data.todo_lists.iter_mut().find(|l| l.id == *id) else {
+                return Reply::error(404, t("liste introuvable", "list not found"));
+            };
+            let note = tr!("{} : {} remis", "{}: {} restored", list.title, input.item.text);
+            if !restore_todo_item(&mut list.items, input.item, input.index) {
+                return Reply::error(400, t("impossible de remettre cet élément", "cannot restore this item"));
+            }
+            match store.save() {
+                Ok(()) => Reply::ok(todo_lists_json(&store)).note(note),
+                Err(e) => Reply::error(500, format!("{e:#}")),
+            }
+        }
         (Method::Delete, ["api", "todo-lists", id, "items", rest @ ..]) => {
             let mut store = app.lock_store();
             let Some(list) = store.data.todo_lists.iter_mut().find(|l| l.id == *id) else {
@@ -2028,6 +2066,18 @@ mod tests {
         assert_eq!(todo_list_title("  Ce week-end \n").as_deref(), Some("Ce week-end"));
         assert_eq!(todo_list_title("   "), None);
         assert_eq!(todo_list_title(&"a".repeat(100)).map(|t| t.len()), Some(60));
+    }
+
+    #[test]
+    fn removed_todo_items_come_back_in_place() {
+        let item =
+            |id: &str| store::ShoppingItem { id: id.into(), text: id.into(), by: "Léo".into(), added: Utc::now() };
+        let mut items = vec![item("a"), item("c")];
+        assert!(restore_todo_item(&mut items, item("b"), 1));
+        assert!(restore_todo_item(&mut items, item("b"), 1), "déjà là : rien ne change");
+        assert!(restore_todo_item(&mut items, item("z"), 99), "au bout si la liste a raccourci");
+        assert_eq!(items.iter().map(|i| i.id.as_str()).collect::<Vec<_>>(), ["a", "b", "c", "z"]);
+        assert!(!restore_todo_item(&mut items, store::ShoppingItem { text: "  ".into(), ..item("v") }, 0));
     }
 
     #[test]

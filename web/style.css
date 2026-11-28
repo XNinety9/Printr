@@ -600,6 +600,13 @@ textarea.input.code { font-family: var(--mono); font-size: 13px; line-height: 1.
 .toast.error { background: var(--danger); color: #fff; }
 .toast.warn { background: var(--warn); color: #fff; }
 .toast .emoji { font-size: 20px; }
+.toast .grow { min-width: 0; overflow-wrap: anywhere; }
+/* Le conteneur laisse passer les clics ; le bouton d'une notification, lui, doit les recevoir. */
+.toast-action {
+  pointer-events: auto; flex-shrink: 0; margin: -6px -8px -6px 0; padding: 8px 12px; border: 0; border-radius: 10px;
+  background: transparent; color: var(--accent, #f08a4b); font: inherit; font-weight: 800; cursor: pointer;
+}
+.toast-action:hover { background: color-mix(in srgb, currentColor 14%, transparent); }
 @keyframes toast-in { from { transform: translateY(16px) scale(.96); opacity: 0; } }
 
 /* ---------- Connexion ---------- */

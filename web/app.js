@@ -40,7 +40,9 @@ async function api(method, path, body) {
   return data;
 }
 
-const toast = (message, kind = 'ok', emoji) => bus.emit('toast', { message, kind, emoji });
+// `options` : `action` et `onAction` pour un bouton (« Annuler »), `duration` en millisecondes, et
+// `key` pour qu'une notification remplace la précédente de même clé (seule la dernière s'annule).
+const toast = (message, kind = 'ok', emoji, options = {}) => bus.emit('toast', { message, kind, emoji, ...options });
 
 // Réponse d'une impression : imprimé, imprimé avec des blocs en erreur, ou en attente de
 // l'imprimante (absente : le ticket sortira à son retour).
@@ -2322,8 +2324,18 @@ function TodoListDetail({ list, users, apply, onBack }) {
     if (!text.trim()) return;
     try { apply(await api('POST', `${path}/items`, { text })); setText(''); input.current?.focus(); } catch (err) { toast(err.message, 'error'); }
   };
-  const remove = async (id) => {
-    try { apply(await api('DELETE', `${path}/items/${id}`)); } catch (err) { toast(err.message, 'error'); reload(); }
+  // Retirée par erreur ? « Annuler » la remet à sa place, pendant quelques secondes (la dernière seulement).
+  const remove = async (item) => {
+    const index = list.items.findIndex((i) => i.id === item.id);
+    try {
+      apply(await api('DELETE', `${path}/items/${item.id}`));
+      toast(T(`« ${item.text} » retiré`, `“${item.text}” removed`), 'ok', '✓', {
+        key: 'todo-undo', duration: 8000, action: T('Annuler', 'Undo'),
+        onAction: async () => {
+          try { apply(await api('POST', `${path}/items/restore`, { item, index })); } catch (err) { toast(err.message, 'error'); reload(); }
+        },
+      });
+    } catch (err) { toast(err.message, 'error'); reload(); }
   };
   const print = async () => {
     setBusy(true);
@@ -2356,7 +2368,7 @@ function TodoListDetail({ list, users, apply, onBack }) {
             'Add what needs doing: the whole family sees the same list.',
           )}</p></div>`
       : html`<div class="card shop-list">${list.items.map((item) => html`<div class="shop-item" key=${item.id}>
-          <button class="shop-check" aria-label=${T(`Retirer ${item.text}`, `Remove ${item.text}`)} title=${T('C’est fait !', 'Done!')} onClick=${() => remove(item.id)}><${Icon} name="check" size=${16} /></button>
+          <button class="shop-check" aria-label=${T(`Retirer ${item.text}`, `Remove ${item.text}`)} title=${T('C’est fait !', 'Done!')} onClick=${() => remove(item)}><${Icon} name="check" size=${16} /></button>
           <span class="grow">${item.text}</span>
           ${byName[item.by] ? html`<${Avatar} user=${byName[item.by]} size="small" />` : html`<span class="muted" style="font-size:12px">${item.by}</span>`}
         </div>`)}</div>
@@ -2456,13 +2468,15 @@ function History({ users, me }) {
 
 function Toasts() {
   const [items, setItems] = useState([]);
+  const close = (id) => setItems((x) => x.filter((i) => i.id !== id));
   useEffect(() => bus.on('toast', (t) => {
     const id = uid();
-    setItems((x) => [...x.slice(-2), { ...t, id }]);
-    setTimeout(() => setItems((x) => x.filter((i) => i.id !== id)), t.kind === 'error' ? 5000 : 2600);
+    setItems((x) => [...x.filter((i) => !t.key || i.key !== t.key).slice(-2), { ...t, id }]);
+    setTimeout(() => close(id), t.duration || (t.kind === 'error' ? 5000 : 2600));
   }), []);
   return html`<div class="toasts" aria-live="polite">${items.map((t) => html`<div class="toast ${t.kind}" key=${t.id}>
-    <span class="emoji">${t.emoji || (t.kind === 'error' ? '⚠️' : '✓')}</span><span>${t.message}</span></div>`)}</div>`;
+    <span class="emoji">${t.emoji || (t.kind === 'error' ? '⚠️' : '✓')}</span><span class="grow">${t.message}</span>
+    ${t.action && html`<button type="button" class="toast-action" onClick=${() => { close(t.id); t.onAction(); }}>${t.action}</button>`}</div>`)}</div>`;
 }
 
 // Réglage de l'administrateur : les blocs proposés à toute la famille dans le catalogue.
